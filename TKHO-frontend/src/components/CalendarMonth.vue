@@ -13,11 +13,15 @@
     </div>
 
     <!-- 日期网格 -->
-    <div class="month-grid flex-1">
+    <div
+      class="month-grid flex-1"
+      :style="{ gridTemplateRows: `repeat(${gridRows}, 1fr)` }"
+      :key="`grid-${currentDate.getFullYear()}-${currentDate.getMonth()}`"
+    >
       <!-- 上个月的日期 -->
       <div
         v-for="(day, index) in prevMonthDays"
-        :key="`prev-${day}`"
+        :key="`prev-${index}-${day}`"
         class="date-cell empty"
         :class="{ 'first-col': (index % 7) === 0, 'last-col': (index % 7) === 6 }"
       >
@@ -27,7 +31,7 @@
       <!-- 本月的日期 -->
       <div
         v-for="(day, index) in daysInMonth"
-        :key="day"
+        :key="`current-${day}`"
         class="date-cell"
         :class="{
           'today': isToday(day),
@@ -40,13 +44,13 @@
         <span class="date-number">{{ day }}</span>
         <div v-if="hasBookings(day)" class="booking-indicators">
           <div
-            v-for="(booking, idx) in getBookingsForDay(day).slice(0, 3)"
+            v-for="(booking, idx) in getBookingsForDay(day).slice(0, 8)"
             :key="idx"
             class="booking-dot"
             :style="{ backgroundColor: booking.color || '#f97316' }"
           />
-          <span v-if="getBookingsForDay(day).length > 3" class="more-count">
-            +{{ getBookingsForDay(day).length - 3 }}
+          <span v-if="getBookingsForDay(day).length > 8" class="more-count">
+            +{{ getBookingsForDay(day).length - 8 }}
           </span>
         </div>
       </div>
@@ -54,7 +58,7 @@
       <!-- 下个月的日期 -->
       <div
         v-for="(day, index) in nextMonthDays"
-        :key="`next-${day}`"
+        :key="`next-${index}-${day}`"
         class="date-cell empty"
         :class="{
           'first-col': ((prevMonthDays.length + daysInMonth + index) % 7) === 0,
@@ -76,6 +80,10 @@ const props = defineProps({
     required: true
   },
   bookings: {
+    type: Array,
+    default: () => []
+  },
+  selectedRooms: {
     type: Array,
     default: () => []
   }
@@ -112,11 +120,22 @@ const prevMonthDays = computed(() => {
 const nextMonthDays = computed(() => {
   const days = []
   const totalCells = prevMonthDays.value.length + daysInMonth.value
-  const remainingCells = 42 - totalCells
+
+  // 如果前面的天数加上当月天数已经占满5行（35格），则只补齐到35格
+  // 否则补齐到42格（6行）
+  const targetCells = totalCells <= 35 ? 35 : 42
+  const remainingCells = targetCells - totalCells
+
   for (let i = 1; i <= remainingCells; i++) {
     days.push(i)
   }
   return days
+})
+
+// 计算需要显示的行数
+const gridRows = computed(() => {
+  const totalCells = prevMonthDays.value.length + daysInMonth.value + nextMonthDays.value
+  return totalCells / 7 // 35格=5行，42格=6行
 })
 
 // 判断是否是今天
@@ -130,14 +149,23 @@ function isToday(day) {
   )
 }
 
-// 获取某一天的预订
+// 获取某一天的预订（根据选中的房间过滤）
 function getBookingsForDay(day) {
   const date = new Date(props.currentDate)
   const targetDate = new Date(date.getFullYear(), date.getMonth(), day)
-  return props.bookings.filter(booking => {
+  const dayBookings = props.bookings.filter(booking => {
     const bookingDate = new Date(booking.date)
     return bookingDate.toDateString() === targetDate.toDateString()
   })
+
+  // 如果没有选中任何房间，返回所有预订
+  if (!props.selectedRooms || props.selectedRooms.length === 0) {
+    return dayBookings
+  }
+
+  // 根据选中的房间过滤
+  const selectedRoomNames = props.selectedRooms.map(room => room.name)
+  return dayBookings.filter(booking => selectedRoomNames.includes(booking.roomName))
 }
 
 // 判断某一天是否有预订
@@ -194,7 +222,6 @@ function selectDate(day) {
 .month-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(6, 1fr);
   gap: 1px;
   background-color: #e5e7eb;
   border-radius: 0 0 0.5rem 0.5rem;
@@ -203,6 +230,7 @@ function selectDate(day) {
   min-height: 0;
   border: 1px solid #e5e7eb;
   border-top: none;
+  align-content: stretch;
 }
 
 .date-cell {
@@ -215,7 +243,6 @@ function selectDate(day) {
   gap: 0.25rem;
   overflow: hidden;
   min-height: 0;
-  height: 100%;
 }
 
 .date-cell:hover {

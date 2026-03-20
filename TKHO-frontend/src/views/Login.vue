@@ -1,14 +1,17 @@
 <template>
   <div class="login-container flex flex-col min-h-screen bg-[#f8ecdd]">
     <header class="login-header w-full">
-      <h1 class="login-title">
-        <span class="title-main">TKHO</span>
-        <span class="title-subtitle">Resource Booking System</span>
-      </h1>
+      <div class="header-content">
+        <img src="../assets/TKOH_logo.png" alt="TKHO Logo" class="login-header-logo" />
+        <h1 class="login-title">
+          <span class="title-main">TKHO</span>
+          <span class="title-subtitle">GA Service Center</span>
+        </h1>
+      </div>
     </header>
 
     <!-- 系统选择按钮区：在不同屏幕下自适应宽度和间距 -->
-    <div class="system-buttons-container w-full max-w-md md:max-w-lg mx-auto mt-10 mb-4 px-4">
+    <div class="system-buttons-container w-full max-w-md md:max-w-lg mx-auto mt-6 mb-3 px-4">
       <el-form-item prop="system" class="system-buttons-item">
         <div class="system-buttons">
           <button
@@ -76,7 +79,7 @@
     </div>
 
     <!-- 底部说明区域：绿色背景全宽，内容区随屏幕宽度自适应 -->
-    <section class="login-notes w-full mt-10 py-4 px-0">
+    <section class="login-notes w-full mt-6 py-3 px-0">
       <div class="w-full">
       <h2 class="notes-title">Points to Note:</h2>
       <ol class="notes-list">
@@ -226,27 +229,58 @@ const handleLogin = async () => {
 .login-container {
   /* 与各 Booking 页面统一：最小高度为一屏，自适应内容高度 */
   min-height: 100vh;
-  background-color: #f8ecdd;
+  background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
   padding: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  position: relative;
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(0, 114, 58, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(0, 114, 58, 0.02) 0%, transparent 50%);
+  pointer-events: none;
 }
 
 .login-header {
   width: 100%;
-  padding: 16px 32px;
+  padding: 12px 32px;
   box-sizing: border-box;
-  background-color: #00723a; /* 绿色底，参考系统头部 */
+  background: linear-gradient(135deg, #00723a 0%, #005a2f 100%);
   color: #ffffff;
   display: flex;
   align-items: center;
+  box-shadow: 0 2px 12px rgba(0, 114, 58, 0.15);
+  position: relative;
+  z-index: 10;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.login-header-logo {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .login-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .title-main {
@@ -254,31 +288,48 @@ const handleLogin = async () => {
 }
 
 .title-subtitle {
-  margin-left: 4px;
+  margin-left: 6px;
   font-weight: 400;
+  opacity: 0.95;
 }
 
 .system-buttons-container {
-  width: min(100vw - 2rem, 460px);
-  margin: 5rem auto 1rem;
+  width: min(100vw - 2rem, 480px);
+  margin: 2rem auto 1rem;
+  position: relative;
+  z-index: 1;
 }
 
 .system-caption {
   margin: 12px 0 0;
   font-size: 13px;
-  color: #555555;
+  color: #666666;
   text-align: center;
+  font-weight: 500;
+  letter-spacing: 0.3px;
 }
 
 .login-card {
-  width: min(100vw - 2rem, 460px);
+  width: min(100vw - 2rem, 480px);
   margin: 0 auto;
   background: #ffffff;
-  border-radius: 10px;
-  border: 1px solid #e4e4e4;
-  padding: 28px 32px 32px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 114, 58, 0.08);
+  padding: 28px 36px 32px;
   box-sizing: border-box;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.06),
+    0 1px 4px rgba(0, 0, 0, 0.04);
+  position: relative;
+  z-index: 1;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.login-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .login-form {
@@ -286,7 +337,7 @@ const handleLogin = async () => {
 }
 
 .login-form :deep(.el-form-item) {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .login-form :deep(.el-form-item:last-child) {
@@ -294,24 +345,35 @@ const handleLogin = async () => {
 }
 
 .login-input :deep(.el-input__wrapper) {
-  border-radius: 4px;
-  box-shadow: 0 0 0 1px #dcdfe6 inset;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #e0e0e0 inset;
+  transition: all 0.3s ease;
+  background-color: #fafafa;
 }
 
 .login-input :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #c0c4cc inset;
+  box-shadow: 0 0 0 1px #b8b8b8 inset;
+  background-color: #ffffff;
 }
 
 .login-input :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #409eff inset;
+  box-shadow: 0 0 0 2px #00723a inset;
+  background-color: #ffffff;
 }
 
 .login-form :deep(.el-form-item.is-error .el-input__wrapper) {
-  box-shadow: 0 0 0 1px #f56c6c inset; /* 强化整圈红色边框，包括左侧 */
+  box-shadow: 0 0 0 2px #f56c6c inset;
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 
 .input-with-prefix :deep(.el-input__wrapper) {
-  padding-left: 1px; /* 左侧保留一点点空隙，避免完全贴边 */
+  padding-left: 1px;
 }
 
 .input-with-prefix :deep(.el-input__prefix) {
@@ -321,19 +383,28 @@ const handleLogin = async () => {
 
 .input-prefix-text {
   font-size: 13px;
-  color: #555555;
-  width: 70px;
-  padding: 0 6px;
-  background-color: #e5e5e5; /* 灰色底色 */
-  border-right: 1px solid #d4d4d4;
-  margin-right: 6px;
+  color: #666666;
+  width: 80px;
+  padding: 0 10px;
+  background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
+  border-right: 1px solid #d0d0d0;
+  margin-right: 8px;
   white-space: nowrap;
-  text-align: left; /* 左对齐 */
-  border-radius: 4px 0 0 4px;
+  text-align: left;
+  border-radius: 7px 0 0 7px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  transition: all 0.3s ease;
+}
+
+.login-input :deep(.el-input__wrapper.is-focus) .input-prefix-text {
+  background: linear-gradient(135deg, #00723a 0%, #005a2f 100%);
+  color: #ffffff;
+  border-right-color: #00723a;
 }
 
 .login-form :deep(.el-form-item.is-error .input-prefix-text) {
-  background-color: #fef0f0; /* 与校验错误风格一致的浅红底 */
+  background: linear-gradient(135deg, #fef0f0 0%, #fde8e8 100%);
   color: #f56c6c;
   border-right-color: #f56c6c;
 }
@@ -344,15 +415,16 @@ const handleLogin = async () => {
 
 .system-buttons-item :deep(.el-form-item__error) {
   text-align: center;
-  margin-top: 16px;
+  margin-top: 18px;
+  font-weight: 500;
+  font-size: 13px;
 }
 
 .system-buttons {
   display: flex;
   justify-content: center;
-  gap: 1.5rem;
+  gap: 2rem;
   width: 100%;
-  /* 固定为单行水平排列三个圆形按钮 */
   flex-wrap: nowrap;
 }
 
@@ -361,47 +433,80 @@ const handleLogin = async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 6.5rem;
-  height: 6.5rem;
+  width: 7rem;
+  height: 7rem;
   border-radius: 50%;
-  border: 1px solid #d4d4d4;
-  background: linear-gradient(#ffffff, #f2f2f2);
+  border: 2px solid #d8d8d8;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f8f8 100%);
   cursor: pointer;
-  transition: background 0.25s ease, border-color 0.25s ease,
-    box-shadow 0.25s ease, transform 0.15s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 0;
   outline: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.system-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(0, 114, 58, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+}
+
+.system-button:hover::before {
+  width: 100%;
+  height: 100%;
 }
 
 .system-button:hover {
-  border-color: #999999;
-  background: linear-gradient(#ffffff, #ededed);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
+  border-color: #00723a;
+  background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+  box-shadow: 0 4px 16px rgba(0, 114, 58, 0.15);
+  transform: translateY(-3px) scale(1.05);
 }
 
 .system-button.active {
   border-color: #00723a;
-  background: #00723a;
+  background: linear-gradient(135deg, #00723a 0%, #005a2f 100%);
   color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(0, 114, 58, 0.25);
+  box-shadow: 0 0 0 4px rgba(0, 114, 58, 0.2), 0 4px 16px rgba(0, 114, 58, 0.3);
+  transform: scale(1.08);
+}
+
+.system-button.active::before {
+  display: none;
 }
 
 .button-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 6px;
-  font-size: 20px;
+  margin-bottom: 8px;
+  font-size: 22px;
+  position: relative;
+  z-index: 1;
+  transition: transform 0.3s ease;
+}
+
+.system-button:hover .button-icon {
+  transform: scale(1.1);
 }
 
 .button-icon :deep(svg) {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
 .system-button.active .button-icon :deep(svg) {
   color: #ffffff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .button-label {
@@ -410,124 +515,172 @@ const handleLogin = async () => {
   text-align: center;
   line-height: 1.3;
   color: #4a4a4a;
-  padding: 0 8px;
+  padding: 0 10px;
+  position: relative;
+  z-index: 1;
+  transition: color 0.3s ease;
+}
+
+.system-button:hover .button-label {
+  color: #00723a;
 }
 
 .system-button.active .button-label {
   color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .login-button {
   width: 100%;
-  background-color: #333333; /* 黑色风格按钮 */
-  border-color: #333333;
+  background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+  border: none;
   color: #ffffff;
   font-size: 16px;
-  font-weight: 500;
-  border-radius: 4px;
-  height: 44px;
-  transition: all 0.3s;
+  font-weight: 600;
+  border-radius: 8px;
+  height: 48px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.login-button:hover::before {
+  left: 100%;
 }
 
 .login-button:hover {
-  background-color: #444444;
-  border-color: #444444;
+  background: linear-gradient(135deg, #3a3a3a 0%, #2c2c2c 100%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  transform: translateY(-2px);
 }
 
 .login-button:active {
-  background-color: #222222;
-  border-color: #222222;
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .login-button.is-loading {
-  background-color: #4a4a4a;
-  border-color: #4a4a4a;
+  background: linear-gradient(135deg, #4a4a4a 0%, #3a3a3a 100%);
+  cursor: not-allowed;
 }
 
 .login-notes {
   width: 100%;
   margin-top: auto;
-  padding: 1rem 1rem 1.25rem;
-  background-color: #e8f7ec;
-  border: 1px solid #d0e8d6;
+  padding: 1.5rem 1.5rem 2rem;
+  background: linear-gradient(135deg, #e8f7ec 0%, #dff3e3 100%);
+  border-top: 2px solid #c8e6d0;
   box-sizing: border-box;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.6;
   color: #2d4a32;
-  text-align: left; /* 整体内容靠左 */
+  text-align: left;
+  box-shadow: 0 -2px 12px rgba(0, 114, 58, 0.08);
 }
 
 .notes-title {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-  text-align: left; /* 标题靠左显示 */
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  color: #00723a;
+  letter-spacing: 0.3px;
 }
 
 .notes-list {
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   padding: 0;
-  text-align: left;        /* 文本内部保持左对齐，提升可读性 */
+  text-align: left;
 }
 
 .notes-list li + li {
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .notes-table {
   width: min(100vw - 2rem, 900px);
   border-collapse: collapse;
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   display: block;
-  text-align: left;       /* 表格文字左对齐 */
+  text-align: left;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .notes-row {
   display: flex;
-  column-gap: 4px; /* 减小两列之间的间距，让内容更靠近一些 */
+  column-gap: 6px;
 }
 
 .notes-cell {
-  padding: 4px 8px;
+  padding: 6px 10px;
   font-size: 12px;
   text-align: left;
 }
 
 .notes-header-row {
-  font-weight: 600;
-  border-bottom: 1px solid #c2ddc9;
+  font-weight: 700;
+  background: linear-gradient(135deg, #d0e8d6 0%, #c8e6d0 100%);
+  color: #00723a;
 }
 
 .notes-cell-service {
-  flex: 0 0 30%;
+  flex: 0 0 50%;
 }
 
 .notes-cell-dept {
-  flex: 1;       /* 右列占剩余空间，起始位置更靠左 */
+  flex: 0 0 50%;
 }
 
 .notes-row:not(.notes-header-row):nth-child(odd) .notes-cell {
-  background-color: #f4fbf6;
+  background-color: #f8fcf9;
+}
+
+.notes-row:not(.notes-header-row):nth-child(even) .notes-cell {
+  background-color: #ffffff;
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
   .login-header {
-    padding-top: 2.5rem;
-    margin-bottom: 2rem;
+    padding: 18px 24px;
   }
 
-  .title-main {
-    font-size: 1.6rem;
-    letter-spacing: 1px;
+  .login-header-logo {
+    height: 28px;
+  }
+
+  .login-title {
+    font-size: 18px;
   }
 
   .title-subtitle {
     font-size: 0.9rem;
   }
 
+  .system-buttons-container {
+    margin: 2.5rem auto 1.25rem;
+  }
+
   .login-card {
-    padding: 2rem 1.5rem;
+    padding: 28px 28px 32px;
+    border-radius: 12px;
   }
 
   .button-label {
@@ -535,18 +688,41 @@ const handleLogin = async () => {
   }
 
   .system-buttons {
-    gap: 0.75rem;
+    gap: 1.25rem;
+  }
+
+  .system-button {
+    width: 6.25rem;
+    height: 6.25rem;
   }
 }
 
 @media (max-width: 480px) {
   .system-button {
-    width: 5.75rem;
-    height: 5.75rem;
+    width: 5.5rem;
+    height: 5.5rem;
+  }
+
+  .button-icon {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+
+  .button-icon :deep(svg) {
+    width: 20px;
+    height: 20px;
   }
 
   .button-label {
-    font-size: 0.65rem;
+    font-size: 10px;
+  }
+
+  .system-buttons {
+    gap: 1rem;
+  }
+
+  .login-card {
+    padding: 24px 20px 28px;
   }
 
   .notes-table {
@@ -554,7 +730,7 @@ const handleLogin = async () => {
   }
 
   .notes-cell-service {
-    flex: 0 0 40%;
+    flex: 0 0 50%;
   }
 }
 </style>

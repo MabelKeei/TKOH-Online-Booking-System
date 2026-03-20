@@ -1,73 +1,47 @@
 <template>
-  <!-- 通过 h-screen + 弹性布局，让整个页面在大部分屏幕高度内不需要纵向滚动 -->
-  <div class="booking-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[52px]">
+  <div class="booking-page">
     <AppHeader @logout="onLogout" />
 
-    <!-- 进度步骤条（复用 BookingSteps 组件） -->
-    <BookingSteps
-      :steps="['Log in', 'Booking', 'Submission', 'Confirmation']"
-      :current="1"
-    />
+    <!-- 主体容器：高度=视口-精准header高度-底部空白 -->
+    <main class="booking-main">
+      <div class="booking-content">
+        <h2 class="booking-title">What venue would you like to book?</h2>
 
-    <!-- 主体内容 -->
-    <main class="booking-main flex-1 flex flex-col items-center justify-center px-2 md:px-3 lg:px-4 py-2 md:py-3">
-      <h2 class="booking-title text-center font-semibold text-gray-900">
-        What venue would you like to book?
-      </h2>
+        <div class="cards-container">
+          <!-- 会议室卡片 -->
+          <section class="venue-card">
+            <!-- 关键：给标题容器添加固定高度/弹性占位 -->
+            <div class="venue-card__title-wrapper">
+              <h3 class="venue-card__title">Conference Rooms and Discussion Room</h3>
+            </div>
+            <div class="venue-card__grid">
+              <div class="venue-card__image" v-for="i in 4" :key="i">
+                <img :src="venueImage" alt="Conference Room" />
+                <div class="venue-card__overlay"></div>
+              </div>
+            </div>
+            <el-button type="primary" class="venue-card__button" @click="goToConference">
+              Book Now →
+            </el-button>
+          </section>
 
-
-      <div class="flex flex-col md:flex-row gap-6 md:gap-10 2xl:gap-14">
-        <!-- 左侧卡片：Conference Rooms -->
-        <section
-          class="venue-card
-                 w-[100vw] md:w-[52vw] lg:w-[48vw] 2xl:w-[62vw]
-                 max-w-[1020px] 2xl:max-w-[1280px]"
-        >
-          <h3 class="venue-card__title">Conference Rooms and Discussion Room</h3>
-          <div class="venue-card__grid">
-            <div class="venue-card__image">
-              <img :src="venueImage" alt="Venue" />
+          <!-- 其他场地卡片 -->
+          <section class="venue-card">
+            <!-- 关键：给标题容器添加固定高度/弹性占位 -->
+            <div class="venue-card__title-wrapper">
+              <h3 class="venue-card__title">Other Venues</h3>
             </div>
-            <div class="venue-card__image">
-              <img :src="venueImage" alt="Venue" />
+            <div class="venue-card__grid">
+              <div class="venue-card__image" v-for="i in 4" :key="i">
+                <img :src="venueImage" alt="Other Venue" />
+                <div class="venue-card__overlay"></div>
+              </div>
             </div>
-            <div class="venue-card__image">
-              <img :src="venueImage" alt="Venue" />
-            </div>
-            <div class="venue-card__image">
-              <img :src="venueImage" alt="Venue" />
-            </div>
-          </div>
-          <el-button type="warning" class="venue-card__button" @click="goToConference">
-            Book Now
-          </el-button>
-        </section>
-
-        <!-- 右侧卡片：Other Venues -->
-        <section
-          class="venue-card
-                 w-[80vw] md:w-[42vw] lg:w-[34vw] 2xl:w-[42vw]
-                 max-w-[420px] 2xl:max-w-[680px]"
-        >
-          <h3 class="venue-card__title">Other Venues</h3>
-          <div class="venue-card__grid">
-            <div class="venue-card__image">
-              <img :src="venueImage" alt="Venue" />
-            </div>
-            <div class="venue-card__image">
-              <img :src="venueImage" alt="Venue" />
-            </div>
-            <div class="venue-card__image">
-              <img :src="venueImage" alt="Venue" />
-            </div>
-            <div class="venue-card__image">
-              <img :src="venueImage" alt="Venue" />
-            </div>
-          </div>
-          <el-button type="warning" class="venue-card__button" @click="goToOtherVenues">
-            Book Now
-          </el-button>
-        </section>
+            <el-button type="primary" class="venue-card__button" @click="goToOtherVenues">
+              Book Now →
+            </el-button>
+          </section>
+        </div>
       </div>
     </main>
   </div>
@@ -76,126 +50,144 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import venueImage from '../assets/venue/1.jpg'
-import BookingSteps from '../components/BookingSteps.vue'
 import AppHeader from '../components/AppHeader.vue'
 
 const router = useRouter()
-
-const onLogout = () => {
-  router.push('/login')
-}
-
-const goToConference = () => {
-  router.push({
-    name: 'VenueCalendarView',
-    query: { roomType: 'conference' }
-  })
-}
-
-const goToOtherVenues = () => {
-  router.push({
-    name: 'VenueCalendarView',
-    query: { roomType: 'other' }
-  })
-}
+const onLogout = () => router.push('/login')
+const goToConference = () => router.push({ name: 'VenueCalendarView', query: { roomType: 'conference' } })
+const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { roomType: 'other' } })
 </script>
 
 <style scoped>
+/* 全局容器：高度100vh，禁止滚动 */
 .booking-page {
-  /* 使用最小高度 + 自动高度，避免小屏幕被强行撑成一屏导致内容溢出 */
-  min-height: 100vh;
-  height: auto;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
+  padding-top: 60px; /* 增大header预留高度（原52px→60px，可按需调） */
+  box-sizing: border-box;
+  position: relative;
 }
 
-.booking-steps-wrapper {
-  /* 步骤条容器高度使用 clamp，自适应不同屏幕，并让内部内容上下居中 */
-  height: clamp(58px, 8vh, 100px);
-  display: flex;
-  align-items: center;
-  /* 轻微上下内边距，避免贴边 */
-  padding-block: clamp(2px, 0.8vh, 8px);
-}
-
+/* 主体容器：核心！高度=视口高度 - 精准header高度 - 底部空白 */
 .booking-main {
-  /* 主体上下留白随屏幕自适应 */
-  padding-top: clamp(16px, 4vh, 60px);
-  padding-bottom: clamp(16px, 4vh, 60px);
+  height: calc(100vh - 60px - 20px); /* 60px=header高度  20px=底部空白 */
+  padding: 0.5vh 2vw 0; /* 减小顶部内边距（原1vh→0.5vh） */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
+/* 内容容器：限制最大宽度，居中 */
+.booking-content {
+  width: 100%;
+  max-width: 90vw; /* 减小最大宽度（原95vw→90vw） */
+  margin: 0 auto;
+}
+
+/* 标题：缩小字体+间距 */
 .booking-title {
-  /* 标题字号与间距随屏幕宽高等比缩放 */
-  font-size: clamp(16px, 2vw, 36px);
-  margin-bottom: clamp(16px, 4vh, 32px);
-}
-
-.venue-card {
-  background-color: #d6f3c5;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-  /* 三行网格：标题 / 图片区域 / 按钮，保证左右卡片图片和按钮对齐 */
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  align-items: stretch;
-  /* 宽度使用相对单位，整体随屏幕缩放，带上限和下限 */
-  width: clamp(240px, 24vw, 480px);
-}
-
-.venue-card__title {
+  font-size: min(4vh, 2.8vw); /* 缩小字体（原4vh→3.5vh） */
+  color: #1a1a1a;
   text-align: center;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #111827;
-  /* 标题区域统一高度，左右卡片标题行数不同也能对齐图片和按钮 */
+  margin-bottom: 5vh; /* 减小间距（原2vh→1.5vh） */
+  font-weight: bold;
+}
+
+/* 卡片容器：减小间距 */
+.cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2vh; /* 减小间距（原2vh→1.2vh） */
+}
+@media (min-width: 768px) {
+  .cards-container {
+    flex-direction: row;
+    gap: 1.5vw; /* 减小间距（原2vw→1.5vw） */
+    justify-content: center;
+  }
+}
+
+/* 卡片：全面缩小占比 */
+.venue-card {
+  background: #fff;
+  border-radius: 1.2vh; /* 减小圆角（原1.5vh→1.2vh） */
+  padding: 3vh; /* 减小内边距（原1.5vh→1vh） */
+  box-shadow: 0 0.5vh 2vh rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 32vw; /* 减小最大宽度（原45vw→42vw） */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* 关键修改1：标题容器 - 固定高度/统一占位 */
+.venue-card__title-wrapper {
+  /* 固定高度，适配标题最多2行的情况（可根据实际字体调整） */
+  height: 8vh; 
+  /* 弹性布局确保标题居中，即使换行也不超出容器 */
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 3.2rem;
+  margin-bottom: 2vh;
+}
+
+/* 卡片标题：缩小字体+间距 */
+.venue-card__title {
+  font-size: min(3vh, 2.2vw); /* 缩小字体（原2.2vh→2vh） */
+  color: #00723a;
+  text-align: center;
+  /* 移除原有的margin-bottom，统一由title-wrapper控制 */
   margin: 0;
-}
-
-.venue-card__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 0.75rem;
-  row-gap: 0.75rem;
-  /* 与标题和按钮拉开固定间距，保证两张卡片视觉高度一致 */
-  margin: 16px 0 20px;
-}
-
-.venue-card__image {
-  /* 容器本身提供固定比例区域 */
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  border-radius: 6px;
+  font-weight: bold;
+  /* 可选：限制标题最多2行，超出省略（防止高度溢出） */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+/* 图片网格：减小间距+底部边距 */
+.venue-card__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2vh; /* 减小间距（原1vh→0.8vh） */
+  flex: 1; /* 占满卡片剩余高度 */
+  margin-bottom: 1.5vh; /* 减小底部边距（原1.5vh→1vh） */
+}
+
+/* 图片容器：减小圆角，保持宽高比 */
+.venue-card__image {
+  aspect-ratio: 4/3; /* 宽高比不变，整体尺寸随容器缩小 */
+  border-radius: 1vh; /* 减小圆角（原1vh→0.8vh） */
+  overflow: hidden;
+  position: relative;
+}
 .venue-card__image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-
-.venue-card__button {
-  width: 100%;
-  margin-top: 0.25rem;
-  background-color: #f97316 !important;
-  border-color: #f97316 !important;
-  color: #fff !important;
-  font-weight: 600 !important;
+.venue-card__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent, rgba(0,0,0,0.3));
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.venue-card__image:hover .venue-card__overlay {
+  opacity: 1;
 }
 
-@media (max-width: 640px) {
-  /* 极小屏时，卡片之间和图片网格间距略微缩小，避免左右挤压 */
-  .venue-card {
-    width: min(100vw - 1.5rem, 21rem);
-  }
-
-  .venue-card__grid {
-    column-gap: 0.5rem;
-    row-gap: 0.5rem;
-  }
+/* 按钮：减小高度+字体 */
+.venue-card__button {
+  height: 5.5vh; /* 减小高度（原6vh→5.5vh） */
+  background: linear-gradient(135deg, #00723a, #005a2f) !important;
+  border: none !important;
+  color: #fff !important;
+  font-size: min(2.5vh, 1.4vw) !important; /* 减小字体（原2vh→1.8vh） */
+  font-weight: bold;
+  border-radius: 1vh !important; /* 减小圆角（原1vh→0.8vh） */
 }
 </style>
-

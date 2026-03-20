@@ -65,8 +65,8 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   // Set page title
   document.title = to.meta.title
-    ? `${to.meta.title} - TKHO Resource Booking System`
-    : 'TKHO Resource Booking System'
+    ? `${to.meta.title} - TKHO GA Service Center`
+    : 'TKHO GA Service Center'
   next()
 })
 

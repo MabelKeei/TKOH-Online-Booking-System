@@ -33,9 +33,11 @@
           :key="booking.id"
           class="booking-block"
           :style="getBookingStyle(booking)"
+          @click="selectBooking(day.fullDate)"
         >
           <div class="booking-title">{{ booking.roomName }}</div>
           <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
+          <div v-if="booking.reservedBy" class="booking-reserved">Reserved By: {{ booking.reservedBy }}</div>
         </div>
       </div>
     </div>
@@ -53,10 +55,14 @@ const props = defineProps({
   bookings: {
     type: Array,
     default: () => []
+  },
+  selectedRooms: {
+    type: Array,
+    default: () => []
   }
 })
 
-const emit = defineEmits(['time-slot-click'])
+const emit = defineEmits(['time-slot-click', 'booking-click'])
 
 const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -76,7 +82,8 @@ const timeSlots = computed(() => {
 const weekDays = computed(() => {
   const date = new Date(props.currentDate)
   const day = date.getDay()
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
+  // 从周日开始（周日是0）
+  const diff = date.getDate() - day
   const weekStart = new Date(date.setDate(diff))
 
   const days = []
@@ -92,12 +99,21 @@ const weekDays = computed(() => {
   return days
 })
 
-// 获取某一天的所有预订
+// 获取某一天的所有预订（根据选中的房间过滤）
 function getDayBookings(dayDate) {
-  return props.bookings.filter(booking => {
+  const dayBookings = props.bookings.filter(booking => {
     const bookingDate = new Date(booking.date)
     return bookingDate.toDateString() === dayDate.toDateString()
   })
+
+  // 如果没有选中任何房间，返回所有预订
+  if (!props.selectedRooms || props.selectedRooms.length === 0) {
+    return dayBookings
+  }
+
+  // 根据选中的房间过滤
+  const selectedRoomNames = props.selectedRooms.map(room => room.name)
+  return dayBookings.filter(booking => selectedRoomNames.includes(booking.roomName))
 }
 
 // 判断是否是今天
@@ -140,6 +156,11 @@ function selectTimeSlot(dayDate, hour) {
     date: dayDate,
     time: hour
   })
+}
+
+// 选择预订
+function selectBooking(dayDate) {
+  emit('booking-click', dayDate)
 }
 </script>
 
@@ -272,6 +293,15 @@ function selectTimeSlot(dayDate, hour) {
 
 .booking-time {
   font-size: 0.6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.booking-reserved {
+  font-size: 0.55rem;
+  opacity: 0.9;
+  margin-top: 0.125rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

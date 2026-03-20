@@ -141,7 +141,7 @@
                 </div>
               </div>
               <div class="card-footer">
-                <button v-if="booking.status !== 'past'" class="btn-cancel" @click="cancelBooking(booking.id)">
+                <button v-if="booking.status == 'upcoming'" class="btn-cancel" @click="cancelBooking(booking.id)">
                   Cancel Booking
                 </button>
               </div>

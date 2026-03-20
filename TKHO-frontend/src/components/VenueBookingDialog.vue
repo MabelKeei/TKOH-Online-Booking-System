@@ -27,16 +27,22 @@
           <!-- Room, Date, Time Section -->
           <div class="form-section">
             <el-form-item label="Room" prop="room" :rules="[{ required: true, message: 'Please select a room' }]">
-              <el-select v-model="form.room" placeholder="Select a room" style="width: 100%">
+              <el-select v-model="form.room" placeholder="Select a room" style="width: 100%;" popper-class="room-select-popper">
                 <el-option
                   v-for="room in availableRooms"
-                  :key="room"
-                  :label="room"
-                  :value="room"
-                />
+                  :key="room.name"
+                  :label="room.name"
+                  :value="room.name"
+                >
+                  <div class="room-option">
+                    <span class="room-color-dot" :style="{ backgroundColor: room.color }"></span>
+                    <span>{{ room.name }}</span>
+                  </div>
+                </el-option>
               </el-select>
             </el-form-item>
 
+            <!-- 修复后的日期选择框 -->
             <el-form-item label="Date" prop="date" :rules="[{ required: true, message: 'Please select a date' }]">
               <el-date-picker
                 v-model="form.date"
@@ -44,9 +50,14 @@
                 placeholder="Select date"
                 format="DD/MM/YYYY"
                 value-format="YYYY-MM-DD"
-                :disabledDate="disabledDate"
+                :disabled-date="disabledDate"
                 style="width: 100%"
-              />
+                :picker-options="{
+                  firstDayOfWeek: 1 // 周一作为每周第一天
+                }"
+                clearable
+                popper-class="date-picker-popper"
+              ></el-date-picker>
             </el-form-item>
 
             <div class="form-row">
@@ -54,24 +65,24 @@
                 <el-time-select
                   v-model="form.startTime"
                   placeholder="Select start time"
-                  start="08:00"
-                  end="18:00"
-                  step="00:15"
-                  format="HH:mm"
+                  start="07:00"
+                  end="21:00"
+                  step="00:30"
                   style="width: 100%"
-                />
+                  popper-class="time-select-popper"
+                ></el-time-select>
               </el-form-item>
 
               <el-form-item label="End Time" prop="endTime" :rules="[{ required: true, message: 'Please select end time' }]" class="form-item-half">
                 <el-time-select
                   v-model="form.endTime"
                   placeholder="Select end time"
-                  start="08:00"
-                  end="18:00"
-                  step="00:15"
-                  format="HH:mm"
+                  start="07:00"
+                  end="21:00"
+                  step="00:30"
                   style="width: 100%"
-                />
+                  popper-class="time-select-popper"
+                ></el-time-select>
               </el-form-item>
             </div>
 
@@ -95,7 +106,7 @@
                   resize="none"
                   class="two-line-input"
                   placeholder="e.g. Quarterly Performance"
-                />
+                ></el-input>
               </el-form-item>
 
               <el-form-item label="Remark" prop="remark" class="no-wrap-label">
@@ -106,7 +117,7 @@
                   resize="none"
                   class="two-line-input"
                   placeholder="Enter any remarks"
-                />
+                ></el-input>
               </el-form-item>
 
               <el-form-item label="Tea Service Required?" prop="teaServiceRequired" class="no-wrap-label">
@@ -202,21 +213,21 @@
           <div class="form-section user-info-section">
             <div class="form-row">
               <el-form-item label="Full Name" prop="fullName" class="form-item-half">
-                <el-input v-model="form.fullName" />
+                <el-input v-model="form.fullName"></el-input>
               </el-form-item>
 
               <el-form-item label="Department / Unit" prop="department" class="form-item-half no-label">
-                <el-input v-model="form.department" />
+                <el-input v-model="form.department"></el-input>
               </el-form-item>
             </div>
 
             <div class="form-row">
               <el-form-item label="Contact Telephone No" prop="contactPhone" class="form-item-half">
-                <el-input v-model="form.contactPhone" />
+                <el-input v-model="form.contactPhone"></el-input>
               </el-form-item>
 
               <el-form-item label="Contact Email" prop="contactEmail" class="form-item-half no-label">
-                <el-input v-model="form.contactEmail" />
+                <el-input v-model="form.contactEmail"></el-input>
               </el-form-item>
             </div>
           </div>
@@ -301,7 +312,7 @@ onUnmounted(() => {
 
 const form = ref({
   room: '',
-  date: null,
+  date: null, // 日期初始化为null
   startTime: '',
   endTime: '',
   topic: '',
@@ -320,26 +331,29 @@ const form = ref({
 })
 
 const availableRooms = [
-  'Conference Room 1',
-  'Conference Room 2',
-  'Conference Room 3',
-  'Discussion Room',
-  'Discussion Room 2',
-  'Lecture Theatre',
-  'Function Room',
-  'Auditorium'
+  { name: 'Conference Room 1', color: '#3b82f6' },
+  { name: 'Conference Room 2', color: '#10b981' },
+  { name: 'Conference Room 3', color: '#06b6d4' },
+  { name: 'Discussion Room', color: '#f59e0b' },
+  { name: 'Function Room', color: '#ec4899' },
+  { name: 'Lecture Theatre', color: '#6366f1' },
+  { name: 'Auditorium', color: '#8b5cf6' }
 ]
 
 const isSameDay = computed(() => {
   if (!form.value.date) return false
   const selectedDate = new Date(form.value.date)
   const today = new Date()
-  return selectedDate.toDateString() === today.toDateString()
+  // 确保日期比较的准确性，只比较年月日
+  return selectedDate.getFullYear() === today.getFullYear() &&
+         selectedDate.getMonth() === today.getMonth() &&
+         selectedDate.getDate() === today.getDate()
 })
 
+// 禁用过去的日期（只能选择今天及以后的日期）
 function disabledDate(date) {
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  today.setHours(0, 0, 0, 0) // 重置时间为0点，确保今天可选
   return date < today
 }
 
@@ -348,6 +362,13 @@ function checkAvailability() {
     ElMessage.warning('Please fill in Room, Date, Start Time and End Time first')
     return
   }
+  
+  // 简单的时间验证
+  if (form.value.startTime >= form.value.endTime) {
+    ElMessage.warning('End time must be after start time')
+    return
+  }
+  
   ElMessage.success('Room is available for the selected time slot!')
 }
 
@@ -357,7 +378,7 @@ function initializeForm() {
   } else {
     form.value = {
       room: '',
-      date: null,
+      date: null, // 初始化日期为空
       startTime: '',
       endTime: '',
       topic: '',
@@ -385,13 +406,26 @@ function handleConfirm() {
   if (!formRef.value) return
   formRef.value.validate((valid) => {
     if (valid) {
+      // 验证结束时间是否晚于开始时间
+      if (form.value.startTime && form.value.endTime && form.value.startTime >= form.value.endTime) {
+        ElMessage.error('End time must be later than start time')
+        return
+      }
       emit('confirm', { ...form.value, id: props.booking?.id || Date.now() })
+      ElMessage.success('Booking submitted successfully!')
+      handleClose()
+    } else {
+      ElMessage.error('Please fill in all required fields')
     }
   })
 }
 
 function handleClose() {
   emit('close')
+  // 重置表单验证状态
+  if (formRef.value) {
+    formRef.value.clearValidate()
+  }
 }
 
 watch(() => props.visible, (val) => {
@@ -417,6 +451,9 @@ watch(() => props.visible, (val) => {
   align-items: center;
   justify-content: center;
   z-index: 9999;
+  /* 解决小屏滚动问题：允许遮罩层滚动 */
+  overflow-y: auto;
+  padding: 20px 0;
 }
 
 /* 弹窗容器 */
@@ -425,11 +462,15 @@ watch(() => props.visible, (val) => {
   max-width: 900px;
   max-height: 94vh;
   background: #fff;
-  border-radius: 12px; /* 你要的圆角 */
+  border-radius: 12px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+  z-index: 10000;
+  /* 修复小屏滚动：确保容器在flex布局中正确计算高度 */
+  flex-shrink: 0;
 }
 
 /* 头部 */
@@ -442,6 +483,7 @@ watch(() => props.visible, (val) => {
   justify-content: space-between;
   cursor: move;
   user-select: none;
+  flex-shrink: 0; /* 头部不收缩 */
 }
 .modal-title {
   font-size: 1.0625rem;
@@ -465,7 +507,7 @@ watch(() => props.visible, (val) => {
   width: 20px;
   height: 20px;
   stroke: white;
-  stroke-width: 3; /* 真正加粗，必生效 */
+  stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
   fill: none;
@@ -474,11 +516,14 @@ watch(() => props.visible, (val) => {
   stroke: #d1fae5;
 }
 
-/* 内容区 */
+/* 内容区 - 修复滚动和日期选择器样式问题 */
 .modal-body {
   padding: 1.125rem 1.75rem;
   flex: 1;
   overflow-y: auto;
+  padding-bottom: 20px;
+  /* 确保内容区高度计算正确 */
+  min-height: 0;
 }
 .modal-body::-webkit-scrollbar {
   width: 6px;
@@ -499,11 +544,68 @@ watch(() => props.visible, (val) => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  flex-shrink: 0; /* 底部不收缩 */
+}
+
+/* 修复下拉框样式 */
+.room-select-popper,
+.time-select-popper,
+.date-picker-popper {
+  z-index: 99999 !important;
+}
+
+.room-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 修复日期选择器数字不显示问题 */
+:deep(.el-date-table) {
+  font-size: 14px;
+}
+:deep(.el-date-table td) {
+  color: #333 !important;
+  line-height: 28px;
+}
+:deep(.el-date-table td.disabled) {
+  color: #ccc !important;
+}
+:deep(.el-date-table td.today) {
+  color: #00723a !important;
+  font-weight: bold;
+}
+:deep(.el-date-table td.current) {
+  background-color: #00723a !important;
+  color: #fff !important;
+}
+:deep(.el-date-table td.current:hover) {
+  background-color: #005a2e !important;
+}
+:deep(.el-date-editor) {
+  width: 100%;
+}
+:deep(.el-date-picker__header-label) {
+  font-weight: 600;
+  color: #333;
+}
+
+/* 确保日期选择器浮层不被遮挡 */
+:deep(.date-picker-popper) {
+  z-index: 100000 !important;
+  position: fixed !important;
 }
 </style>
 
 <style scoped>
-/* 你原来的所有表单样式，完全不变 */
+/* 原有表单样式保持不变 */
 .booking-form {
   width: 100%;
 }
@@ -743,7 +845,7 @@ watch(() => props.visible, (val) => {
   border-color: #005a2e;
 }
 
-/* 响应式 */
+/* 响应式 - 优化小屏滚动 */
 @media (max-width: 1024px) {
   .form-row-three {
     grid-template-columns: 1fr 1fr;
@@ -756,6 +858,7 @@ watch(() => props.visible, (val) => {
 @media (max-width: 768px) {
   .booking-dialog-wrapper {
     width: 95% !important;
+    max-height: 90vh; /* 小屏降低最大高度，留出更多滚动空间 */
   }
   .modal-body {
     padding: 1rem;
@@ -766,5 +869,21 @@ watch(() => props.visible, (val) => {
   .paired-layout {
     grid-template-columns: 1fr;
   }
+  /* 小屏增加表单间距，提升可读性 */
+  .booking-form :deep(.el-form-item) {
+    margin-bottom: 1rem;
+  }
+}
+
+/* 确保下拉框内容可见 */
+:deep(.el-select-dropdown),
+:deep(.el-time-select-dropdown),
+:deep(.el-popper) {
+  z-index: 99999 !important;
+}
+
+/* 修复el-time-select在移动端的显示问题 */
+:deep(.el-time-select) {
+  width: 100%;
 }
 </style>

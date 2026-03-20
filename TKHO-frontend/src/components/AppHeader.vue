@@ -1,8 +1,11 @@
 <template>
   <header class="app-header w-full bg-[#00723a] text-white flex items-center justify-between px-8 py-3">
-    <h1 class="text-lg font-semibold">
-      {{ headerTitle }}
-    </h1>
+    <div class="header-left flex items-center gap-3">
+      <img src="../assets/TKOH_logo.png" alt="TKHO Logo" class="header-logo" />
+      <h1 class="text-lg font-semibold">
+        {{ headerTitle }}
+      </h1>
+    </div>
 
     <nav class="flex items-center gap-4">
       <RouterLink
@@ -87,6 +90,18 @@ const handleSwitch = () => {
   z-index: 1000;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-logo {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
 .header-link {
   font-weight: 700;
   color: #fff;
@@ -165,6 +180,10 @@ const handleSwitch = () => {
 
   .app-header h1 {
     font-size: 1rem;
+  }
+
+  .header-logo {
+    height: 24px;
   }
 
   nav {

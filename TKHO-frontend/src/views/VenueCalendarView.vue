@@ -383,8 +383,11 @@ const selectedRoomsList = computed(() => {
 function getWeekStart(date) {
   const d = new Date(date)
   const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  return new Date(d.setDate(diff))
+  // 周日作为一周起点：getDay() 中 Sun=0, Mon=1...
+  const diff = d.getDate() - day
+  d.setDate(diff)
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
 // 上一个时期

@@ -778,7 +778,7 @@ onUnmounted(() => {
 }
 
 .today-btn:hover {
-  background-color: #2563eb;
+  background-color: #3b82f6;
 }
 
 .date-display-wrapper {

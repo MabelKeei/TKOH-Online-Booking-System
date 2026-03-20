@@ -1,11 +1,10 @@
 <template>
   <div class="calendar-week">
-    <!-- 日期和房间类型表头 -->
+    <!-- 日期和房间类型表头 - 固定 -->
     <div class="week-header">
       <div class="time-header" />
       <div v-for="(day, index) in weekDays" :key="index" class="day-header">
-        <div class="day-name">{{ day.name }}</div>
-        <div class="day-date">{{ day.date }}</div>
+        <div class="day-label">{{ day.name }} / {{ day.date }}</div>
       </div>
     </div>
 
@@ -19,23 +18,24 @@
       </div>
 
       <!-- 每一天的槽位 -->
-      <div v-for="(day, dayIndex) in weekDays" :key="dayIndex" class="day-column">
+      <div v-for="(day, dayIndex) in weekDays" :key="dayIndex" class="day-column" :class="{ 'is-today': isToday(day.fullDate) }">
+        <!-- 时间格子 -->
         <div
           v-for="hour in timeSlots"
           :key="`${dayIndex}-${hour}`"
           class="time-cell"
           @click="selectTimeSlot(day.date, hour)"
+        />
+
+        <!-- 预订卡片（绝对定位） -->
+        <div
+          v-for="booking in getDayBookings(day.fullDate)"
+          :key="booking.id"
+          class="booking-block"
+          :style="getBookingStyle(booking)"
         >
-          <!-- 显示该时间段的预订 -->
-          <div
-            v-for="booking in getBookingsForTimeSlot(day.date, hour)"
-            :key="booking.id"
-            class="booking-block"
-            :style="{ backgroundColor: booking.color || '#f97316' }"
-          >
-            <div class="booking-title">{{ booking.roomName }}</div>
-            <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-          </div>
+          <div class="booking-title">{{ booking.roomName }}</div>
+          <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
         </div>
       </div>
     </div>
@@ -60,11 +60,14 @@ const emit = defineEmits(['time-slot-click'])
 
 const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// 时间槽（30分钟间隔）
+// 时间槽（30分钟间隔，从7:00到21:00）
 const timeSlots = computed(() => {
   const slots = []
-  for (let hour = 8; hour < 19; hour++) {
+  for (let hour = 7; hour <= 21; hour++) {
     slots.push(`${String(hour).padStart(2, '0')}:00`)
+    if (hour < 21) {
+      slots.push(`${String(hour).padStart(2, '0')}:30`)
+    }
   }
   return slots
 })
@@ -89,12 +92,46 @@ const weekDays = computed(() => {
   return days
 })
 
-// 获取时间段的预订
-function getBookingsForTimeSlot(dayDate, hour) {
+// 获取某一天的所有预订
+function getDayBookings(dayDate) {
   return props.bookings.filter(booking => {
-    const bookingHour = parseInt(booking.startTime?.split(':')[0] || 0)
-    return bookingHour.toString().padStart(2, '0') === hour.split(':')[0]
+    const bookingDate = new Date(booking.date)
+    return bookingDate.toDateString() === dayDate.toDateString()
   })
+}
+
+// 判断是否是今天
+function isToday(date) {
+  const today = new Date()
+  return date.toDateString() === today.toDateString()
+}
+
+// 计算预订卡片的样式（位置和高度）
+function getBookingStyle(booking) {
+  const [startHour, startMinute] = (booking.startTime?.split(':') || ['7', '0']).map(Number)
+  const [endHour, endMinute] = (booking.endTime?.split(':') || ['7', '30']).map(Number)
+
+  // 计算开始和结束时间（以分钟为单位）
+  const startTimeInMinutes = startHour * 60 + startMinute
+  const endTimeInMinutes = endHour * 60 + endMinute
+
+  // 7:00 是起始时间（7 * 60 = 420分钟）
+  const dayStartInMinutes = 7 * 60
+
+  // 计算相对于7:00的偏移量（以30分钟为单位）
+  const offsetSlots = (startTimeInMinutes - dayStartInMinutes) / 30
+  const durationSlots = (endTimeInMinutes - startTimeInMinutes) / 30
+
+  // 每个时间槽高度为40px
+  const slotHeight = 40
+  const top = offsetSlots * slotHeight
+  const height = durationSlots * slotHeight
+
+  return {
+    top: `${top}px`,
+    height: `${height}px`,
+    backgroundColor: booking.color || '#f97316'
+  }
 }
 
 // 选择时间槽
@@ -109,27 +146,31 @@ function selectTimeSlot(dayDate, hour) {
 <style scoped>
 .calendar-week {
   width: 100%;
-  overflow-x: auto;
+  position: relative;
 }
 
 .week-header {
   display: grid;
   grid-template-columns: 80px repeat(7, 1fr);
-  gap: 1px;
   background-color: #e5e7eb;
-  margin-bottom: 1rem;
-  border-radius: 0.5rem;
+  border-radius: 0.5rem 0.5rem 0 0;
   overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .time-header {
   background-color: #f3f4f6;
-  padding: 0.75rem;
+  padding: 0.5rem;
+  border-right: 1px solid #e5e7eb;
 }
 
 .day-header {
   background-color: #f3f4f6;
-  padding: 0.75rem;
+  padding: 0.5rem;
   text-align: center;
   border-right: 1px solid #e5e7eb;
 }
@@ -138,25 +179,21 @@ function selectTimeSlot(dayDate, hour) {
   border-right: none;
 }
 
-.day-name {
+.day-label {
   font-weight: 600;
   color: #374151;
   font-size: 0.875rem;
-}
-
-.day-date {
-  color: #6b7280;
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
+  white-space: nowrap;
 }
 
 .week-grid {
   display: grid;
   grid-template-columns: 80px repeat(7, 1fr);
-  gap: 1px;
   background-color: #e5e7eb;
-  border-radius: 0.5rem;
+  border-radius: 0 0 0.5rem 0.5rem;
   overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-top: none;
 }
 
 .time-column {
@@ -166,31 +203,46 @@ function selectTimeSlot(dayDate, hour) {
 }
 
 .time-slot {
-  padding: 0.75rem;
+  padding: 0.25rem;
   text-align: center;
   font-size: 0.75rem;
   color: #6b7280;
   border-bottom: 1px solid #e5e7eb;
-  min-height: 60px;
+  height: 40px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   font-weight: 500;
+  box-sizing: border-box;
 }
 
 .day-column {
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+.day-column.is-today .time-cell {
+  background-color: #fef3c7;
+}
+
+.day-column.is-today .time-cell:hover {
+  background-color: #fde68a;
 }
 
 .time-cell {
   background-color: white;
   border-bottom: 1px solid #e5e7eb;
-  min-height: 60px;
-  padding: 0.25rem;
+  border-right: 1px solid #e5e7eb;
+  height: 40px;
+  padding: 0;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  position: relative;
-  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.day-column:last-child .time-cell {
+  border-right: none;
 }
 
 .time-cell:hover {
@@ -198,12 +250,17 @@ function selectTimeSlot(dayDate, hour) {
 }
 
 .booking-block {
-  padding: 0.25rem;
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  padding: 0.25rem 0.375rem;
   border-radius: 0.25rem;
-  margin-bottom: 0.25rem;
   color: white;
   font-size: 0.65rem;
   overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  z-index: 1;
 }
 
 .booking-title {

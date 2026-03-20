@@ -204,11 +204,11 @@ const handleLogin = async () => {
         ElMessage.success('Login successful')
         // 根据选择的系统跳转到对应页面
         if (loginForm.system === 'parking') {
-          router.push('/ev-booking')
+          router.push('/evBooking')
         } else if (loginForm.system === 'room') {
-          router.push('/venue-booking')
+          router.push('/VenueBooking')
         } else if (loginForm.system === 'admin') {
-          router.push('/manage-booking')
+          router.push('/VenueBooking/ManageBooking')
         } else {
           router.push('/login')
         }

@@ -2,22 +2,7 @@
   <!-- EV Booking 页面，优先使用 CSS 自适应高度 -->
   <div class="booking-page bg-[#f5f5f5] flex flex-col overflow-hidden">
     <!-- 顶部系统 Header -->
-    <header class="booking-header w-full bg-[#00723a] text-white flex items-center justify-between px-8 py-3">
-      <h1 class="text-lg font-semibold">
-        TKHO <span class="font-normal">EV Booking</span>
-      </h1>
-      <div class="flex items-center gap-2">
-        <el-button size="small" class="!bg-white !text-[#00723a] !border-none">
-          Manage Booking
-        </el-button>
-        <el-button size="small" class="!bg-white !text-[#00723a] !border-none">
-          Account
-        </el-button>
-        <el-button size="small" type="danger" class="!px-4">
-          Log out
-        </el-button>
-      </div>
-    </header>
+    <AppHeader @logout="onLogout" />
 
     <!-- 进度步骤条（简化版） -->
     <div class="w-full bg-white shadow-sm">
@@ -34,7 +19,7 @@
     </div>
 
     <!-- 主体内容 -->
-    <main class="flex-1 flex flex-col items-center justify-center px-4 md:px-8 lg:px-12 py-4 md:py-6">
+    <main class="flex-1 flex flex-col items-center justify-center px-2 md:px-3 lg:px-4 py-2 md:py-3">
       <h2 class="text-xl md:text-2xl lg:text-3xl 2xl:text-4xl font-semibold text-gray-900 mb-6 md:mb-8 text-center">
         What EV would you like to book?
       </h2>
@@ -98,6 +83,7 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
+import AppHeader from '../components/AppHeader.vue'
 
 const router = useRouter()
 
@@ -110,6 +96,10 @@ const goToOtherEV = () => {
   // TODO: 跳转到其它 EV / 充电桩预定详情页
   console.log('Go to other EV / chargers booking')
 }
+
+const onLogout = () => {
+  router.push('/login')
+}
 </script>
 
 <style scoped>
@@ -117,6 +107,7 @@ const goToOtherEV = () => {
   /* 与 VenueBooking 保持一致：最小高度为一屏，高度根据内容自适应 */
   min-height: 100vh;
   height: auto;
+  padding-top: 52px;
 }
 
 .step-item {
@@ -153,37 +144,6 @@ const goToOtherEV = () => {
 
 .ev-card__button {
   @apply w-full mt-1 !bg-orange-500 !border-orange-500 !text-white !font-semibold;
-}
-
-@media (max-width: 768px) {
-  .booking-header {
-    padding-inline: 1rem;
-  }
-
-  .booking-header h1 {
-    font-size: 1rem;
-  }
-
-  .booking-header {
-    flex-wrap: wrap;
-    row-gap: 0.5rem;
-  }
-
-  .booking-header > div {
-    width: 100%;
-    justify-content: flex-end;
-  }
-}
-
-@media (max-width: 640px) {
-  .ev-card {
-    width: min(100vw - 1.5rem, 19rem);
-  }
-
-  .ev-card__grid {
-    column-gap: 0.5rem;
-    row-gap: 0.5rem;
-  }
 }
 </style>
 

@@ -1,12 +1,5 @@
 <template>
   <div class="calendar-day">
-    <!-- 日期表头 -->
-    <div class="day-header">
-      <h3 class="date-title">
-        {{ currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) }}
-      </h3>
-    </div>
-
     <!-- 时间槽网格 -->
     <div class="day-timeline">
       <div class="time-axis">
@@ -16,6 +9,13 @@
       </div>
 
       <div class="bookings-container">
+        <!-- 时间槽背景（带横线） -->
+        <div
+          v-for="(hour, index) in timeSlots"
+          :key="`bg-${hour}`"
+          class="time-slot-bg"
+        />
+
         <!-- 显示预订 -->
         <div
           v-for="booking in bookings"
@@ -33,18 +33,13 @@
 
         <!-- 时间槽点击区域 -->
         <div
-          v-for="hour in timeSlots"
+          v-for="(hour, index) in timeSlots"
           :key="`slot-${hour}`"
           class="time-slot"
+          :style="{ top: `${index * 40}px` }"
           @click="selectTimeSlot(hour)"
         />
       </div>
-    </div>
-
-    <!-- 空状态 -->
-    <div v-if="bookings.length === 0" class="empty-state">
-      <div class="empty-icon">📅</div>
-      <p class="empty-text">No bookings for this day</p>
     </div>
   </div>
 </template>
@@ -65,11 +60,14 @@ const props = defineProps({
 
 const emit = defineEmits(['time-slot-click'])
 
-// 营业时间（8:00 - 18:00）
+// 营业时间（7:00 - 21:00，30分钟间隔）
 const timeSlots = computed(() => {
   const slots = []
-  for (let hour = 8; hour <= 18; hour++) {
+  for (let hour = 7; hour <= 21; hour++) {
     slots.push(`${String(hour).padStart(2, '0')}:00`)
+    if (hour < 21) {
+      slots.push(`${String(hour).padStart(2, '0')}:30`)
+    }
   }
   return slots
 })
@@ -85,9 +83,9 @@ function getBookingStyle(booking) {
   const endTime = endHour + endMinute / 60
   const duration = endTime - startTime
 
-  const slotHeight = 80 // 每小时的高度
-  const offset = (startTime - 8) * slotHeight + 40 // 8:00是起始时间
-  const height = duration * slotHeight
+  const slotHeight = 40 // 每30分钟的高度
+  const offset = (startTime - 7) * slotHeight * 2 + 40 // 7:00是起始时间，*2因为每小时有2个30分钟槽
+  const height = duration * slotHeight * 2
 
   return {
     top: `${offset}px`,
@@ -116,58 +114,76 @@ function selectBooking(booking) {
   width: 100%;
 }
 
-.day-header {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #e5e7eb;
-}
-
-.date-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #111827;
-  margin: 0;
-}
-
 .day-timeline {
   position: relative;
   display: grid;
   grid-template-columns: 80px 1fr;
-  gap: 1rem;
+  gap: 0;
   min-height: 800px;
-}
-
-.time-axis {
-  display: flex;
-  flex-direction: column;
-}
-
-.time-marker {
-  height: 80px;
-  display: flex;
-  align-items: flex-start;
-  color: #6b7280;
-  font-size: 0.875rem;
-  font-weight: 500;
-  padding-right: 0.5rem;
-  text-align: right;
-}
-
-.bookings-container {
-  position: relative;
-  background: linear-gradient(to bottom, #f9fafb 0%, #f9fafb 100%);
-  background-size: 100% 80px;
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
   overflow: hidden;
 }
 
+.time-axis {
+  display: flex;
+  flex-direction: column;
+  background-color: #f9fafb;
+}
+
+.time-marker {
+  height: 40px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding-right: 0.5rem;
+  border-right: 1px solid #e5e7eb;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.time-marker::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: #e5e7eb;
+}
+
+.bookings-container {
+  position: relative;
+  background-color: white;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.time-slot-bg {
+  height: 40px;
+  border-bottom: 1px solid #e5e7eb;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.time-slot-bg:last-child {
+  border-bottom: none;
+}
+
 .time-slot {
   position: absolute;
   width: 100%;
-  height: 80px;
+  height: 40px;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  z-index: 1;
+  box-sizing: border-box;
 }
 
 .time-slot:hover {
@@ -186,6 +202,7 @@ function selectBooking(booking) {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
   overflow: hidden;
+  z-index: 2;
 }
 
 .booking-item:hover {
@@ -213,29 +230,9 @@ function selectBooking(booking) {
   opacity: 0.9;
 }
 
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-  color: #6b7280;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-}
-
-.empty-text {
-  font-size: 1rem;
-  margin-bottom: 1.5rem;
-  color: #9ca3af;
-}
-
 @media (max-width: 768px) {
   .day-timeline {
-    gap: 0.5rem;
+    gap: 0;
     grid-template-columns: 60px 1fr;
   }
 

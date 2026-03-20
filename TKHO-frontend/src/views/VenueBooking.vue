@@ -1,6 +1,6 @@
 <template>
   <!-- 通过 h-screen + 弹性布局，让整个页面在大部分屏幕高度内不需要纵向滚动 -->
-  <div class="booking-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden">
+  <div class="booking-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[52px]">
     <AppHeader @logout="onLogout" />
 
     <!-- 进度步骤条（复用 BookingSteps 组件） -->
@@ -10,7 +10,7 @@
     />
 
     <!-- 主体内容 -->
-    <main class="booking-main flex-1 flex flex-col items-center justify-center px-4 md:px-8 lg:px-12 py-4 md:py-6">
+    <main class="booking-main flex-1 flex flex-col items-center justify-center px-2 md:px-3 lg:px-4 py-2 md:py-3">
       <h2 class="booking-title text-center font-semibold text-gray-900">
         What venue would you like to book?
       </h2>
@@ -87,14 +87,14 @@ const onLogout = () => {
 
 const goToConference = () => {
   router.push({
-    name: 'CalendarView',
+    name: 'VenueCalendarView',
     query: { roomType: 'conference' }
   })
 }
 
 const goToOtherVenues = () => {
   router.push({
-    name: 'CalendarView',
+    name: 'VenueCalendarView',
     query: { roomType: 'other' }
   })
 }

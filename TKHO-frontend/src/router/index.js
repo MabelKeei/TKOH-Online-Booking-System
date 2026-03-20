@@ -7,7 +7,7 @@ const routes = [
     redirect: '/login'
   },
   {
-    path: '/venue-booking',
+    path: '/VenueBooking',
     name: 'VenueBooking',
     component: () => import('../views/VenueBooking.vue'),
     meta: {
@@ -15,23 +15,23 @@ const routes = [
     }
   },
   {
-    path: '/calendar',
-    name: 'CalendarView',
-    component: () => import('../views/CalendarView.vue'),
+    path: '/VenueBooking/Calendar',
+    name: 'VenueCalendarView',
+    component: () => import('../views/VenueCalendarView.vue'),
     meta: {
       title: 'Booking Calendar'
     }
   },
   {
-    path: '/manage-booking',
-    name: 'ManageBooking',
-    component: () => import('../views/ManageBooking.vue'),
+    path: '/VenueBooking/ManageBooking',
+    name: 'VenueManageBooking',
+    component: () => import('../views/VenueManageBooking.vue'),
     meta: {
       title: 'Manage Booking'
     }
   },
   {
-    path: '/account',
+    path: '/Account',
     name: 'Account',
     component: () => import('../views/Account.vue'),
     meta: {
@@ -39,7 +39,7 @@ const routes = [
     }
   },
   {
-    path: '/ev-booking',
+    path: '/evBooking',
     name: 'EVBooking',
     component: () => import('../views/EVBooking.vue'),
     meta: {

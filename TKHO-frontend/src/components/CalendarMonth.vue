@@ -1,36 +1,47 @@
 <template>
-  <div class="calendar-month">
+  <div class="calendar-month h-full flex flex-col">
     <!-- 日期表头 -->
     <div class="weekday-header">
-      <div v-for="day in weekdays" :key="day" class="weekday-cell">
+      <div
+        v-for="(day, index) in weekdays"
+        :key="day"
+        class="weekday-cell"
+        :class="{ 'first-col': index === 0, 'last-col': index === 6 }"
+      >
         {{ day }}
       </div>
     </div>
 
     <!-- 日期网格 -->
-    <div class="month-grid">
+    <div class="month-grid flex-1">
       <!-- 上个月的日期 -->
       <div
-        v-for="day in prevMonthDays"
+        v-for="(day, index) in prevMonthDays"
         :key="`prev-${day}`"
         class="date-cell empty"
+        :class="{ 'first-col': (index % 7) === 0, 'last-col': (index % 7) === 6 }"
       >
         <span class="date-number">{{ day }}</span>
       </div>
 
       <!-- 本月的日期 -->
       <div
-        v-for="day in daysInMonth"
+        v-for="(day, index) in daysInMonth"
         :key="day"
         class="date-cell"
-        :class="{ 'today': isToday(day), 'has-bookings': hasBookings(day) }"
+        :class="{
+          'today': isToday(day),
+          'has-bookings': hasBookings(day),
+          'first-col': ((prevMonthDays.length + index) % 7) === 0,
+          'last-col': ((prevMonthDays.length + index) % 7) === 6
+        }"
         @click="selectDate(day)"
       >
         <span class="date-number">{{ day }}</span>
         <div v-if="hasBookings(day)" class="booking-indicators">
           <div
-            v-for="(booking, index) in getBookingsForDay(day).slice(0, 3)"
-            :key="index"
+            v-for="(booking, idx) in getBookingsForDay(day).slice(0, 3)"
+            :key="idx"
             class="booking-dot"
             :style="{ backgroundColor: booking.color || '#f97316' }"
           />
@@ -42,9 +53,13 @@
 
       <!-- 下个月的日期 -->
       <div
-        v-for="day in nextMonthDays"
+        v-for="(day, index) in nextMonthDays"
         :key="`next-${day}`"
         class="date-cell empty"
+        :class="{
+          'first-col': ((prevMonthDays.length + daysInMonth + index) % 7) === 0,
+          'last-col': ((prevMonthDays.length + daysInMonth + index) % 7) === 6
+        }"
       >
         <span class="date-number">{{ day }}</span>
       </div>
@@ -141,16 +156,22 @@ function selectDate(day) {
 <style scoped>
 .calendar-month {
   width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .weekday-header {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 1px;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   background-color: #e5e7eb;
-  border-radius: 0.5rem;
+  border-radius: 0.5rem 0.5rem 0 0;
   overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
 }
 
 .weekday-cell {
@@ -162,24 +183,39 @@ function selectDate(day) {
   font-size: 0.875rem;
 }
 
+.weekday-cell.first-col {
+  border-left: 1px solid #e5e7eb;
+}
+
+.weekday-cell.last-col {
+  border-right: 1px solid #e5e7eb;
+}
+
 .month-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr);
   gap: 1px;
   background-color: #e5e7eb;
-  border-radius: 0.5rem;
+  border-radius: 0 0 0.5rem 0.5rem;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid #e5e7eb;
+  border-top: none;
 }
 
 .date-cell {
   background-color: white;
-  padding: 1rem;
-  min-height: 100px;
+  padding: 0.5rem;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
+  overflow: hidden;
+  min-height: 0;
+  height: 100%;
 }
 
 .date-cell:hover {
@@ -200,6 +236,14 @@ function selectDate(day) {
 
 .date-cell.today {
   background-color: #fef3c7;
+}
+
+.date-cell.first-col {
+  border-left: 1px solid #e5e7eb;
+}
+
+.date-cell.last-col {
+  border-right: 1px solid #e5e7eb;
 }
 
 .date-number {
@@ -233,8 +277,7 @@ function selectDate(day) {
 
 @media (max-width: 768px) {
   .date-cell {
-    padding: 0.75rem;
-    min-height: 70px;
+    padding: 0.5rem;
   }
 
   .date-number {

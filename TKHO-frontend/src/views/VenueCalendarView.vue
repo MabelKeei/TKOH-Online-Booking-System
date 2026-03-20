@@ -1,75 +1,158 @@
 <template>
-  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden">
+  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[52px]">
     <AppHeader @logout="onLogout" />
 
-    <!-- 进度步骤条 -->
-    <BookingSteps
+    <!-- 进度步骤条 - 暂时隐藏 -->
+    <!-- <BookingSteps
       :steps="['Log in', 'Booking', 'Submission', 'Confirmation']"
       :current="1"
-    />
+    /> -->
 
     <!-- 主体内容 -->
-    <main class="calendar-main flex-1 flex flex-col px-4 md:px-8 lg:px-12 py-4 md:py-6 overflow-hidden">
-      <!-- 顶部工具栏 -->
-      <div class="toolbar mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div class="toolbar-left flex items-center gap-3">
-          <h2 class="text-xl md:text-2xl font-semibold text-gray-900">
-            Venue Booking Calendar
-          </h2>
-          <el-tag type="success">{{ roomTypeLabel }}</el-tag>
+    <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-2 md:py-3 overflow-hidden">
+      <!-- 顶部工具栏 - 统一水平线 -->
+      <div class="toolbar mb-1 flex items-center justify-between gap-3">
+        <div class="toolbar-left flex items-center gap-2">
+          <!-- Prev Month 按钮 -->
+          <button class="nav-btn" @click="goToPreviousPeriod">
+            ← Prev {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }}
+          </button>
+
+          <!-- Add Booking 按钮 -->
+          <button class="add-booking-btn" @click="showBookingDialog">
+            Add Booking
+          </button>
+
+          <!-- Room Filter 按钮 -->
+          <div class="room-filter-wrapper">
+            <button class="room-filter-btn" @click="toggleRoomFilter">
+              Room Filter
+            </button>
+
+            <!-- 房间筛选下拉面板 -->
+            <div v-if="showRoomFilter" class="room-filter-dropdown" @click.stop>
+              <div class="filter-header">
+                <span class="filter-title">Show rooms:</span>
+                <div class="filter-actions">
+                  <button class="filter-action-btn" @click="selectConferenceOnly">Conference Rooms Only</button>
+                  <button class="filter-action-btn" @click="selectAllRooms">Select All</button>
+                  <button class="filter-action-btn" @click="clearAllRooms">Clear All</button>
+                </div>
+              </div>
+
+              <div class="filter-body">
+                <div class="filter-section">
+                  <h4 class="section-title">Conference & Discussion</h4>
+                  <div class="room-list">
+                    <label v-for="room in conferenceRooms" :key="room.id" class="room-checkbox">
+                      <input type="checkbox" v-model="room.selected" />
+                      <span>{{ room.name }}</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="filter-section">
+                  <h4 class="section-title">Other Venues</h4>
+                  <div class="room-list">
+                    <label v-for="room in otherVenues" :key="room.id" class="room-checkbox">
+                      <input type="checkbox" v-model="room.selected" />
+                      <span>{{ room.name }}</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="toolbar-right flex flex-col md:flex-row items-center gap-3">
+        <!-- 日期居中显示 + Today按钮 -->
+        <div class="flex items-center gap-2 relative">
+          <div class="date-display-wrapper">
+            <h3
+              class="text-lg font-semibold text-gray-800 cursor-pointer hover:text-[#00723a] transition-colors"
+              @click="toggleDatePicker"
+            >
+              {{ dateRangeDisplay }}
+            </h3>
+
+            <!-- 日期选择器下拉面板 - 只显示日历 -->
+            <div v-if="showDatePicker" class="date-picker-dropdown" @click.stop>
+              <div class="date-picker-calendar">
+                <!-- 自定义日历头部 -->
+                <div class="calendar-header">
+                  <button class="nav-arrow-btn" @click="changeYear(-1)">‹‹</button>
+                  <button class="nav-arrow-btn" @click="changeMonth(-1)">‹</button>
+                  <span class="calendar-title">{{ calendarTitle }}</span>
+                  <button class="nav-arrow-btn" @click="changeMonth(1)">›</button>
+                  <button class="nav-arrow-btn" @click="changeYear(1)">››</button>
+                </div>
+
+                <!-- 日历表格 -->
+                <div class="calendar-body">
+                  <div class="weekday-row">
+                    <div v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="day" class="weekday-cell">
+                      {{ day }}
+                    </div>
+                  </div>
+                  <div class="dates-grid">
+                    <div
+                      v-for="(day, index) in calendarDays"
+                      :key="index"
+                      class="date-cell-picker"
+                      :class="{
+                        'is-other-month': day.isOtherMonth,
+                        'is-today': day.isToday,
+                        'is-selected': day.isSelected
+                      }"
+                      @click="selectDate(day.date)"
+                    >
+                      {{ day.day }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button class="today-btn" @click="goToToday">
+            Today
+          </button>
+        </div>
+
+        <div class="toolbar-right flex items-center gap-2">
           <!-- 视图切换 -->
           <div class="view-switcher flex gap-2">
-            <el-button
-              :type="currentView === 'day' ? 'primary' : 'default'"
-              size="small"
+            <button
+              :class="['view-btn', { active: currentView === 'day' }]"
               @click="currentView = 'day'"
             >
               Day
-            </el-button>
-            <el-button
-              :type="currentView === 'week' ? 'primary' : 'default'"
-              size="small"
+            </button>
+            <button
+              :class="['view-btn', { active: currentView === 'week' }]"
               @click="currentView = 'week'"
             >
               Week
-            </el-button>
-            <el-button
-              :type="currentView === 'month' ? 'primary' : 'default'"
-              size="small"
+            </button>
+            <button
+              :class="['view-btn', { active: currentView === 'month' }]"
               @click="currentView = 'month'"
             >
               Month
-            </el-button>
+            </button>
           </div>
 
-          <!-- 新增预订按钮 -->
-          <el-button type="warning" @click="showBookingDialog">
-            <font-awesome-icon icon="plus" class="mr-2" />
-            Add Booking
-          </el-button>
+          <!-- Next Month 按钮 -->
+          <button class="nav-btn" @click="goToNextPeriod">
+            Next {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }} →
+          </button>
         </div>
       </div>
 
-      <!-- 日期导航 -->
-      <div class="date-nav mb-6 flex items-center justify-between">
-        <el-button type="text" @click="goToPreviousPeriod">
-          <font-awesome-icon icon="chevron-left" /> Prev {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }}
-        </el-button>
-        <h3 class="text-lg font-semibold text-gray-800">
-          {{ dateRangeDisplay }}
-        </h3>
-        <el-button type="text" @click="goToNextPeriod">
-          Next {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }} <font-awesome-icon icon="chevron-right" />
-        </el-button>
-      </div>
-
       <!-- 日历内容区域 -->
-      <div class="calendar-container flex-1 overflow-y-auto">
+      <div class="calendar-container flex-1 overflow-hidden">
         <!-- 月视图 -->
-        <div v-if="currentView === 'month'" class="month-view">
+        <div v-if="currentView === 'month'" class="month-view h-full">
           <CalendarMonth
             :current-date="currentDate"
             :bookings="bookings"
@@ -78,7 +161,7 @@
         </div>
 
         <!-- 周视图 -->
-        <div v-else-if="currentView === 'week'" class="week-view">
+        <div v-else-if="currentView === 'week'" class="week-view h-full overflow-y-auto">
           <CalendarWeek
             :current-date="currentDate"
             :bookings="bookings"
@@ -87,18 +170,23 @@
         </div>
 
         <!-- 日视图 -->
-        <div v-else-if="currentView === 'day'" class="day-view">
+        <div v-else-if="currentView === 'day'" class="day-view h-full overflow-y-auto relative">
           <CalendarDay
             :current-date="currentDate"
             :bookings="filteredDayBookings"
             @time-slot-click="openBookingDialog"
           />
+
+          <!-- 空状态固定在可视区域中央 -->
+          <div v-if="filteredDayBookings.length === 0" class="empty-state-fixed">
+            <p class="empty-text">No bookings for this day</p>
+          </div>
         </div>
       </div>
     </main>
 
     <!-- 新增/编辑预订对话框 -->
-    <BookingDialog
+    <VenueBookingDialog
       :visible="dialogVisible"
       :booking="editingBooking"
       :room-type="roomType"
@@ -118,7 +206,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppHeader from '../components/AppHeader.vue'
@@ -126,7 +214,7 @@ import BookingSteps from '../components/BookingSteps.vue'
 import CalendarMonth from '../components/CalendarMonth.vue'
 import CalendarWeek from '../components/CalendarWeek.vue'
 import CalendarDay from '../components/CalendarDay.vue'
-import BookingDialog from '../components/BookingDialog.vue'
+import VenueBookingDialog from '../components/VenueBookingDialog.vue'
 import BookingDetailDialog from '../components/BookingDetailDialog.vue'
 // import { getBookingsByMonth, getBookingsByWeek, getBookingsByDate } from '../api/calendar'
 
@@ -134,7 +222,7 @@ const router = useRouter()
 const route = useRoute()
 
 // 视图类型
-const currentView = ref('month')
+const currentView = ref('week')
 
 // 当前日期
 const currentDate = ref(new Date())
@@ -151,13 +239,93 @@ const detailDialogVisible = ref(false)
 const editingBooking = ref(null)
 const selectedBooking = ref(null)
 const selectedTime = ref(null)
+const showDatePicker = ref(false)
+const pickerDate = ref(new Date()) // 日历选择器当前显示的月份
+const showRoomFilter = ref(false)
 
-// 房间类型标签
-const roomTypeLabel = computed(() => {
-  return roomType.value === 'conference'
-    ? 'Conference Rooms & Discussion Rooms'
-    : 'Other Venues'
+// 房间列表
+const conferenceRooms = ref([
+  { id: 1, name: 'Conference Room 1', selected: true },
+  { id: 2, name: 'Conference Room 2', selected: true },
+  { id: 3, name: 'Conference Room 3', selected: true },
+  { id: 4, name: 'Discussion Room', selected: false }
+])
+
+const otherVenues = ref([
+  { id: 5, name: 'Function Room', selected: false },
+  { id: 6, name: 'Lecture Theatre', selected: false },
+  { id: 7, name: 'Auditorium', selected: false }
+])
+
+// 日历标题
+const calendarTitle = computed(() => {
+  return pickerDate.value.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 })
+
+// 日历天数数组
+const calendarDays = computed(() => {
+  const year = pickerDate.value.getFullYear()
+  const month = pickerDate.value.getMonth()
+
+  // 当月第一天和最后一天
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+
+  // 当月第一天是星期几
+  const firstDayOfWeek = firstDay.getDay()
+
+  // 上个月需要显示的天数
+  const prevMonthLastDay = new Date(year, month, 0).getDate()
+
+  const days = []
+
+  // 上个月的日期
+  for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+    const day = prevMonthLastDay - i
+    const date = new Date(year, month - 1, day)
+    days.push({
+      day,
+      date,
+      isOtherMonth: true,
+      isToday: isSameDay(date, new Date()),
+      isSelected: isSameDay(date, currentDate.value)
+    })
+  }
+
+  // 当月的日期
+  for (let i = 1; i <= lastDay.getDate(); i++) {
+    const date = new Date(year, month, i)
+    days.push({
+      day: i,
+      date,
+      isOtherMonth: false,
+      isToday: isSameDay(date, new Date()),
+      isSelected: isSameDay(date, currentDate.value)
+    })
+  }
+
+  // 下个月的日期（补齐6行）
+  const remainingDays = 42 - days.length
+  for (let i = 1; i <= remainingDays; i++) {
+    const date = new Date(year, month + 1, i)
+    days.push({
+      day: i,
+      date,
+      isOtherMonth: true,
+      isToday: isSameDay(date, new Date()),
+      isSelected: isSameDay(date, currentDate.value)
+    })
+  }
+
+  return days
+})
+
+// 判断是否是同一天
+function isSameDay(date1, date2) {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate()
+}
 
 // 日期范围显示
 const dateRangeDisplay = computed(() => {
@@ -214,6 +382,105 @@ function goToNextPeriod() {
     date.setDate(date.getDate() + 1)
   }
   currentDate.value = date
+}
+
+// 返回今天
+function goToToday() {
+  currentDate.value = new Date()
+}
+
+// 切换日期选择器
+function toggleDatePicker(event) {
+  event.stopPropagation()
+  showDatePicker.value = !showDatePicker.value
+
+  // 打开时同步选择器日期
+  if (showDatePicker.value) {
+    pickerDate.value = new Date(currentDate.value)
+    setTimeout(() => {
+      document.addEventListener('click', handleClickOutside, { once: false })
+    }, 0)
+  } else {
+    document.removeEventListener('click', handleClickOutside)
+  }
+}
+
+// 改变年份
+function changeYear(offset) {
+  const newDate = new Date(pickerDate.value)
+  newDate.setFullYear(newDate.getFullYear() + offset)
+  pickerDate.value = newDate
+}
+
+// 改变月份
+function changeMonth(offset) {
+  const newDate = new Date(pickerDate.value)
+  newDate.setMonth(newDate.getMonth() + offset)
+  pickerDate.value = newDate
+}
+
+// 选择日期
+function selectDate(date) {
+  currentDate.value = new Date(date)
+  // 不自动关闭选择器，让用户手动关闭
+}
+
+// 点击外部关闭日期选择器
+function handleClickOutside(event) {
+  const dropdown = document.querySelector('.date-picker-dropdown')
+  const dateTitle = event.target.closest('.date-display-wrapper')
+
+  if (!dropdown?.contains(event.target) && !dateTitle) {
+    showDatePicker.value = false
+    document.removeEventListener('click', handleClickOutside)
+  }
+}
+
+// 切换房间筛选器
+function toggleRoomFilter(event) {
+  event.stopPropagation()
+  showRoomFilter.value = !showRoomFilter.value
+
+  if (showRoomFilter.value) {
+    setTimeout(() => {
+      document.addEventListener('click', handleRoomFilterClickOutside, { once: false })
+    }, 0)
+  } else {
+    document.removeEventListener('click', handleRoomFilterClickOutside)
+  }
+}
+
+// 点击外部关闭房间筛选器
+function handleRoomFilterClickOutside(event) {
+  const dropdown = document.querySelector('.room-filter-dropdown')
+  const filterBtn = event.target.closest('.room-filter-wrapper')
+
+  if (!dropdown?.contains(event.target) && !filterBtn) {
+    showRoomFilter.value = false
+    document.removeEventListener('click', handleRoomFilterClickOutside)
+  }
+}
+
+// 仅选择会议室
+function selectConferenceOnly() {
+  conferenceRooms.value.forEach(room => {
+    room.selected = room.name.includes('Conference Room')
+  })
+  otherVenues.value.forEach(room => {
+    room.selected = false
+  })
+}
+
+// 全选
+function selectAllRooms() {
+  conferenceRooms.value.forEach(room => room.selected = true)
+  otherVenues.value.forEach(room => room.selected = true)
+}
+
+// 清空
+function clearAllRooms() {
+  conferenceRooms.value.forEach(room => room.selected = false)
+  otherVenues.value.forEach(room => room.selected = false)
 }
 
 // 选择日期（从月视图）
@@ -334,15 +601,20 @@ onMounted(() => {
       color: '#f43f5e'
     }
   ]
-  
+
   console.log('Calendar view initialized with roomType:', roomType.value)
+})
+
+// 组件卸载时移除监听器
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', handleRoomFilterClickOutside)
 })
 </script>
 
 <style scoped>
 .calendar-page {
-  min-height: 100vh;
-  height: auto;
+  height: 100vh;
 }
 
 .calendar-main {
@@ -354,17 +626,420 @@ onMounted(() => {
   padding: 1rem;
   border-radius: 0.75rem;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
 }
 
 .calendar-container {
   background-color: white;
   border-radius: 0.75rem;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  padding: 1.5rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.month-view {
+  min-height: 0;
+}
+
+.week-view::-webkit-scrollbar {
+  width: 8px;
+}
+
+.week-view::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.week-view::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.week-view::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.day-view::-webkit-scrollbar {
+  width: 8px;
+}
+
+.day-view::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.day-view::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.day-view::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.empty-state-fixed {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.empty-state-fixed .empty-text {
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: #9ca3af;
+  margin: 0;
 }
 
 .view-switcher {
   display: flex;
   gap: 0.5rem;
 }
+
+/* Add Booking Button - Green background with white text */
+.add-booking-btn {
+  background-color: #00723a;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-booking-btn:hover {
+  background-color: #005a2e;
+}
+
+/* View Switcher Buttons - Equal width, green when active, gray when inactive */
+.view-btn {
+  background-color: #9ca3af;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  min-width: 60px;
+}
+
+.view-btn:hover {
+  background-color: #6b7280;
+}
+
+.view-btn.active {
+  background-color: #00723a;
+}
+
+.view-btn.active:hover {
+  background-color: #005a2e;
+}
+
+/* Navigation Buttons - Orange background with white text */
+.nav-btn {
+  background-color: #f97316;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.nav-btn:hover {
+  background-color: #ea580c;
+}
+
+/* Today Button - Blue background with white text */
+.today-btn {
+  background-color: #3b82f6;
+  color: white;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.25rem;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.today-btn:hover {
+  background-color: #2563eb;
+}
+
+.date-display-wrapper {
+  position: relative;
+}
+
+.date-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.date-picker-dropdown :deep(.el-date-picker) {
+  border: none;
+  box-shadow: none;
+}
+
+.date-picker-dropdown :deep(.el-picker-panel) {
+  border: none;
+  box-shadow: none;
+}
+
+.date-picker-calendar {
+  padding: 0;
+  min-width: 320px;
+  background: white;
+  border-radius: 0.5rem;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.calendar-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  flex: 1;
+  text-align: center;
+}
+
+.nav-arrow-btn {
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.nav-arrow-btn:hover {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.calendar-body {
+  padding: 12px;
+}
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.weekday-cell {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 8px 4px;
+}
+
+.dates-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.date-cell-picker {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  color: #374151;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.date-cell-picker:hover {
+  background-color: #d6f3c5;
+}
+
+.date-cell-picker.is-other-month {
+  color: #d1d5db;
+}
+
+.date-cell-picker.is-today {
+  background-color: #00723a;
+  color: white;
+  font-weight: 700;
+}
+
+.date-cell-picker.is-selected {
+  background-color: #00723a;
+  color: white;
+  font-weight: 700;
+}
+
+.date-cell-picker.is-selected:hover {
+  background-color: #005a2e;
+}
+
+.date-cell-picker.is-today:hover {
+  background-color: #005a2e;
+}
+
+/* Room Filter Button */
+.room-filter-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.room-filter-btn {
+  background-color: #6b7280;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.room-filter-btn:hover {
+  background-color: #4b5563;
+}
+
+.room-filter-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 1000;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+  min-width: 700px;
+  animation: slideDown 0.2s ease-out;
+}
+
+.filter-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.filter-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.filter-action-btn {
+  background-color: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.filter-action-btn:hover {
+  background-color: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+.filter-body {
+  padding: 20px;
+  display: flex;
+  gap: 32px;
+}
+
+.filter-section {
+  flex: 1;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #00723a;
+  margin: 0 0 14px 0;
+}
+
+.room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.room-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  color: #374151;
+}
+
+.room-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #00723a;
+}
+
+.room-checkbox:hover {
+  color: #00723a;
+}
+
 </style>

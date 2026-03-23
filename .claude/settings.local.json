@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(mv BookingDetailDialog.vue VenueBookingDetailDialog.vue)",
+      "Bash(mv CalendarDay.vue VenueCalendarDay.vue)",
+      "Bash(mv CalendarMonth.vue VenueCalendarMonth.vue)",
+      "Bash(mv CalendarWeek.vue VenueCalendarWeek.vue)"
     ]
   }
 }

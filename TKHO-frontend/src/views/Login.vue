@@ -207,7 +207,7 @@ const handleLogin = async () => {
         ElMessage.success('Login successful')
         // 根据选择的系统跳转到对应页面
         if (loginForm.system === 'parking') {
-          router.push('/evBooking')
+          router.push('/evBooking/Calendar')
         } else if (loginForm.system === 'room') {
           router.push('/VenueBooking')
         } else if (loginForm.system === 'admin') {

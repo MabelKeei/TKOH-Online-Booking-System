@@ -1,0 +1,109 @@
+/* Global styles for Element Plus Date Picker - Green Theme */
+
+/* Override Element Plus CSS variables */
+.el-picker__popper {
+  --el-color-primary: #00723a !important;
+  --el-color-primary-light-3: #059669 !important;
+  --el-color-primary-light-5: #10b981 !important;
+  --el-color-primary-light-7: #34d399 !important;
+  --el-color-primary-light-8: #6ee7b7 !important;
+  --el-color-primary-light-9: #f0fdf4 !important;
+  z-index: 2000 !important;
+  border: 2px solid #00723a !important;
+}
+
+/* Date table cells */
+.el-date-table td.today span {
+  color: #00723a !important;
+  font-weight: 700 !important;
+}
+
+.el-date-table td.current:not(.disabled) span {
+  background-color: #00723a !important;
+  color: white !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+.el-date-table td.start-date span,
+.el-date-table td.end-date span {
+  background-color: #00723a !important;
+  color: #ffffff !important;
+  font-weight: 900 !important;
+  font-size: 16px !important;
+  text-shadow:
+    0 0 6px rgba(255, 255, 255, 0.6),
+    0 1px 3px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(0, 114, 58, 0.3) !important;
+}
+
+/* More specific selectors for start and end dates */
+.el-date-table td.start-date.in-range span,
+.el-date-table td.end-date.in-range span,
+.el-date-table td.start-date:not(.disabled) span,
+.el-date-table td.end-date:not(.disabled) span,
+.el-picker__popper .el-date-table td.start-date span,
+.el-picker__popper .el-date-table td.end-date span {
+  color: #ffffff !important;
+  background-color: #00723a !important;
+  font-weight: 900 !important;
+  text-shadow:
+    0 0 6px rgba(255, 255, 255, 0.6),
+    0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+.el-date-table td.in-range div {
+  background-color: #d1fae5 !important;
+}
+
+.el-date-table td.in-range span {
+  color: #00723a !important;
+  font-weight: 600 !important;
+}
+
+/* Override in-range color for start and end dates */
+.el-date-table td.start-date.in-range span,
+.el-date-table td.end-date.in-range span {
+  color: #ffffff !important;
+  font-weight: 900 !important;
+}
+
+.el-date-table td.available:hover {
+  color: #00723a !important;
+}
+
+.el-date-table td.available:hover span {
+  background-color: #f0fdf4 !important;
+  color: #00723a !important;
+  font-weight: 600 !important;
+}
+
+/* Month and year tables */
+.el-month-table td.current:not(.disabled) .cell,
+.el-year-table td.current:not(.disabled) .cell {
+  background-color: #00723a !important;
+  color: white !important;
+  font-weight: 700 !important;
+}
+
+.el-month-table td .cell:hover,
+.el-year-table td .cell:hover {
+  color: #00723a !important;
+}
+
+/* Navigation buttons */
+.el-picker-panel__icon-btn:hover {
+  color: #00723a !important;
+}
+
+/* Time picker */
+.el-time-panel__btn.confirm {
+  color: #00723a !important;
+}
+
+.el-time-spinner__item.active:not(.disabled) {
+  color: #00723a !important;
+  font-weight: 700 !important;
+}
+

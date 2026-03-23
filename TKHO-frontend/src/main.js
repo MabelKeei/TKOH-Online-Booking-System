@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import router from './router'
 import App from './App.vue'
 import './style.css'
+import './assets/datepicker-theme.css'
 
 // 注册 Font Awesome 图标
 library.add(fas)

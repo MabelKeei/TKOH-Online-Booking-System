@@ -162,7 +162,7 @@
       <div class="calendar-container flex-1 overflow-hidden">
         <!-- 月视图 -->
         <div v-if="currentView === 'month'" class="month-view h-full">
-          <CalendarMonth
+          <VenueCalendarMonth
             :current-date="currentDate"
             :bookings="bookings"
             :selected-rooms="selectedRoomsList"
@@ -172,7 +172,7 @@
 
         <!-- 周视图 -->
         <div v-else-if="currentView === 'week'" class="week-view h-full overflow-y-auto">
-          <CalendarWeek
+          <VenueCalendarWeek
             :current-date="currentDate"
             :bookings="bookings"
             :selected-rooms="selectedRoomsList"
@@ -183,7 +183,7 @@
 
         <!-- 日视图 -->
         <div v-else-if="currentView === 'day'" class="day-view h-full overflow-y-auto relative">
-          <CalendarDay
+          <VenueCalendarDay
             :current-date="currentDate"
             :bookings="filteredDayBookings"
             :selected-rooms="selectedRoomsList"
@@ -212,7 +212,7 @@
     />
 
     <!-- 预订详情对话框 -->
-    <BookingDetailDialog
+    <VenueBookingDetailDialog
       :visible="detailDialogVisible"
       :booking="selectedBooking"
       @close="detailDialogVisible = false"
@@ -227,11 +227,11 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppHeader from '../components/AppHeader.vue'
 import BookingSteps from '../components/BookingSteps.vue'
-import CalendarMonth from '../components/CalendarMonth.vue'
-import CalendarWeek from '../components/CalendarWeek.vue'
-import CalendarDay from '../components/CalendarDay.vue'
+import VenueCalendarMonth from '../components/VenueCalendarMonth.vue'
+import VenueCalendarWeek from '../components/VenueCalendarWeek.vue'
+import VenueCalendarDay from '../components/VenueCalendarDay.vue'
 import VenueBookingDialog from '../components/VenueBookingDialog.vue'
-import BookingDetailDialog from '../components/BookingDetailDialog.vue'
+import VenueBookingDetailDialog from '../components/VenueBookingDetailDialog.vue'
 // import { getBookingsByMonth, getBookingsByWeek, getBookingsByDate } from '../api/calendar'
 
 const router = useRouter()

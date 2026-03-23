@@ -1,149 +1,487 @@
 <template>
-  <!-- EV Booking 页面，优先使用 CSS 自适应高度 -->
-  <div class="booking-page bg-[#f5f5f5] flex flex-col overflow-hidden">
-    <!-- 顶部系统 Header -->
+  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[52px]">
     <AppHeader @logout="onLogout" />
 
-    <!-- 进度步骤条（简化版） -->
-    <div class="w-full bg-white shadow-sm">
-      <div
-        class="w-full max-w-5xl lg:max-w-6xl 2xl:max-w-7xl mx-auto
-               flex justify-center gap-2 py-2
-               text-xs md:text-sm lg:text-base font-medium"
-      >
-        <div class="step-item step-item--done">Log in</div>
-        <div class="step-item step-item--active">Booking</div>
-        <div class="step-item">Submission</div>
-        <div class="step-item">Confirmation</div>
-      </div>
-    </div>
-
     <!-- 主体内容 -->
-    <main class="flex-1 flex flex-col items-center justify-center px-2 md:px-3 lg:px-4 py-2 md:py-3">
-      <h2 class="text-xl md:text-2xl lg:text-3xl 2xl:text-4xl font-semibold text-gray-900 mb-6 md:mb-8 text-center">
-        What EV would you like to book?
-      </h2>
+    <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-2 md:py-3 overflow-hidden">
+      <!-- 日历内容区域 -->
+      <div class="calendar-container flex-1 overflow-auto">
+        <div class="calendar-wrapper">
+          <!-- 周视图 -->
+          <div v-for="week in weeks" :key="week.id" class="week-section">
+            <div class="week-header">
+              {{ week.dateRange }}
+            </div>
+            <div class="week-grid">
+              <!-- 表头 -->
+              <div class="grid-header">
+                <div v-for="day in week.days" :key="day.date" class="day-header" :class="{ 'is-today': day.isToday }">
+                  <div class="day-name">{{ day.dayName }}</div>
+                  <div class="day-number">{{ day.dayNumber }}</div>
+                </div>
+              </div>
 
-      <div class="flex flex-col md:flex-row gap-6 md:gap-10 2xl:gap-14">
-        <!-- 左侧卡片：Pool Cars -->
-        <section class="ev-card w-[220px] md:w-[260px] lg:w-[280px] 2xl:w-[320px]">
-          <h3 class="ev-card__title">Pool Cars</h3>
-          <div class="ev-card__grid">
-            <div
-              class="ev-card__image bg-cover bg-center"
-              style="background-image: url('https://via.placeholder.com/160x100?text=EV+1');"
-            ></div>
-            <div
-              class="ev-card__image bg-cover bg-center"
-              style="background-image: url('https://via.placeholder.com/160x100?text=EV+2');"
-            ></div>
-            <div
-              class="ev-card__image bg-cover bg-center"
-              style="background-image: url('https://via.placeholder.com/160x100?text=EV+3');"
-            ></div>
-            <div
-              class="ev-card__image bg-cover bg-center"
-              style="background-image: url('https://via.placeholder.com/160x100?text=EV+4');"
-            ></div>
+              <!-- 时间段行 -->
+              <div v-for="period in timePeriods" :key="period.id" class="time-row">
+                <div class="time-label">{{ period.label }}</div>
+                <div
+                  v-for="day in week.days"
+                  :key="`${day.date}-${period.id}`"
+                  class="time-cell"
+                  :class="getAvailabilityClass(day.date, period.id)"
+                  @click="selectTimeSlot(day.date, period.id)"
+                >
+                  <div class="availability">{{ getAvailabilityText(day.date, period.id) }}</div>
+                </div>
+              </div>
+            </div>
           </div>
-          <el-button type="warning" class="ev-card__button" @click="goToPoolCars">
-            Book Now
-          </el-button>
-        </section>
-
-        <!-- 右侧卡片：Other EV / Chargers -->
-        <section class="ev-card w-[220px] md:w-[260px] lg:w-[280px] 2xl:w-[320px]">
-          <h3 class="ev-card__title">Other EV / Chargers</h3>
-          <div class="ev-card__grid">
-            <div
-              class="ev-card__image bg-cover bg-center"
-              style="background-image: url('https://via.placeholder.com/160x100?text=Charger+1');"
-            ></div>
-            <div
-              class="ev-card__image bg-cover bg-center"
-              style="background-image: url('https://via.placeholder.com/160x100?text=Charger+2');"
-            ></div>
-            <div
-              class="ev-card__image bg-cover bg-center"
-              style="background-image: url('https://via.placeholder.com/160x100?text=EV+5');"
-            ></div>
-            <div
-              class="ev-card__image bg-cover bg-center"
-              style="background-image: url('https://via.placeholder.com/160x100?text=EV+6');"
-            ></div>
-          </div>
-          <el-button type="warning" class="ev-card__button" @click="goToOtherEV">
-            Book Now
-          </el-button>
-        </section>
+        </div>
       </div>
     </main>
+
+    <!-- EV预订对话框 -->
+    <EVBookingDialog
+      :visible="dialogVisible"
+      :selected-date="selectedDate"
+      :selected-period="selectedPeriod"
+      :available-slots="bookings"
+      @close="closeDialog"
+      @confirm="handleBookingConfirm"
+    />
   </div>
 </template>
 
 <script setup>
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import AppHeader from '../components/AppHeader.vue'
+import EVBookingDialog from '../components/EVBookingDialog.vue'
 
 const router = useRouter()
 
-const goToPoolCars = () => {
-  // TODO: 跳转到 EV 车辆预定详情页
-  console.log('Go to EV pool cars booking')
+// 对话框状态
+const dialogVisible = ref(false)
+const selectedDate = ref('')
+const selectedPeriod = ref('')
+
+// 时间段定义
+const timePeriods = [
+  { id: 'am', label: 'AM' },
+  { id: 'pm', label: 'PM' },
+  { id: 'night', label: 'Night' }
+]
+
+// 预订数据（示例）
+const bookings = ref({})
+
+// 获取周开始日期（周日）
+function getWeekStart(date) {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = d.getDate() - day
+  d.setDate(diff)
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
-const goToOtherEV = () => {
-  // TODO: 跳转到其它 EV / 充电桩预定详情页
-  console.log('Go to other EV / chargers booking')
+// 生成两周的数据（固定显示未来14天）
+const weeks = computed(() => {
+  const result = []
+  const today = new Date()
+  const startDate = getWeekStart(today)
+
+  for (let weekIndex = 0; weekIndex < 2; weekIndex++) {
+    const weekStart = new Date(startDate)
+    weekStart.setDate(weekStart.getDate() + weekIndex * 7)
+
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekEnd.getDate() + 6)
+
+    const days = []
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStart)
+      date.setDate(date.getDate() + i)
+
+      const isToday = date.toDateString() === today.toDateString()
+
+      days.push({
+        date: date.toISOString().split('T')[0],
+        dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayNumber: String(date.getDate()).padStart(2, '0'),
+        isToday
+      })
+    }
+
+    result.push({
+      id: weekIndex,
+      dateRange: `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      days
+    })
+  }
+
+  return result
+})
+
+// 获取可用性数据
+function getAvailabilityData(date, period) {
+  const key = `${date}-${period}`
+  return bookings.value[key] || { available: 3, total: 3 }
 }
 
-const onLogout = () => {
+// 获取可用性文本
+function getAvailabilityText(date, period) {
+  const data = getAvailabilityData(date, period)
+  if (data.available === 0) {
+    return 'Full'
+  }
+  return `${data.available}/${data.total}`
+}
+
+// 获取可用性样式类
+function getAvailabilityClass(date, period) {
+  const data = getAvailabilityData(date, period)
+  if (data.available === 0) {
+    return 'is-full'
+  }
+  if (data.available === 1) {
+    return 'is-limited'
+  }
+  return ''
+}
+
+// 选择时间段
+function selectTimeSlot(date, period) {
+  const data = getAvailabilityData(date, period)
+  if (data.available === 0) {
+    ElMessage.warning('This time slot is fully booked')
+    return
+  }
+  selectedDate.value = date
+  selectedPeriod.value = period
+  dialogVisible.value = true
+}
+
+// 关闭对话框
+function closeDialog() {
+  dialogVisible.value = false
+  selectedDate.value = ''
+  selectedPeriod.value = ''
+}
+
+// 处理预订确认
+function handleBookingConfirm(bookingData) {
+  console.log('Booking confirmed:', bookingData)
+
+  // 更新预订数据
+  const key = `${bookingData.date}-${bookingData.timePeriod}`
+  const currentData = bookings.value[key] || { available: 3, total: 3 }
+  bookings.value[key] = {
+    ...currentData,
+    available: Math.max(0, currentData.available - 1)
+  }
+
+  closeDialog()
+  ElMessage.success('Booking created successfully!')
+}
+
+// 退出登录
+function onLogout() {
   router.push('/login')
 }
+
+// 初始化数据
+onMounted(() => {
+  const today = new Date()
+  const formatDate = (date) => date.toISOString().split('T')[0]
+
+  // 生成未来14天的mock数据
+  const mockData = {}
+
+  for (let i = 0; i < 14; i++) {
+    const date = new Date(today)
+    date.setDate(date.getDate() + i)
+    const dateStr = formatDate(date)
+
+    // 随机生成预订数据
+    const periods = ['am', 'pm', 'night']
+    periods.forEach(period => {
+      const key = `${dateStr}-${period}`
+      const random = Math.random()
+
+      if (random < 0.15) {
+        // 15% 概率已订满
+        mockData[key] = { available: 0, total: 3 }
+      } else if (random < 0.30) {
+        // 15% 概率仅剩1个
+        mockData[key] = { available: 1, total: 3 }
+      } else if (random < 0.50) {
+        // 20% 概率剩2个
+        mockData[key] = { available: 2, total: 3 }
+      } else {
+        // 50% 概率全部可用
+        mockData[key] = { available: 3, total: 3 }
+      }
+    })
+  }
+
+  bookings.value = mockData
+})
 </script>
 
 <style scoped>
-.booking-page {
-  /* 与 VenueBooking 保持一致：最小高度为一屏，高度根据内容自适应 */
-  min-height: 100vh;
-  height: auto;
-  padding-top: 52px;
+.calendar-page {
+  height: 100vh;
+  background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
+  position: relative;
 }
 
-.step-item {
-  @apply px-4 py-1 rounded-sm border border-transparent text-gray-700 bg-gray-100;
+.calendar-page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(0, 114, 58, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(0, 114, 58, 0.02) 0%, transparent 50%);
+  pointer-events: none;
 }
 
-.step-item--active {
-  @apply bg-orange-500 text-white;
+.calendar-main {
+  position: relative;
+  z-index: 1;
 }
 
-.step-item--done {
-  @apply bg-green-500 text-white;
+.calendar-container {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid rgba(0, 114, 58, 0.08);
+  transition: box-shadow 0.3s ease;
 }
 
-.ev-card {
-  @apply bg-[#d6f3c5] rounded-xl px-6 pt-5 pb-6 shadow-sm flex flex-col items-center;
-  /* 卡片宽度使用相对单位，保证在不同屏幕下良好显示 */
-  width: min(100vw - 2rem, 20rem);
+.calendar-container:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
-.ev-card__title {
-  @apply text-center text-base font-semibold text-gray-900 mb-4;
+.calendar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.ev-card__grid {
-  @apply grid grid-cols-2 gap-2 mb-4;
+.week-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.ev-card__image {
-  @apply rounded-md overflow-hidden bg-gray-300;
-  width: 100%;
-  aspect-ratio: 16 / 10;
+.week-header {
+  font-size: clamp(0.875rem, 2vw, 1.125rem);
+  font-weight: 600;
+  color: #111827;
+  text-align: center;
+  padding: 0.25rem;
 }
 
-.ev-card__button {
-  @apply w-full mt-1 !bg-orange-500 !border-orange-500 !text-white !font-semibold;
+.week-grid {
+  border: 2px solid #00723a;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: #00723a;
+}
+
+.day-header {
+  padding: clamp(0.375rem, 1.5vw, 0.75rem);
+  text-align: center;
+  color: white;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.day-header:last-child {
+  border-right: none;
+}
+
+.day-header.is-today {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.day-name {
+  font-size: clamp(0.625rem, 1.5vw, 0.875rem);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.day-number {
+  font-size: clamp(1rem, 3vw, 1.5rem);
+  font-weight: 700;
+}
+
+.time-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.time-row:last-child {
+  border-bottom: none;
+}
+
+.time-label {
+  display: none;
+}
+
+.time-cell {
+  padding: clamp(0.75rem, 2vw, 1.5rem) clamp(0.25rem, 1vw, 0.5rem);
+  text-align: center;
+  border-right: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.time-cell:last-child {
+  border-right: none;
+}
+
+.time-cell:hover:not(.is-full) {
+  background-color: #f3f4f6;
+}
+
+.time-cell.is-full {
+  background-color: #fecaca;
+  cursor: not-allowed;
+}
+
+.time-cell.is-full:hover {
+  background-color: #fca5a5;
+}
+
+.time-cell.is-limited {
+  background-color: #fef3c7;
+}
+
+.time-cell.is-limited:hover {
+  background-color: #fde68a;
+}
+
+.time-cell::before {
+  content: attr(data-period);
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  font-size: clamp(0.625rem, 1.5vw, 0.75rem);
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.time-row:nth-child(2) .time-cell::before {
+  content: 'AM';
+}
+
+.time-row:nth-child(3) .time-cell::before {
+  content: 'PM';
+}
+
+.time-row:nth-child(4) .time-cell::before {
+  content: 'Night';
+}
+
+.availability {
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  font-weight: 600;
+  color: #374151;
+}
+
+.time-cell.is-full .availability {
+  color: #dc2626;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.time-cell.is-limited .availability {
+  color: #d97706;
+  font-weight: 700;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .calendar-container {
+    padding: 0.5rem;
+    border-radius: 6px;
+  }
+
+  .calendar-wrapper {
+    gap: 0.75rem;
+  }
+
+  .week-grid {
+    border-width: 1px;
+  }
+
+  .time-cell {
+    min-height: 2.5rem;
+  }
+
+  .time-cell::before {
+    top: 0.125rem;
+    left: 0.125rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .calendar-container {
+    padding: 0.375rem;
+  }
+
+  .week-section {
+    gap: 0.125rem;
+  }
+
+  .day-header {
+    gap: 0;
+  }
+
+  .time-cell {
+    min-height: 2rem;
+  }
+}
+
+/* 大屏幕优化 */
+@media (min-width: 1536px) {
+  .calendar-container {
+    padding: 1.5rem;
+  }
+
+  .calendar-wrapper {
+    gap: 1.5rem;
+  }
+
+  .week-section {
+    gap: 0.5rem;
+  }
 }
 </style>
 

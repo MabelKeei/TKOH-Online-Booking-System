@@ -47,6 +47,26 @@ const routes = [
     }
   },
   {
+    path: '/evBooking/Calendar',
+    name: 'EVBookingCalendar',
+    component: () => import('../views/EVBooking.vue'),
+    meta: {
+      title: 'EV Booking'
+    }
+  },
+  {
+    path: '/EVBooking/Calendar',
+    redirect: '/evBooking/Calendar'
+  },
+  {
+    path: '/evBooking/ManageBooking',
+    name: 'EVManageBooking',
+    component: () => import('../views/EVManageBooking.vue'),
+    meta: {
+      title: 'Manage EV Booking'
+    }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('../views/Login.vue'),

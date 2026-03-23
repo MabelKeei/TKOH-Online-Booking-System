@@ -5,7 +5,7 @@ node_modules
 # 打包目录
 dist
 
-*/public/
+# */public/
 *.rar
 *.7z
 

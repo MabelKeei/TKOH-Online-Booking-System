@@ -2,9 +2,9 @@
   <div class="login-container flex flex-col min-h-screen bg-[#f8ecdd]">
     <header class="login-header w-full">
       <div class="header-content">
-        <img src="../assets/TKOH_logo.png" alt="TKHO Logo" class="login-header-logo" />
+        <img src="../assets/TKOH_logo.png" alt="TKOH Logo" class="login-header-logo" />
         <h1 class="login-title">
-          <span class="title-main">TKHO</span>
+          <span class="title-main">TKOH</span>
           <span class="title-subtitle">GA Service Center</span>
         </h1>
       </div>

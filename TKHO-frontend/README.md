@@ -1,4 +1,4 @@
-# TKHO 医院资源预定系统 - 前端项目
+# TKOH 医院资源预定系统 - 前端项目
 
 ## 项目简介
 
@@ -29,7 +29,7 @@
 ## 项目结构
 
 ```
-TKHO-frontend/
+TKOH-frontend/
 ├── public/                 # 静态资源
 ├── src/
 │   ├── api/               # API 接口

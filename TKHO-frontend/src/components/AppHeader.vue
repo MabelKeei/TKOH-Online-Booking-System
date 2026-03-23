@@ -1,7 +1,7 @@
 <template>
   <header class="app-header w-full bg-[#00723a] text-white flex items-center justify-between px-8 py-3">
     <div class="header-left flex items-center gap-3">
-      <img src="../assets/TKOH_logo.png" alt="TKHO Logo" class="header-logo" />
+      <img src="../assets/TKOH_logo.png" alt="TKOH Logo" class="header-logo" />
       <h1 class="text-lg font-semibold">
         {{ headerTitle }}
       </h1>
@@ -92,7 +92,7 @@ const isCalendarNavActive = computed(() => {
 
 // 页面标题
 const headerTitle = computed(() => {
-  return isVenuePage.value ? 'TKHO Venue Booking' : 'TKHO EV Booking'
+  return isVenuePage.value ? 'TKOH Venue Booking' : 'TKOH EV Booking'
 })
 
 // 切换按钮文字

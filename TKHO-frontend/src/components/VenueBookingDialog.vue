@@ -325,7 +325,7 @@ const form = ref({
   toolsMaterials: '',
   specialRequests: '',
   fullName: 'Karen SHEN',
-  department: 'TKHO ASM (GA)',
+  department: 'TKOH ASM (GA)',
   contactPhone: '1234 5678',
   contactEmail: 'karenshen@ha.org.hk'
 })
@@ -391,7 +391,7 @@ function initializeForm() {
       toolsMaterials: '',
       specialRequests: '',
       fullName: 'Karen SHEN',
-      department: 'TKHO ASM (GA)',
+      department: 'TKOH ASM (GA)',
       contactPhone: '1234 5678',
       contactEmail: 'karenshen@ha.org.hk'
     }

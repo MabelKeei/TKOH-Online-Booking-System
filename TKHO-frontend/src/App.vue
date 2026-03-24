@@ -20,7 +20,7 @@ onMounted(() => {
 
 <style scoped>
 #app {
-  min-height: 100vh;
+  min-height: var(--zoom-vh);
   background-color: #f5f5f5;
 }
 </style>

@@ -232,7 +232,7 @@ onMounted(() => {
 
 <style scoped>
 .calendar-page {
-  height: 100vh;
+  height: var(--zoom-vh);
   background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
   position: relative;
 }
@@ -426,8 +426,8 @@ onMounted(() => {
   font-weight: 700;
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
+/* Responsive adjustments */
+@media (max-width: 389px), (min-width: 390px) and (max-width: 767px) {
   .calendar-container {
     padding: 0.5rem;
     border-radius: 6px;
@@ -451,7 +451,7 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 389px) {
   .calendar-container {
     padding: 0.375rem;
   }
@@ -469,8 +469,8 @@ onMounted(() => {
   }
 }
 
-/* 大屏幕优化 */
-@media (min-width: 1536px) {
+/* Responsive adjustments */
+@media (min-width: 2240px) {
   .calendar-container {
     padding: 1.5rem;
   }
@@ -484,4 +484,8 @@ onMounted(() => {
   }
 }
 </style>
+
+
+
+
 

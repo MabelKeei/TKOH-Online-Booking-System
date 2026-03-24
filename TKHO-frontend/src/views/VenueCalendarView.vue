@@ -2,28 +2,28 @@
   <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[52px]">
     <AppHeader @logout="onLogout" />
 
-    <!-- 进度步骤条 - 暂时隐藏 -->
+    <!-- Progress steps (temporarily hidden) -->
     <!-- <BookingSteps
       :steps="['Log in', 'Booking', 'Submission', 'Confirmation']"
       :current="1"
     /> -->
 
-    <!-- 主体内容 -->
+    <!-- Main content -->
     <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-2 md:py-3 overflow-hidden">
-      <!-- 顶部工具栏 - 统一水平线 -->
+      <!-- Top toolbar -->
       <div class="toolbar mb-1 flex items-center justify-between gap-3">
         <div class="toolbar-left flex items-center gap-2">
-          <!-- Prev Month 按钮 -->
+          <!-- Previous period -->
           <button class="nav-btn" @click="goToPreviousPeriod">
-            <span class="nav-arrow">←</span> Prev {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }}
+            <span class="nav-arrow">&larr;</span> Prev {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }}
           </button>
 
-          <!-- Add Booking 按钮 -->
+          <!-- Add booking -->
           <button class="add-booking-btn" @click="showBookingDialog">
             Add Booking
           </button>
 
-          <!-- Room Filter 按钮 -->
+          <!-- Room filter -->
           <div class="room-filter-wrapper">
             <button
               :class="['room-filter-btn', { active: showRoomFilter }]"
@@ -32,7 +32,7 @@
               Room Filter
             </button>
 
-            <!-- 房间筛选下拉面板 -->
+            <!-- Room filter dropdown -->
             <div v-if="showRoomFilter" class="room-filter-dropdown" @click.stop>
               <div class="filter-header">
                 <span class="filter-title">Show rooms:</span>
@@ -74,7 +74,7 @@
           </div>
         </div>
 
-        <!-- 日期居中显示 + Today按钮 -->
+        <!-- Center date display + today -->
         <div class="flex items-center gap-2 relative">
           <div class="date-display-wrapper">
             <h3
@@ -84,19 +84,19 @@
               {{ dateRangeDisplay }}
             </h3>
 
-            <!-- 日期选择器下拉面板 - 只显示日历 -->
+            <!-- Date picker dropdown -->
             <div v-if="showDatePicker" class="date-picker-dropdown" @click.stop>
               <div class="date-picker-calendar">
-                <!-- 自定义日历头部 -->
+                <!-- Calendar header -->
                 <div class="calendar-header">
-                  <button class="nav-arrow-btn" @click="changeYear(-1)">‹‹</button>
-                  <button class="nav-arrow-btn" @click="changeMonth(-1)">‹</button>
+                  <button class="nav-arrow-btn" @click="changeYear(-1)">&laquo;</button>
+                  <button class="nav-arrow-btn" @click="changeMonth(-1)">&lsaquo;</button>
                   <span class="calendar-title">{{ calendarTitle }}</span>
-                  <button class="nav-arrow-btn" @click="changeMonth(1)">›</button>
-                  <button class="nav-arrow-btn" @click="changeYear(1)">››</button>
+                  <button class="nav-arrow-btn" @click="changeMonth(1)">&rsaquo;</button>
+                  <button class="nav-arrow-btn" @click="changeYear(1)">&raquo;</button>
                 </div>
 
-                <!-- 日历表格 -->
+                <!-- Calendar grid -->
                 <div class="calendar-body">
                   <div class="weekday-row">
                     <div v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="day" class="weekday-cell">
@@ -129,7 +129,7 @@
         </div>
 
         <div class="toolbar-right flex items-center gap-2">
-          <!-- 视图切换 -->
+          <!-- View switch -->
           <div class="view-switcher flex gap-2">
             <button
               :class="['view-btn', { active: currentView === 'day' }]"
@@ -151,16 +151,16 @@
             </button>
           </div>
 
-          <!-- Next Month 按钮 -->
+          <!-- Next period -->
           <button class="nav-btn" @click="goToNextPeriod">
-            Next {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }} <span class="nav-arrow">→</span>
+            Next {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }} <span class="nav-arrow">&rarr;</span>
           </button>
         </div>
       </div>
 
-      <!-- 日历内容区域 -->
+      <!-- Calendar content area -->
       <div class="calendar-container flex-1 overflow-hidden">
-        <!-- 月视图 -->
+        <!-- Month view -->
         <div v-if="currentView === 'month'" class="month-view h-full">
           <VenueCalendarMonth
             :current-date="currentDate"
@@ -170,7 +170,7 @@
           />
         </div>
 
-        <!-- 周视图 -->
+        <!-- Week view -->
         <div v-else-if="currentView === 'week'" class="week-view h-full overflow-y-auto">
           <VenueCalendarWeek
             :current-date="currentDate"
@@ -181,7 +181,7 @@
           />
         </div>
 
-        <!-- 日视图 -->
+        <!-- Day view -->
         <div v-else-if="currentView === 'day'" class="day-view h-full overflow-y-auto relative">
           <VenueCalendarDay
             :current-date="currentDate"
@@ -190,7 +190,7 @@
             @time-slot-click="openBookingDialog"
           />
 
-          <!-- 空状态固定在可视区域中央 -->
+          <!-- Empty state -->
           <div v-if="selectedRoomsList.length === 0" class="empty-state-fixed">
             <p class="empty-text">Please select at least one room from Room Filter</p>
           </div>
@@ -201,7 +201,7 @@
       </div>
     </main>
 
-    <!-- 新增/编辑预订对话框 -->
+    <!-- Create/Edit booking dialog -->
     <VenueBookingDialog
       :visible="dialogVisible"
       :booking="editingBooking"
@@ -211,7 +211,7 @@
       @close="closeBookingDialog"
     />
 
-    <!-- 预订详情对话框 -->
+    <!-- Booking detail dialog -->
     <VenueBookingDetailDialog
       :visible="detailDialogVisible"
       :booking="selectedBooking"
@@ -237,29 +237,29 @@ import VenueBookingDetailDialog from '../components/VenueBookingDetailDialog.vue
 const router = useRouter()
 const route = useRoute()
 
-// 视图类型
+// Current calendar view mode
 const currentView = ref('day')
 
-// 当前日期
+// Current anchor date
 const currentDate = ref(new Date())
 
-// 房间类型（从路由参数获取）
+// Room type from route query
 const roomType = ref(route.query.roomType || 'conference')
 
-// 预订列表
+// Booking dataset
 const bookings = ref([])
 
-// 对话框状态
+// Dialog and UI states
 const dialogVisible = ref(false)
 const detailDialogVisible = ref(false)
 const editingBooking = ref(null)
 const selectedBooking = ref(null)
 const selectedTime = ref(null)
 const showDatePicker = ref(false)
-const pickerDate = ref(new Date()) // 日历选择器当前显示的月份
+const pickerDate = ref(new Date()) // Month/year shown in the date picker
 const showRoomFilter = ref(false)
 
-// 房间列表（带颜色）
+// Room options and colors
 const conferenceRooms = ref([
   { id: 1, name: 'Conference Room 1', selected: true, color: '#3b82f6' },
   { id: 2, name: 'Conference Room 2', selected: true, color: '#10b981' },
@@ -273,36 +273,36 @@ const otherVenues = ref([
   { id: 7, name: 'Auditorium', selected: false, color: '#8b5cf6' }
 ])
 
-// 根据房间名称获取颜色
+// Resolve display color by room name
 function getRoomColor(roomName) {
   const allRooms = [...conferenceRooms.value, ...otherVenues.value]
   const room = allRooms.find(r => r.name === roomName)
   return room?.color || '#3b82f6'
 }
 
-// 日历标题
+// Date-picker title text
 const calendarTitle = computed(() => {
   return pickerDate.value.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 })
 
-// 日历天数数组
+// Build fixed 6-row calendar grid
 const calendarDays = computed(() => {
   const year = pickerDate.value.getFullYear()
   const month = pickerDate.value.getMonth()
 
-  // 当月第一天和最后一天
+  // First and last day of current month
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
 
-  // 当月第一天是星期几
+  // Weekday index of first day
   const firstDayOfWeek = firstDay.getDay()
 
-  // 上个月需要显示的天数
+  // Last day number of previous month
   const prevMonthLastDay = new Date(year, month, 0).getDate()
 
   const days = []
 
-  // 上个月的日期
+  // Fill leading dates from previous month
   for (let i = firstDayOfWeek - 1; i >= 0; i--) {
     const day = prevMonthLastDay - i
     const date = new Date(year, month - 1, day)
@@ -315,7 +315,7 @@ const calendarDays = computed(() => {
     })
   }
 
-  // 当月的日期
+  // Fill current month dates
   for (let i = 1; i <= lastDay.getDate(); i++) {
     const date = new Date(year, month, i)
     days.push({
@@ -327,7 +327,7 @@ const calendarDays = computed(() => {
     })
   }
 
-  // 下个月的日期（补齐6行）
+  // Fill trailing dates to keep 42 cells
   const remainingDays = 42 - days.length
   for (let i = 1; i <= remainingDays; i++) {
     const date = new Date(year, month + 1, i)
@@ -343,14 +343,14 @@ const calendarDays = computed(() => {
   return days
 })
 
-// 判断是否是同一天
+// Compare two dates by day
 function isSameDay(date1, date2) {
   return date1.getFullYear() === date2.getFullYear() &&
          date1.getMonth() === date2.getMonth() &&
          date1.getDate() === date2.getDate()
 }
 
-// 日期范围显示
+// Header date range text
 const dateRangeDisplay = computed(() => {
   const date = currentDate.value
   if (currentView.value === 'month') {
@@ -365,7 +365,7 @@ const dateRangeDisplay = computed(() => {
   }
 })
 
-// 当天的预订列表
+// Bookings for current day
 const filteredDayBookings = computed(() => {
   return bookings.value.filter(booking => {
     const bookingDate = new Date(booking.date)
@@ -373,24 +373,24 @@ const filteredDayBookings = computed(() => {
   })
 })
 
-// 选中的房间列表
+// Currently selected rooms
 const selectedRoomsList = computed(() => {
   const allRooms = [...conferenceRooms.value, ...otherVenues.value]
   return allRooms.filter(room => room.selected)
 })
 
-// 获取周开始日期
+// Get week start (Sunday)
 function getWeekStart(date) {
   const d = new Date(date)
   const day = d.getDay()
-  // 周日作为一周起点：getDay() 中 Sun=0, Mon=1...
+  // getDay() uses Sunday=0, Monday=1...
   const diff = d.getDate() - day
   d.setDate(diff)
   d.setHours(0, 0, 0, 0)
   return d
 }
 
-// 上一个时期
+// Navigate to previous period
 function goToPreviousPeriod() {
   const date = new Date(currentDate.value)
   if (currentView.value === 'month') {
@@ -403,7 +403,7 @@ function goToPreviousPeriod() {
   currentDate.value = date
 }
 
-// 下一个时期
+// Navigate to next period
 function goToNextPeriod() {
   const date = new Date(currentDate.value)
   if (currentView.value === 'month') {
@@ -416,17 +416,17 @@ function goToNextPeriod() {
   currentDate.value = date
 }
 
-// 返回今天
+// Jump to today
 function goToToday() {
   currentDate.value = new Date()
 }
 
-// 切换日期选择器
+// Toggle date picker popup
 function toggleDatePicker(event) {
   event.stopPropagation()
   showDatePicker.value = !showDatePicker.value
 
-  // 打开时同步选择器日期
+  // Keep picker month in sync with current date
   if (showDatePicker.value) {
     pickerDate.value = new Date(currentDate.value)
     setTimeout(() => {
@@ -437,27 +437,26 @@ function toggleDatePicker(event) {
   }
 }
 
-// 改变年份
+// Change picker year
 function changeYear(offset) {
   const newDate = new Date(pickerDate.value)
   newDate.setFullYear(newDate.getFullYear() + offset)
   pickerDate.value = newDate
 }
 
-// 改变月份
+// Change picker month
 function changeMonth(offset) {
   const newDate = new Date(pickerDate.value)
   newDate.setMonth(newDate.getMonth() + offset)
   pickerDate.value = newDate
 }
 
-// 选择日期
+// Select date from picker
 function selectDate(date) {
   currentDate.value = new Date(date)
-  // 不自动关闭选择器，让用户手动关闭
 }
 
-// 点击外部关闭日期选择器
+// Close date picker when clicking outside
 function handleClickOutside(event) {
   const dropdown = document.querySelector('.date-picker-dropdown')
   const dateTitle = event.target.closest('.date-display-wrapper')
@@ -468,7 +467,7 @@ function handleClickOutside(event) {
   }
 }
 
-// 切换房间筛选器
+// Toggle room filter popup
 function toggleRoomFilter(event) {
   event.stopPropagation()
   showRoomFilter.value = !showRoomFilter.value
@@ -482,7 +481,7 @@ function toggleRoomFilter(event) {
   }
 }
 
-// 点击外部关闭房间筛选器
+// Close room filter when clicking outside
 function handleRoomFilterClickOutside(event) {
   const dropdown = document.querySelector('.room-filter-dropdown')
   const filterBtn = event.target.closest('.room-filter-wrapper')
@@ -493,7 +492,7 @@ function handleRoomFilterClickOutside(event) {
   }
 }
 
-// 仅选择会议室
+// Quick action: conference rooms only
 function selectConferenceOnly() {
   conferenceRooms.value.forEach(room => {
     room.selected = room.name.includes('Conference Room')
@@ -503,48 +502,48 @@ function selectConferenceOnly() {
   })
 }
 
-// 全选
+// Quick action: select all rooms
 function selectAllRooms() {
   conferenceRooms.value.forEach(room => room.selected = true)
   otherVenues.value.forEach(room => room.selected = true)
 }
 
-// 清空
+// Quick action: clear all rooms
 function clearAllRooms() {
   conferenceRooms.value.forEach(room => room.selected = false)
   otherVenues.value.forEach(room => room.selected = false)
 }
 
-// 选择日期（从月视图）
+// Switch to day view from month cell
 function selectDay(date) {
   currentDate.value = date
   currentView.value = 'day'
 }
 
-// 显示新增预订对话框
+// Open create booking dialog
 function showBookingDialog() {
   editingBooking.value = null
   selectedTime.value = null
   dialogVisible.value = true
 }
 
-// 打开预订对话框（带时间）
+// Open booking dialog from selected slot
 function openBookingDialog(timeInfo) {
   editingBooking.value = null
   selectedTime.value = timeInfo
   dialogVisible.value = true
 }
 
-// 关闭预订对话框
+// Close booking dialog
 function closeBookingDialog() {
   dialogVisible.value = false
   editingBooking.value = null
   selectedTime.value = null
 }
 
-// 处理预订确认
+// Handle booking create/update
 function handleBookingConfirm(bookingData) {
-  // 这里应该调用 API 保存预订
+  // TODO: persist booking via API
   bookings.value.push({
     id: Date.now(),
     ...bookingData,
@@ -554,7 +553,7 @@ function handleBookingConfirm(bookingData) {
   ElMessage.success('Booking added successfully!')
 }
 
-// 处理删除预订
+// Handle booking delete
 function handleDeleteBooking(bookingId) {
   ElMessageBox.confirm(
     'Are you sure to delete this booking?',
@@ -573,30 +572,30 @@ function handleDeleteBooking(bookingId) {
     .catch(() => {})
 }
 
-// 处理周视图预订点击
+// Open day view from week/month booking click
 function handleBookingClick(dayDate) {
   currentDate.value = new Date(dayDate)
   currentView.value = 'day'
 }
 
-// 退出登录
+// Logout handler
 function onLogout() {
   router.push('/login')
 }
 
-// 初始化数据
+// Initialize demo bookings
 onMounted(() => {
-  // 这里应该调用 API 获取预订数据
+  // TODO: fetch bookings from API
   // fetchBookings()
   
-  // 示例数据
+  // Demo dates
   const today = new Date()
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
   const nextWeek = new Date(today)
   nextWeek.setDate(nextWeek.getDate() + 7)
   
-  // 添加示例预订
+  // Demo data
   bookings.value = [
     {
       id: 1,
@@ -795,7 +794,7 @@ onMounted(() => {
   console.log('Calendar view initialized with roomType:', roomType.value)
 })
 
-// 组件卸载时移除监听器
+// Cleanup listeners on unmount
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('click', handleRoomFilterClickOutside)
@@ -804,7 +803,7 @@ onUnmounted(() => {
 
 <style scoped>
 .calendar-page {
-  height: 100vh;
+  height: var(--zoom-vh);
   background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
   position: relative;
 }

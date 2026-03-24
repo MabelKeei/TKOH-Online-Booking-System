@@ -1,0 +1,31 @@
+/*
+  Global responsive breakpoints (CSS viewport width, window.innerWidth)
+
+  - phone-small:     <= 389px
+  - phone-regular:   390px - 767px
+  - ipad:            768px - 1099px
+  - laptop-14:       1100px - 1599px
+  - desktop-24:      1600px - 2239px
+  - desktop-27:      >= 2240px
+
+  Usage examples:
+    @media (max-width: 389px) { ... }
+    @media (min-width: 390px) and (max-width: 767px) { ... }
+    @media (min-width: 768px) and (max-width: 1099px) { ... }
+    @media (min-width: 1100px) and (max-width: 1599px) { ... }
+    @media (min-width: 1600px) and (max-width: 2239px) { ... }
+    @media (min-width: 2240px) { ... }
+*/
+
+:root {
+  --bp-phone-small-max: 389px;
+  --bp-phone-regular-min: 390px;
+  --bp-phone-regular-max: 767px;
+  --bp-ipad-min: 768px;
+  --bp-ipad-max: 1099px;
+  --bp-laptop-14-min: 1100px;
+  --bp-laptop-14-max: 1599px;
+  --bp-desktop-24-min: 1600px;
+  --bp-desktop-24-max: 2239px;
+  --bp-desktop-27-min: 2240px;
+}

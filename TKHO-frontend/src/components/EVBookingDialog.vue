@@ -24,7 +24,7 @@
             <el-select
               v-model="form.licensePlate"
               placeholder="Select license plate"
-              class="form-input"
+              class="form-input form-input-license"
               size="large"
             >
               <el-option
@@ -253,7 +253,7 @@ function handleSave() {
   border-radius: 12px;
   width: 100%;
   max-width: min(500px, 95vw);
-  max-height: min(90vh, 700px);
+  max-height: min(90vh, 760px);
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
@@ -366,6 +366,39 @@ function handleSave() {
 
 :deep(.el-select) {
   width: 100%;
+}
+
+/* License plate：加大下拉（全局生效；勿只写在 1100–1599px，否则 ≥1600px 宽屏看不到变化） */
+:deep(.form-input-license.el-select) {
+  --el-component-size: 3.1875rem;
+  --el-component-size-large: 3.1875rem;
+}
+
+:deep(.form-input-license.el-select .el-input__wrapper),
+:deep(.form-input-license.el-select .el-select__wrapper) {
+  min-height: 3.1875rem;
+  padding: 0 1rem;
+  border-radius: 10px;
+  align-items: center;
+}
+
+:deep(.form-input-license.el-select .el-input__inner) {
+  font-size: 1rem;
+  line-height: 1.35;
+  height: auto;
+}
+
+:deep(.form-input-license.el-select .el-select__selection) {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+:deep(.form-input-license.el-select .el-input__suffix) {
+  align-items: center;
+}
+
+:deep(.form-input-license.el-select .el-select__caret) {
+  font-size: 1rem;
 }
 
 :deep(.el-input__wrapper) {
@@ -521,8 +554,7 @@ function handleSave() {
   background: #ea580c;
 }
 
-/* 响应式调整 */
-@media (max-width: 640px) {
+@media (max-width: 389px) {
   .booking-dialog-wrapper {
     max-width: 98vw;
     max-height: 95vh;
@@ -564,6 +596,127 @@ function handleSave() {
     padding: 0.625rem 0.875rem;
   }
 }
+
+@media (min-width: 390px) and (max-width: 767px) {}
+
+@media (min-width: 768px) and (max-width: 1099px) {}
+
+
+@media (min-width: 1100px) and (max-width: 1599px) {
+  /* 结合更高弹窗高度，整体按比例放大内部元素 */
+  .booking-dialog-wrapper {
+    max-width: 550px;
+    /* height: clamp(96vh, 110vh, 120vh); */
+    height: 120vh;
+    max-height: 120vh;
+    border-radius: 14px;
+  }
+
+  /* 头部 */
+  .modal-header {
+    padding: 1.25rem 1.75rem;
+  }
+
+  .modal-title {
+    font-size: 1.0625rem;
+    letter-spacing: 0.2px;
+    padding: 0.25rem 0;
+  }
+
+  .close-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* 内容区：略增横向留白，与加高后的控件对齐 */
+  .modal-body {
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem 1.75rem;
+  }
+
+  .booking-form-container {
+    flex: 1;
+    min-height: 100%;
+    justify-content: space-between;
+    gap: 1.25rem;
+  }
+
+  .form-section {
+    gap: 0.625rem;
+  }
+
+  .form-label {
+    font-size: 1.0625rem;
+    margin-bottom: 0.125rem;
+  }
+  
+  /* Date：Element Plus 需作用在 .el-input__wrapper 上 */
+  :deep(.form-input.el-date-editor .el-input__wrapper) {
+    min-height: 3.125rem;
+    padding: 0 1rem;
+    border-radius: 10px;
+    align-items: center;
+  }
+
+  :deep(.form-input.el-date-editor .el-input__inner) {
+    font-size: 1.0625rem;
+    line-height: 1.35;
+    height: auto;
+  }
+
+  /* 时间段选择 */
+  .time-period-group {
+    padding: 1rem 1.125rem;
+    gap: 0.625rem;
+  }
+
+  .time-period-option {
+    padding: 0.875rem 1rem;
+    min-height: 3.125rem;
+    gap: 0.75rem;
+  }
+
+  .time-label {
+    font-size: 1.0625rem;
+  }
+
+  .time-radio {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* 停车位信息 */
+  .parking-info {
+    padding: 0.875rem 1rem;
+  }
+  /* 停车位信息 */
+  .parking-info-section {
+    margin-top: 1.25rem;
+  }
+
+  .parking-label,
+  .parking-value {
+    font-size: 1.0625rem;
+  }
+
+  /* 底部按钮 */
+  .modal-footer {
+    padding: 1rem 1.375rem;
+    gap: 0.75rem;
+  }
+
+  .cancel-btn,
+  .save-btn {
+    padding: 0.9rem 1.625rem;
+    font-size: 1.0625rem;
+    border-radius: 7px;
+  }
+}
+
+@media (min-width: 1600px) and (max-width: 2239px) {}
+
+@media (min-width: 2240px) {}
 
 @media (max-height: 700px) {
   .booking-dialog-wrapper {

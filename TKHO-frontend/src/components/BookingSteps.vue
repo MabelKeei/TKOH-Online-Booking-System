@@ -148,4 +148,16 @@ function stepClass(index) {
 .step.is-wait .step-main {
   background-color: #22c55e;
 }
+
+@media (max-width: 389px) {}
+
+@media (min-width: 390px) and (max-width: 767px) {}
+
+@media (min-width: 768px) and (max-width: 1099px) {}
+
+@media (min-width: 1100px) and (max-width: 1599px) {}
+
+@media (min-width: 1600px) and (max-width: 2239px) {}
+
+@media (min-width: 2240px) {}
 </style>

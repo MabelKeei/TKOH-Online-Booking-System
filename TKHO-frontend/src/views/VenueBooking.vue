@@ -2,15 +2,15 @@
   <div class="booking-page">
     <AppHeader @logout="onLogout" />
 
-    <!-- 主体容器：高度=视口-精准header高度-底部空白 -->
+    <!-- Main container: viewport minus header and bottom space -->
     <main class="booking-main">
       <div class="booking-content">
         <h2 class="booking-title">What venue would you like to book?</h2>
 
         <div class="cards-container">
-          <!-- 会议室卡片 -->
+          <!-- Conference room card -->
           <section class="venue-card">
-            <!-- 关键：给标题容器添加固定高度/弹性占位 -->
+            <!-- Fixed title height to avoid layout shift -->
             <div class="venue-card__title-wrapper">
               <h3 class="venue-card__title">Conference Rooms and Discussion Room</h3>
             </div>
@@ -25,9 +25,9 @@
             </el-button>
           </section>
 
-          <!-- 其他场地卡片 -->
+          <!-- Other venue card -->
           <section class="venue-card">
-            <!-- 关键：给标题容器添加固定高度/弹性占位 -->
+            <!-- Fixed title height to avoid layout shift -->
             <div class="venue-card__title-wrapper">
               <h3 class="venue-card__title">Other Venues</h3>
             </div>
@@ -60,49 +60,49 @@ const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { 
 
 
 <style scoped>
-/* 全局容器：高度100vh，禁止滚动 */
+/* Page shell */
 .booking-page {
-  height: 100vh;
+  height: var(--zoom-vh);
   overflow: hidden;
   background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
-  padding-top: 60px; /* header预留高度 */
+  padding-top: 60px; /* Header reserved height */
   box-sizing: border-box;
   position: relative;
 }
 
-/* 主体容器：高度=视口-精准header高度-底部空白 */
+/* Main area: viewport minus header and bottom space */
 .booking-main {
-  height: calc(100vh - 60px - 20px); /* 60px=header高度  20px=底部空白 */
-  padding: 0.5vh 2vw 0;
+  /* height: calc(100vh - 60px - 20px); 60px header, 20px bottom spacing */
+  padding: 14vh 0 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-/* 内容容器：限制最大宽度，居中 */
+/* Content container: max width and centered */
 .booking-content {
   width: 100%;
   max-width: 90vw;
   margin: 0 auto;
 }
 
-/* 标题：自适应字体+紧凑间距 */
+/* Title: responsive font and compact spacing */
 .booking-title {
-  font-size: clamp(1.5rem, min(4vh, 2.8vw), 2.5rem);
+  font-size: clamp(1.5rem, min(6vh, 4vw), 2.5rem);
   color: #1a1a1a;
   text-align: center;
-  margin-bottom: 3vh; /* 缩小标题与卡片间距 */
+  margin-bottom: 6vh; /* Reduce title/card spacing */
   font-weight: bold;
 }
 
-/* 卡片容器：响应式布局 */
+/* Cards container: responsive layout */
 .cards-container {
   display: flex;
   flex-direction: column;
   gap: 1.2vh;
 }
-@media (min-width: 768px) {
+@media (min-width: 768px) and (max-width: 1099px) {
   .cards-container {
     flex-direction: row;
     gap: 1.5vw;
@@ -110,83 +110,104 @@ const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { 
   }
 }
 
-/* 卡片：自适应尺寸+紧凑内边距 */
+@media (min-width: 1100px) and (max-width: 1599px) {
+  .cards-container {
+    flex-direction: row;
+    gap: 1.5vw;
+    justify-content: center;
+  }
+}
+
+@media (min-width: 1600px) and (max-width: 2239px) {
+  .cards-container {
+    flex-direction: row;
+    gap: 1.5vw;
+    justify-content: center;
+  }
+}
+
+@media (min-width: 2240px) {
+  .cards-container {
+    flex-direction: row;
+    gap: 1.5vw;
+    justify-content: center;
+  }
+}
+
+/* Card: responsive size and compact padding */
 .venue-card {
   background: #fff;
   border-radius: clamp(0.8rem, 1.2vh, 1.5rem);
-  padding: clamp(1.2rem, 2.5vh, 2rem); /* 紧凑内边距 */
+  padding: clamp(1.2rem, 2.5vh, 2rem);
   width: 100%;
-  min-width: 280px;    /* 手机端最小宽度 */
-  max-width: clamp(300px, 32vw, 500px); /* 大屏最大宽度 */
+  min-width: 300px;
+  max-width: clamp(300px, 36vw, 500px);
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-height: clamp(380px, 65vh, 550px); /* 紧凑高度 */
+  min-height: clamp(380px, 65vh, 550px);
 }
 
-/* 标题容器：固定高度+紧凑间距 */
+/* Title wrapper */
 .venue-card__title-wrapper {
-  height: clamp(2rem, 6vh, 3.5rem);
+  height: clamp(2rem, 8vh, 3.5rem);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: clamp(0.5rem, 1vh, 1rem); /* 标题与图片间距 */
+  margin-bottom: clamp(0.5rem, 1vh, 1rem);
 }
 
-/* 卡片标题：自适应字体 */
+/* Card title: responsive text sizing */
 .venue-card__title {
-  font-size: clamp(1rem, min(3vh, 2.2vw), 1.8rem);
+  font-size: clamp(1rem, min(4vh, 2.2vw), 1.8rem);
+  line-height: 1.1; /* 这里调行间距 */
   color: #00723a;
   text-align: center;
   margin: 0;
   font-weight: bold;
+  line-clamp: 2;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* 图片网格：核心！图片上下左右间距完全一致 */
+/* Image grid */
 .venue-card__grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  /* 关键：行/列间距设为相同值，确保上下左右间距一致 */
-  row-gap: clamp(6px, 0.8vh, 10px);    /* 图片上下间距 */
-  column-gap: clamp(6px, 0.8vh, 10px); /* 图片左右间距 */
-  flex: 1; /* 占满卡片剩余高度 */
-  /* 👇 新增：让网格内容垂直居中，而不是拉伸间距 */
+  row-gap: clamp(8px, 1vh, 10px);
+  column-gap: clamp(8px, 1vh, 10px);
+  flex: 1;
   align-content: center;
-  margin-bottom: clamp(6px, 0.8vh, 10px); /* 图片与按钮间距（可选同值） */
+  margin-bottom: clamp(8px, 1vh, 10px);
 }
 
-/* 图片容器：修复圆角+消除额外间距 */
+/* Image block */
 .venue-card__image {
-  aspect-ratio: 4/3; /* 固定宽高比 */
-  border-radius: clamp(0.4rem, 0.8vh, 0.6rem); /* 适配圆角 */
+  aspect-ratio: 4/3;
+  border-radius: clamp(0.4rem, 0.8vh, 0.6rem);
   overflow: hidden;
   position: relative;
-  /* 修复圆角渲染bug */
   will-change: transform;
   backface-visibility: hidden;
-  /* 消除容器额外间距 */
   padding: 0;
   margin: 0;
 }
 
-/* 图片样式：消除默认间隙+适配容器 */
+/* Image */
 .venue-card__image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block; /* 消除图片底部默认行高间隙 */
-  /* 消除图片额外间距 */
+  display: block;
   padding: 0;
   margin: 0;
   border: none;
   outline: none;
 }
 
-/* 图片悬浮遮罩 */
+/* Hover overlay */
 .venue-card__overlay {
   position: absolute;
   inset: 0;
@@ -198,7 +219,7 @@ const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { 
   opacity: 1;
 }
 
-/* 按钮：自适应尺寸+渐变背景 */
+/* CTA button */
 .venue-card__button {
   height: clamp(2rem, 5vh, 2.8rem);
   background: linear-gradient(135deg, #00723a, #005a2f) !important;
@@ -208,4 +229,5 @@ const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { 
   font-weight: bold;
   border-radius: clamp(0.6rem, 1vh, 1rem) !important;
 }
+
 </style>

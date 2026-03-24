@@ -307,7 +307,7 @@ function selectBooking(dayDate) {
   white-space: nowrap;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 389px) {
   .week-grid {
     grid-template-columns: 60px repeat(7, 1fr);
   }
@@ -322,4 +322,42 @@ function selectBooking(dayDate) {
     min-height: 50px;
   }
 }
+
+@media (min-width: 390px) and (max-width: 767px) {
+  .week-grid {
+    grid-template-columns: 60px repeat(7, 1fr);
+  }
+
+  .time-slot {
+    min-height: 50px;
+    padding: 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .time-cell {
+    min-height: 50px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {
+  .week-grid {
+    grid-template-columns: 60px repeat(7, 1fr);
+  }
+
+  .time-slot {
+    min-height: 50px;
+    padding: 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .time-cell {
+    min-height: 50px;
+  }
+}
+
+@media (min-width: 1100px) and (max-width: 1599px) {}
+
+@media (min-width: 1600px) and (max-width: 2239px) {}
+
+@media (min-width: 2240px) {}
 </style>

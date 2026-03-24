@@ -845,8 +845,7 @@ watch(() => props.visible, (val) => {
   border-color: #005a2e;
 }
 
-/* 响应式 - 优化小屏滚动 */
-@media (max-width: 1024px) {
+@media (max-width: 389px) {
   .form-row-three {
     grid-template-columns: 1fr 1fr;
   }
@@ -855,7 +854,25 @@ watch(() => props.visible, (val) => {
   }
 }
 
-@media (max-width: 768px) {
+@media (min-width: 390px) and (max-width: 767px) {
+  .form-row-three {
+    grid-template-columns: 1fr 1fr;
+  }
+  .paired-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {
+  .form-row-three {
+    grid-template-columns: 1fr 1fr;
+  }
+  .paired-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 389px) {
   .booking-dialog-wrapper {
     width: 95% !important;
     max-height: 90vh; /* 小屏降低最大高度，留出更多滚动空间 */
@@ -874,6 +891,37 @@ watch(() => props.visible, (val) => {
     margin-bottom: 1rem;
   }
 }
+
+@media (min-width: 390px) and (max-width: 767px) {
+  .booking-dialog-wrapper {
+    width: 95% !important;
+    max-height: 90vh; /* 小屏降低最大高度，留出更多滚动空间 */
+  }
+  .modal-body {
+    padding: 1rem;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  .paired-layout {
+    grid-template-columns: 1fr;
+  }
+  /* 小屏增加表单间距，提升可读性 */
+  .booking-form :deep(.el-form-item) {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (min-width: 1100px) and (max-width: 1599px) {
+  .booking-dialog-wrapper {
+    width: 95% !important;
+    max-height: 106vh !important;
+  }
+}
+
+@media (min-width: 1600px) and (max-width: 2239px) {}
+
+@media (min-width: 2240px) {}
 
 /* 确保下拉框内容可见 */
 :deep(.el-select-dropdown),

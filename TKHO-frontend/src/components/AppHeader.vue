@@ -248,7 +248,7 @@ const saveCurrentPath = () => {
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 389px) {
   .app-header {
     padding-inline: 1rem;
     flex-wrap: wrap;
@@ -268,4 +268,33 @@ const saveCurrentPath = () => {
     justify-content: flex-end;
   }
 }
+
+@media (min-width: 390px) and (max-width: 767px) {
+  .app-header {
+    padding-inline: 1rem;
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  .app-header h1 {
+    font-size: 1rem;
+  }
+
+  .header-logo {
+    height: 24px;
+  }
+
+  nav {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {}
+
+@media (min-width: 1100px) and (max-width: 1599px) {}
+
+@media (min-width: 1600px) and (max-width: 2239px) {}
+
+@media (min-width: 2240px) {}
 </style>

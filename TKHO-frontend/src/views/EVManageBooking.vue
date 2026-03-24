@@ -1369,7 +1369,7 @@ const onLogout = () => {
   border-color: #00723a;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 389px), (min-width: 390px) and (max-width: 767px) {
   .toolbar {
     flex-direction: column;
     align-items: stretch;

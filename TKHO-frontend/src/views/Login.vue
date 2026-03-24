@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="login-container flex flex-col min-h-screen bg-[#f8ecdd]">
     <header class="login-header w-full">
       <div class="header-content">
@@ -227,8 +227,8 @@ const handleLogin = async () => {
 
 <style scoped>
 .login-container {
-  /* 与各 Booking 页面统一：最小高度为一屏，自适应内容高度 */
-  min-height: 100vh;
+  /* 与 Booking 页面统一：最小高度一屏，自适应内容 */
+  min-height: var(--zoom-vh);
   background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
   padding: 0;
   display: flex;
@@ -656,8 +656,8 @@ const handleLogin = async () => {
   background-color: #ffffff;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
+/* 响应式设置 */
+@media (max-width: 389px), (min-width: 390px) and (max-width: 767px) {
   .login-header {
     padding: 18px 24px;
   }
@@ -697,7 +697,7 @@ const handleLogin = async () => {
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 389px) {
   .system-button {
     width: 5.5rem;
     height: 5.5rem;
@@ -734,3 +734,9 @@ const handleLogin = async () => {
   }
 }
 </style>
+
+
+
+
+
+

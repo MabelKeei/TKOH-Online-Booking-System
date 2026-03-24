@@ -269,7 +269,7 @@ function selectBooking(booking) {
   white-space: nowrap;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 389px) {
   .day-header {
     grid-template-columns: 60px repeat(auto-fit, minmax(100px, 1fr));
   }
@@ -299,4 +299,43 @@ function selectBooking(booking) {
     font-size: 0.55rem;
   }
 }
+
+@media (min-width: 390px) and (max-width: 767px) {
+  .day-header {
+    grid-template-columns: 60px repeat(auto-fit, minmax(100px, 1fr));
+  }
+
+  .day-grid {
+    grid-template-columns: 60px repeat(auto-fit, minmax(100px, 1fr));
+  }
+
+  .time-slot {
+    height: 50px;
+    font-size: 0.75rem;
+  }
+
+  .time-cell {
+    height: 50px;
+  }
+
+  .booking-time {
+    font-size: 0.65rem;
+  }
+
+  .booking-topic {
+    font-size: 0.6rem;
+  }
+
+  .booking-reserved {
+    font-size: 0.55rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {}
+
+@media (min-width: 1100px) and (max-width: 1599px) {}
+
+@media (min-width: 1600px) and (max-width: 2239px) {}
+
+@media (min-width: 2240px) {}
 </style>

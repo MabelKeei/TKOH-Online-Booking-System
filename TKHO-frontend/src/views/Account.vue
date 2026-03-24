@@ -1308,7 +1308,7 @@ onUnmounted(() => {
 }
 
 /* Mobile adjustments */
-@media (max-width: 768px) {
+@media (max-width: 389px), (min-width: 390px) and (max-width: 767px) {
   .account-main {
     padding: 0.5rem;
   }
@@ -1397,7 +1397,7 @@ onUnmounted(() => {
 }
 
 /* Small mobile adjustments */
-@media (max-width: 480px) {
+@media (min-width: 390px) and (max-width: 767px) {
   .section-title {
     font-size: 0.8125rem;
   }
@@ -1436,7 +1436,7 @@ onUnmounted(() => {
 }
 
 /* Extra small mobile adjustments */
-@media (max-width: 360px) {
+@media (max-width: 389px) {
   .card-style {
     padding: 0.625rem;
   }

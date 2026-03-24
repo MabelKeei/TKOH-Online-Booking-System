@@ -302,7 +302,7 @@ function selectDate(day) {
   margin-left: 0.25rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 389px) {
   .date-cell {
     padding: 0.5rem;
   }
@@ -320,4 +320,31 @@ function selectDate(day) {
     font-size: 0.625rem;
   }
 }
+
+@media (min-width: 390px) and (max-width: 767px) {
+  .date-cell {
+    padding: 0.5rem;
+  }
+
+  .date-number {
+    font-size: 0.875rem;
+  }
+
+  .booking-dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  .more-count {
+    font-size: 0.625rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {}
+
+@media (min-width: 1100px) and (max-width: 1599px) {}
+
+@media (min-width: 1600px) and (max-width: 2239px) {}
+
+@media (min-width: 2240px) {}
 </style>

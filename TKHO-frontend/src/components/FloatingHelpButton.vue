@@ -68,7 +68,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -77,24 +77,71 @@ const position = ref({ x: 0, y: 0 })
 const isDragging = ref(false)
 const dragStart = ref({ x: 0, y: 0 })
 const hasMoved = ref(false)
+const BUTTON_SIZE = 50
+const EDGE_GAP = 10
+
+const getZoomScale = () => {
+  const zoomRaw = window.getComputedStyle(document.documentElement).zoom
+  const zoom = Number.parseFloat(zoomRaw)
+  return Number.isFinite(zoom) && zoom > 0 ? zoom : 1
+}
+
+const getViewport = () => {
+  const scale = getZoomScale()
+  return {
+    width: window.innerWidth / scale,
+    height: window.innerHeight / scale
+  }
+}
+
+const clampPosition = (x, y) => {
+  const { width, height } = getViewport()
+  return {
+    x: Math.max(EDGE_GAP, Math.min(x, width - BUTTON_SIZE - EDGE_GAP)),
+    y: Math.max(EDGE_GAP, Math.min(y, height - BUTTON_SIZE - EDGE_GAP))
+  }
+}
+
+const placeToBottomRight = () => {
+  const { width, height } = getViewport()
+  position.value = clampPosition(width - BUTTON_SIZE - EDGE_GAP, height - BUTTON_SIZE - EDGE_GAP)
+}
+
+const keepInsideViewport = () => {
+  position.value = clampPosition(position.value.x, position.value.y)
+}
+
+const recalibrateAfterRouteChange = async () => {
+  await nextTick()
+  keepInsideViewport()
+  requestAnimationFrame(() => {
+    keepInsideViewport()
+  })
+}
 
 // 检查是否在登录页面
 const isLoginPage = computed(() => route.path === '/login' || route.path === '/')
 
 // 初始化位置（右下角）
 onMounted(() => {
-  position.value = {
-    x: window.innerWidth - 70,
-    y: window.innerHeight - 70
-  }
+  placeToBottomRight()
+  window.addEventListener('resize', keepInsideViewport)
 })
+
+watch(
+  () => route.fullPath,
+  () => {
+    recalibrateAfterRouteChange()
+  }
+)
 
 const startDrag = (e) => {
   isDragging.value = true
   hasMoved.value = false
+  const scale = getZoomScale()
   dragStart.value = {
-    x: e.clientX - position.value.x,
-    y: e.clientY - position.value.y
+    x: e.clientX / scale - position.value.x,
+    y: e.clientY / scale - position.value.y
   }
 
   document.addEventListener('mousemove', onDrag)
@@ -106,14 +153,12 @@ const onDrag = (e) => {
 
   hasMoved.value = true
 
-  const newX = e.clientX - dragStart.value.x
-  const newY = e.clientY - dragStart.value.y
+  const scale = getZoomScale()
+  const newX = e.clientX / scale - dragStart.value.x
+  const newY = e.clientY / scale - dragStart.value.y
 
   // 限制在窗口范围内
-  position.value = {
-    x: Math.max(0, Math.min(newX, window.innerWidth - 60)),
-    y: Math.max(0, Math.min(newY, window.innerHeight - 60))
-  }
+  position.value = clampPosition(newX, newY)
 }
 
 const stopDrag = () => {
@@ -132,6 +177,7 @@ const handleClick = () => {
 onUnmounted(() => {
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
+  window.removeEventListener('resize', keepInsideViewport)
 })
 </script>
 
@@ -205,4 +251,16 @@ onUnmounted(() => {
 .service-table tr:hover {
   background-color: #f9fafb;
 }
+
+@media (max-width: 389px) {}
+
+@media (min-width: 390px) and (max-width: 767px) {}
+
+@media (min-width: 768px) and (max-width: 1099px) {}
+
+@media (min-width: 1100px) and (max-width: 1599px) {}
+
+@media (min-width: 1600px) and (max-width: 2239px) {}
+
+@media (min-width: 2240px) {}
 </style>

@@ -808,7 +808,7 @@ const onLogout = () => {
 
 .search-input:focus {
   outline: none;
-  border-color: #00723a;
+  border-color: #0A3D1F;
 }
 
 /* Date Filter */
@@ -834,7 +834,7 @@ const onLogout = () => {
 }
 
 .date-filter-btn .calendar-icon {
-  color: #00723a;
+  color: #0A3D1F;
   flex-shrink: 0;
 }
 
@@ -857,14 +857,14 @@ const onLogout = () => {
   background: white;
   border-radius: 0.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  border: 2px solid #00723a;
+  border: 2px solid #0A3D1F;
   min-width: 320px;
   animation: slideDown 0.2s ease-out;
 }
 
 .date-filter-header {
   padding: 12px 16px;
-  border-bottom: 2px solid #00723a;
+  border-bottom: 2px solid #0A3D1F;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -874,7 +874,7 @@ const onLogout = () => {
 .date-filter-header .filter-title {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #00723a;
+  color: #0A3D1F;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -885,7 +885,7 @@ const onLogout = () => {
   display: inline-block;
   width: 4px;
   height: 16px;
-  background: #00723a;
+  background: #0A3D1F;
   border-radius: 2px;
 }
 
@@ -940,14 +940,14 @@ const onLogout = () => {
 
 .quick-date-btn:hover {
   background-color: #f0fdf4;
-  border-color: #00723a;
+  border-color: #0A3D1F;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .quick-date-btn.active {
-  background: linear-gradient(135deg, #00723a 0%, #059669 100%);
-  border-color: #00723a;
+  background: linear-gradient(135deg, #0A3D1F 0%, #059669 100%);
+  border-color: #0A3D1F;
   color: white;
   font-weight: 600;
   box-shadow: 0 2px 4px rgba(0, 114, 58, 0.3);
@@ -965,7 +965,7 @@ const onLogout = () => {
 .custom-date-label {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #00723a;
+  color: #0A3D1F;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -982,11 +982,11 @@ const onLogout = () => {
 }
 
 :deep(.el-date-editor:hover) {
-  border-color: #00723a;
+  border-color: #0A3D1F;
 }
 
 :deep(.el-date-editor.is-active) {
-  border-color: #00723a;
+  border-color: #0A3D1F;
   box-shadow: 0 0 0 3px rgba(0, 114, 58, 0.1);
 }
 
@@ -997,12 +997,12 @@ const onLogout = () => {
 
 :deep(.el-date-editor .el-range-separator) {
   font-size: 0.75rem;
-  color: #00723a;
+  color: #0A3D1F;
   font-weight: 600;
 }
 
 :deep(.el-date-editor .el-range__icon) {
-  color: #00723a;
+  color: #0A3D1F;
 }
 
 :deep(.el-date-editor .el-range__close-icon) {
@@ -1273,11 +1273,11 @@ const onLogout = () => {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: #00723a;
+  accent-color: #0A3D1F;
 }
 
 .status-checkbox:hover {
-  color: #00723a;
+  color: #0A3D1F;
 }
 
 .select-all-option {
@@ -1338,8 +1338,8 @@ const onLogout = () => {
 }
 
 .pagination-btn.page-number.active {
-  background-color: #00723a;
-  border-color: #00723a;
+  background-color: #0A3D1F;
+  border-color: #0A3D1F;
   color: white;
 }
 
@@ -1366,7 +1366,7 @@ const onLogout = () => {
 
 .page-size-select:focus {
   outline: none;
-  border-color: #00723a;
+  border-color: #0A3D1F;
 }
 
 @media (max-width: 389px), (min-width: 390px) and (max-width: 767px) {
@@ -1463,8 +1463,8 @@ const onLogout = () => {
 }
 
 .view-toggle-btn.active {
-  background-color: #00723a;
-  border-color: #00723a;
+  background-color: #0A3D1F;
+  border-color: #0A3D1F;
   color: white;
 }
 

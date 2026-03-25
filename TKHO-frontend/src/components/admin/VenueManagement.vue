@@ -1,0 +1,541 @@
+<template>
+  <div class="page-container">
+    <div class="page-header">
+      <h2 class="page-title">Venue Management</h2>
+      <div class="header-actions">
+        <el-button @click="handleExport">
+          <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
+        </el-button>
+        <el-button type="primary" @click="handleAdd">
+          <font-awesome-icon :icon="['fas', 'plus']" /> Add Venue
+        </el-button>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <div class="table-card">
+      <el-table :data="paginatedData" height="100%" border stripe table-layout="auto" style="width: 100%">
+        <el-table-column
+          type="index"
+          label="#"
+          width="70"
+          align="center"
+          header-align="center"
+          fixed="left"
+          :index="getRowIndex"
+        />
+        <el-table-column prop="name" label="Venue Name" min-width="180" />
+        <el-table-column prop="type" label="Type" min-width="150">
+          <template #default="{ row }">
+            <el-tag :type="row.type === 'conference' ? 'primary' : 'success'">
+              {{ row.type === 'conference' ? 'Conference Room' : 'Other Venue' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="capacity" label="Capacity" min-width="110" />
+        <el-table-column prop="location" label="Location" min-width="170" />
+        <el-table-column label="Images" min-width="120">
+          <template #default="{ row }">
+            <el-button size="small" @click="handleViewImages(row)">
+              View ({{ row.images?.length || 0 }})
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="Status" min-width="110">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
+              {{ row.status === 'active' ? 'Active' : 'Inactive' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Actions" width="180" fixed="right" class-name="actions-col">
+          <template #default="{ row }">
+            <div class="actions-cell">
+              <el-button size="small" class="action-btn action-edit" @click="handleEdit(row)">Edit</el-button>
+              <el-button size="small" class="action-btn action-delete" @click="handleDelete(row)">Delete</el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="pagination-bar">
+        <div class="pagination-info">
+          Showing {{ startIndex + 1 }}-{{ endIndex }} of {{ venueList.length }} records
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" :disabled="currentPage === 1" @click="currentPage--">Previous</button>
+          <button
+            v-for="page in visiblePages"
+            :key="page"
+            :class="['pagination-btn', 'page-number', { active: page === currentPage }]"
+            @click="currentPage = page"
+          >
+            {{ page }}
+          </button>
+          <button class="pagination-btn" :disabled="currentPage === totalPages" @click="currentPage++">Next</button>
+        </div>
+        <div class="pagination-size">
+          <select v-model.number="pageSize" class="page-size-select" @change="currentPage = 1">
+            <option :value="10">10 / page</option>
+            <option :value="20">20 / page</option>
+            <option :value="50">50 / page</option>
+            <option :value="100">100 / page</option>
+          </select>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <el-dialog
+      v-model="showForm"
+      :title="formMode === 'add' ? 'Add Venue' : 'Edit Venue'"
+      width="600px"
+    >
+      <el-form :model="formData" label-width="120px">
+        <el-form-item label="Venue Name">
+          <el-input v-model="formData.name" />
+        </el-form-item>
+        <el-form-item label="Type">
+          <el-select v-model="formData.type" style="width: 100%">
+            <el-option label="Conference Room" value="conference" />
+            <el-option label="Other Venue" value="other" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Capacity">
+          <el-input-number v-model="formData.capacity" :min="1" />
+        </el-form-item>
+        <el-form-item label="Location">
+          <el-input v-model="formData.location" />
+        </el-form-item>
+        <el-form-item label="Images">
+          <el-upload
+            v-model:file-list="formData.images"
+            action="#"
+            list-type="picture-card"
+            :auto-upload="false"
+            :on-preview="handlePreview"
+          >
+            <font-awesome-icon :icon="['fas', 'plus']" />
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="Status">
+          <el-switch v-model="formData.status" active-value="active" inactive-value="inactive" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showForm = false">Cancel</el-button>
+        <el-button type="primary" @click="handleSave">Save</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="showImagePreview" width="800px">
+      <img :src="previewImageUrl" style="width: 100%" />
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import * as XLSX from 'xlsx'
+
+const venueList = ref([
+  { id: 1, name: 'Conference Room A', type: 'conference', capacity: 10, location: '3F', images: [], status: 'active' },
+  { id: 2, name: 'Conference Room B', type: 'conference', capacity: 20, location: '3F', images: [], status: 'active' },
+  { id: 3, name: 'Courtyard', type: 'other', capacity: 50, location: 'Ground Floor', images: [], status: 'active' }
+])
+
+const currentPage = ref(1)
+const pageSize = ref(10)
+
+const paginatedData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return venueList.value.slice(start, end)
+})
+
+const totalPages = computed(() => Math.max(1, Math.ceil(venueList.value.length / pageSize.value)))
+const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
+const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, venueList.value.length))
+const visiblePages = computed(() => {
+  const pages = []
+  const maxVisible = 5
+  let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2))
+  let end = Math.min(totalPages.value, start + maxVisible - 1)
+  if (end - start < maxVisible - 1) {
+    start = Math.max(1, end - maxVisible + 1)
+  }
+  for (let i = start; i <= end; i++) pages.push(i)
+  return pages
+})
+
+const showForm = ref(false)
+const formMode = ref('add')
+const formData = ref({
+  name: '',
+  type: 'conference',
+  capacity: 10,
+  location: '',
+  images: [],
+  status: 'active'
+})
+
+const showImagePreview = ref(false)
+const previewImageUrl = ref('')
+
+const getRowIndex = (index) => (currentPage.value - 1) * pageSize.value + index + 1
+
+const handleExport = () => {
+  const exportData = venueList.value.map(item => ({
+    'Venue Name': item.name,
+    'Type': item.type === 'conference' ? 'Conference Room' : 'Other Venue',
+    'Capacity': item.capacity,
+    'Location': item.location,
+    'Status': item.status === 'active' ? 'Active' : 'Inactive'
+  }))
+
+  const ws = XLSX.utils.json_to_sheet(exportData)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Venues')
+  XLSX.writeFile(wb, `Venue_Management_${new Date().toISOString().split('T')[0]}.xlsx`)
+  ElMessage.success('Excel file exported successfully')
+}
+
+const handleAdd = () => {
+  formMode.value = 'add'
+  formData.value = { name: '', type: 'conference', capacity: 10, location: '', images: [], status: 'active' }
+  showForm.value = true
+}
+
+const handleEdit = (row) => {
+  formMode.value = 'edit'
+  formData.value = { ...row }
+  showForm.value = true
+}
+
+const handleSave = () => {
+  if (formMode.value === 'add') {
+    venueList.value.push({ ...formData.value, id: Date.now() })
+    ElMessage.success('Venue added successfully')
+  } else {
+    const index = venueList.value.findIndex(item => item.id === formData.value.id)
+    if (index !== -1) {
+      venueList.value[index] = { ...formData.value }
+      ElMessage.success('Venue updated successfully')
+    }
+  }
+  showForm.value = false
+}
+
+const handleDelete = (row) => {
+  ElMessageBox.confirm('Are you sure to delete this venue?', 'Warning', {
+    type: 'warning'
+  }).then(() => {
+    const index = venueList.value.findIndex(item => item.id === row.id)
+    if (index !== -1) {
+      venueList.value.splice(index, 1)
+      ElMessage.success('Deleted successfully')
+    }
+  })
+}
+
+const handleViewImages = (row) => {
+  ElMessage.info(`Viewing images for ${row.name}`)
+}
+
+const handlePreview = (file) => {
+  previewImageUrl.value = file.url
+  showImagePreview.value = true
+}
+</script>
+
+<style scoped>
+.page-container {
+  height: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  animation: fadeInUp 0.4s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-header::before {
+  content: none;
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.page-header {
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  color: #111827;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 0.75rem;
+  margin: 0.5rem 0.75rem 0.5rem;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  position: relative;
+  z-index: 1;
+}
+
+.page-header :deep(.el-button) {
+  background: #ffffff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  font-weight: 600;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  box-shadow: none;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.page-header :deep(.el-button:hover) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.page-header :deep(.el-button:active) {
+  transform: translateY(0);
+}
+
+.page-header :deep(.el-button--primary) {
+  background: #00723a;
+  border-color: #00723a;
+  color: #ffffff;
+}
+
+.page-header :deep(.el-button--primary:hover) {
+  background: #005a2e;
+  border-color: #005a2e;
+}
+
+.page-content :deep(.el-table) {
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow: none;
+  font-size: 0.8125rem;
+}
+
+.page-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.5rem 0.75rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-content :deep(.el-table th) {
+  background: #f3f4f6;
+  color: #374151;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  padding: 0.5rem;
+  border-bottom: 2px solid #d1d5db;
+  white-space: nowrap;
+}
+
+.page-content :deep(.el-table th .cell) {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.page-content :deep(.el-table__row:hover) {
+  background: #f9fafb;
+}
+
+.page-content :deep(.el-table td) {
+  padding: 0.5rem;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.page-content :deep(.el-button--small) {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.page-content :deep(.el-button--small:hover) {
+  transform: none;
+  box-shadow: none;
+}
+
+.page-content :deep(.el-tag) {
+  border-radius: 6px;
+  font-weight: 500;
+  border: none;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding: 0.475rem 0.5rem 0.375rem;
+  border-top: 1px solid #e5e7eb;
+  background-color: white;
+  flex-shrink: 0;
+}
+
+.pagination-info {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.pagination-controls {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.pagination-btn {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background-color: white;
+  color: #374151;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-btn.page-number {
+  min-width: 36px;
+  text-align: center;
+}
+
+.pagination-btn.page-number.active {
+  background-color: #00723a;
+  border-color: #00723a;
+  color: white;
+}
+
+.pagination-btn.page-number.active:hover {
+  background-color: #005a2e;
+  border-color: #005a2e;
+}
+
+.pagination-size {
+  display: flex;
+  align-items: center;
+}
+
+.page-size-select {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background-color: white;
+  color: #374151;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.page-size-select:focus {
+  outline: none;
+  border-color: #00723a;
+}
+
+.table-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 0.3rem;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-card :deep(.el-table) {
+  flex: 1;
+  min-height: 0;
+}
+
+.actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.actions-cell :deep(.el-button) {
+  margin-left: 0 !important;
+  white-space: nowrap;
+}
+
+.action-btn {
+  border: none !important;
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 0.25rem !important;
+  font-size: 0.6875rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  color: #ffffff !important;
+  transition: all 0.2s !important;
+}
+
+.action-edit {
+  background-color: #f97316 !important;
+}
+
+.action-edit:hover {
+  background-color: #ea580c !important;
+}
+
+.action-delete {
+  background-color: #ef4444 !important;
+}
+
+.action-delete:hover {
+  background-color: #dc2626 !important;
+}
+</style>

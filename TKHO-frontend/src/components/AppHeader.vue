@@ -1,5 +1,5 @@
 <template>
-  <header class="app-header w-full bg-[#00723a] text-white flex items-center justify-between px-8 py-3">
+  <header class="app-header w-full bg-[#0A3D1F] text-white flex items-center justify-between px-8 py-3">
     <div class="header-left flex items-center gap-3">
       <img src="../assets/TKOH_logo.png" alt="TKOH Logo" class="header-logo" />
       <h1 class="text-lg font-semibold">
@@ -8,6 +8,13 @@
     </div>
 
     <nav class="flex items-center gap-4">
+      <RouterLink
+        to="/admin"
+        class="header-link"
+        :class="{ 'is-active': isActive('/admin') }"
+      >
+        Admin
+      </RouterLink>
       <RouterLink
         :to="calendarPath"
         class="header-link"
@@ -92,6 +99,9 @@ const isCalendarNavActive = computed(() => {
 
 // 页面标题
 const headerTitle = computed(() => {
+  if (route.path.includes('/admin')) {
+    return 'TKOH GA Service Center'
+  }
   return isVenuePage.value ? 'TKOH Venue Booking' : 'TKOH EV Booking'
 })
 

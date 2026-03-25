@@ -2,24 +2,24 @@
 
 /* Override Element Plus CSS variables */
 .el-picker__popper {
-  --el-color-primary: #00723a !important;
+  --el-color-primary: #0A3D1F !important;
   --el-color-primary-light-3: #059669 !important;
   --el-color-primary-light-5: #10b981 !important;
   --el-color-primary-light-7: #34d399 !important;
   --el-color-primary-light-8: #6ee7b7 !important;
   --el-color-primary-light-9: #f0fdf4 !important;
   z-index: 2000 !important;
-  border: 2px solid #00723a !important;
+  border: 2px solid #0A3D1F !important;
 }
 
 /* Date table cells */
 .el-date-table td.today span {
-  color: #00723a !important;
+  color: #0A3D1F !important;
   font-weight: 700 !important;
 }
 
 .el-date-table td.current:not(.disabled) span {
-  background-color: #00723a !important;
+  background-color: #0A3D1F !important;
   color: white !important;
   font-weight: 700 !important;
   font-size: 15px !important;
@@ -28,7 +28,7 @@
 
 .el-date-table td.start-date span,
 .el-date-table td.end-date span {
-  background-color: #00723a !important;
+  background-color: #0A3D1F !important;
   color: #ffffff !important;
   font-weight: 900 !important;
   font-size: 16px !important;
@@ -46,7 +46,7 @@
 .el-picker__popper .el-date-table td.start-date span,
 .el-picker__popper .el-date-table td.end-date span {
   color: #ffffff !important;
-  background-color: #00723a !important;
+  background-color: #0A3D1F !important;
   font-weight: 900 !important;
   text-shadow:
     0 0 6px rgba(255, 255, 255, 0.6),
@@ -58,7 +58,7 @@
 }
 
 .el-date-table td.in-range span {
-  color: #00723a !important;
+  color: #0A3D1F !important;
   font-weight: 600 !important;
 }
 
@@ -70,40 +70,40 @@
 }
 
 .el-date-table td.available:hover {
-  color: #00723a !important;
+  color: #0A3D1F !important;
 }
 
 .el-date-table td.available:hover span {
   background-color: #f0fdf4 !important;
-  color: #00723a !important;
+  color: #0A3D1F !important;
   font-weight: 600 !important;
 }
 
 /* Month and year tables */
 .el-month-table td.current:not(.disabled) .cell,
 .el-year-table td.current:not(.disabled) .cell {
-  background-color: #00723a !important;
+  background-color: #0A3D1F !important;
   color: white !important;
   font-weight: 700 !important;
 }
 
 .el-month-table td .cell:hover,
 .el-year-table td .cell:hover {
-  color: #00723a !important;
+  color: #0A3D1F !important;
 }
 
 /* Navigation buttons */
 .el-picker-panel__icon-btn:hover {
-  color: #00723a !important;
+  color: #0A3D1F !important;
 }
 
 /* Time picker */
 .el-time-panel__btn.confirm {
-  color: #00723a !important;
+  color: #0A3D1F !important;
 }
 
 .el-time-spinner__item.active:not(.disabled) {
-  color: #00723a !important;
+  color: #0A3D1F !important;
   font-weight: 700 !important;
 }
 

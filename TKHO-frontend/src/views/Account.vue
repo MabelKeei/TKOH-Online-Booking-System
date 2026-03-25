@@ -528,12 +528,12 @@ onUnmounted(() => {
   gap: 0.5rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #00723a;
+  border-bottom: 2px solid #0A3D1F;
   flex-shrink: 0;
 }
 
 .section-icon {
-  color: #00723a;
+  color: #0A3D1F;
   flex-shrink: 0;
   width: 20px;
   height: 20px;
@@ -542,7 +542,7 @@ onUnmounted(() => {
 .section-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #00723a;
+  color: #0A3D1F;
   margin: 0;
 }
 
@@ -592,7 +592,7 @@ onUnmounted(() => {
 
 .form-input:focus {
   outline: none;
-  border-color: #00723a;
+  border-color: #0A3D1F;
   box-shadow: 0 0 0 3px rgba(0, 114, 58, 0.1);
 }
 
@@ -623,7 +623,7 @@ onUnmounted(() => {
 .btn-save,
 .btn-update,
 .btn-add {
-  background-color: #00723a;
+  background-color: #0A3D1F;
   color: white;
   padding: 0.4375rem 1.25rem;
   border-radius: 0.375rem;
@@ -670,12 +670,12 @@ onUnmounted(() => {
 
 .vehicle-item:hover {
   background: #f0fdf4;
-  border-color: #00723a;
+  border-color: #0A3D1F;
 }
 
 .vehicle-item.vehicle-default {
   background: #f0fdf4;
-  border-color: #00723a;
+  border-color: #0A3D1F;
   box-shadow: 0 0 0 2px rgba(0, 114, 58, 0.1);
 }
 
@@ -691,7 +691,7 @@ onUnmounted(() => {
   justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  background: #00723a;
+  background: #0A3D1F;
   color: white;
   border-radius: 50%;
   font-size: 0.8125rem;
@@ -724,14 +724,14 @@ onUnmounted(() => {
 .vehicle-plate {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: #00723a;
+  color: #0A3D1F;
   letter-spacing: 0.05em;
 }
 
 .vehicle-plate-input {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: #00723a;
+  color: #0A3D1F;
   letter-spacing: 0.05em;
   background: transparent;
   border: none;
@@ -784,7 +784,7 @@ onUnmounted(() => {
 .vehicle-default-badge {
   font-size: 0.7rem;
   color: white;
-  background: #00723a;
+  background: #0A3D1F;
   padding: 0.125rem 0.5rem;
   border-radius: 0.25rem;
   font-weight: 600;
@@ -879,7 +879,7 @@ onUnmounted(() => {
 }
 
 .btn-save-vehicle {
-  background: #00723a;
+  background: #0A3D1F;
   color: white;
   border: none;
   border-radius: 0.375rem;
@@ -943,7 +943,7 @@ onUnmounted(() => {
 
 .btn-add-vehicle {
   width: 100%;
-  background-color: #00723a;
+  background-color: #0A3D1F;
   color: white;
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
@@ -992,7 +992,7 @@ onUnmounted(() => {
 }
 
 .btn-confirm {
-  background-color: #00723a;
+  background-color: #0A3D1F;
   color: white;
 }
 
@@ -1021,7 +1021,7 @@ onUnmounted(() => {
 }
 
 .btn-add-compact {
-  background-color: #00723a;
+  background-color: #0A3D1F;
   color: white;
   padding: 0.4375rem;
   border-radius: 0.375rem;

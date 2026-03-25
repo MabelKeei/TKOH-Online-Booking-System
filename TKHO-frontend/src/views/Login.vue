@@ -211,7 +211,7 @@ const handleLogin = async () => {
         } else if (loginForm.system === 'room') {
           router.push('/VenueBooking')
         } else if (loginForm.system === 'admin') {
-          router.push('/VenueBooking/ManageBooking')
+          router.push('/admin')
         } else {
           router.push('/login')
         }
@@ -254,7 +254,7 @@ const handleLogin = async () => {
   width: 100%;
   padding: 12px 32px;
   box-sizing: border-box;
-  background: linear-gradient(135deg, #00723a 0%, #005a2f 100%);
+  background: linear-gradient(135deg, #0A3D1F 0%, #005a2f 100%);
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -357,7 +357,7 @@ const handleLogin = async () => {
 }
 
 .login-input :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px #00723a inset;
+  box-shadow: 0 0 0 2px #0A3D1F inset;
   background-color: #ffffff;
 }
 
@@ -398,9 +398,9 @@ const handleLogin = async () => {
 }
 
 .login-input :deep(.el-input__wrapper.is-focus) .input-prefix-text {
-  background: linear-gradient(135deg, #00723a 0%, #005a2f 100%);
+  background: linear-gradient(135deg, #0A3D1F 0%, #005a2f 100%);
   color: #ffffff;
-  border-right-color: #00723a;
+  border-right-color: #0A3D1F;
 }
 
 .login-form :deep(.el-form-item.is-error .input-prefix-text) {
@@ -465,15 +465,15 @@ const handleLogin = async () => {
 }
 
 .system-button:hover {
-  border-color: #00723a;
+  border-color: #0A3D1F;
   background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
   box-shadow: 0 4px 16px rgba(0, 114, 58, 0.15);
   transform: translateY(-3px) scale(1.05);
 }
 
 .system-button.active {
-  border-color: #00723a;
-  background: linear-gradient(135deg, #00723a 0%, #005a2f 100%);
+  border-color: #0A3D1F;
+  background: linear-gradient(135deg, #0A3D1F 0%, #005a2f 100%);
   color: #ffffff;
   box-shadow: 0 0 0 4px rgba(0, 114, 58, 0.2), 0 4px 16px rgba(0, 114, 58, 0.3);
   transform: scale(1.08);
@@ -522,7 +522,7 @@ const handleLogin = async () => {
 }
 
 .system-button:hover .button-label {
-  color: #00723a;
+  color: #0A3D1F;
 }
 
 .system-button.active .button-label {
@@ -598,7 +598,7 @@ const handleLogin = async () => {
   font-size: 15px;
   font-weight: 700;
   text-align: left;
-  color: #00723a;
+  color: #0A3D1F;
   letter-spacing: 0.3px;
 }
 
@@ -637,7 +637,7 @@ const handleLogin = async () => {
 .notes-header-row {
   font-weight: 700;
   background: linear-gradient(135deg, #d0e8d6 0%, #c8e6d0 100%);
-  color: #00723a;
+  color: #0A3D1F;
 }
 
 .notes-cell-service {

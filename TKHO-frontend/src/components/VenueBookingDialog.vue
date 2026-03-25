@@ -87,7 +87,7 @@
             </div>
 
             <el-form-item label=" " class="check-availability-item">
-              <el-button type="primary" @click="checkAvailability" class="check-btn">
+              <el-button type="default" @click="checkAvailability" class="check-btn">
                 CHECK AVAILABILITY
               </el-button>
             </el-form-item>
@@ -237,7 +237,7 @@
       <!-- 底部按钮 -->
       <div class="modal-footer">
         <el-button @click="handleClose" class="cancel-btn">Cancel</el-button>
-        <el-button type="success" @click="handleConfirm" class="submit-btn">
+        <el-button type="default" @click="handleConfirm" class="submit-btn">
           SUBMIT BOOKING
         </el-button>
       </div>
@@ -687,14 +687,15 @@ watch(() => props.visible, (val) => {
   width: 100%;
   background-color: #3b82f6;
   border-color: #3b82f6;
-  font-weight: 600;
+  font-weight: bold;
   font-size: 0.8125rem;
   padding: 0.5rem 1rem;
+  color: #ffffff;
 }
 
 .check-btn:hover {
-  background-color: #2563eb;
-  border-color: #2563eb;
+  background-color: #66b1ff;
+  border-color: #66b1ff;
 }
 
 .section-divider {
@@ -835,9 +836,10 @@ watch(() => props.visible, (val) => {
 .submit-btn {
   background-color: #00723a;
   border-color: #00723a;
-  font-weight: 600;
+  font-weight: bold;
   padding: 0.4375rem 1.25rem;
   font-size: 0.8125rem;
+  color: #ffffff;
 }
 
 .submit-btn:hover {

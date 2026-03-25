@@ -1,0 +1,363 @@
+/* Admin Pages Responsive Styles - Unified Breakpoints */
+
+/* Base styles (desktop-24: 1600px - 2239px) */
+.page-container {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  animation: fadeInUp 0.4s ease;
+}
+
+.page-header {
+  padding: 1.25rem 2rem;
+}
+
+.page-title {
+  font-size: 22px;
+}
+
+.page-content {
+  padding: 1.5rem 2rem;
+}
+
+.page-content .el-table th {
+  padding: 16px 12px;
+  font-size: 13px;
+}
+
+.page-content .el-table td {
+  padding: 14px 12px;
+  font-size: 13px;
+}
+
+/* phone-small: <= 389px */
+@media (max-width: 389px) {
+  .page-container {
+    border-radius: 12px;
+  }
+
+  .page-header {
+    padding: 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start !important;
+  }
+
+  .page-title {
+    font-size: 16px;
+  }
+
+  .page-header .el-button,
+  .page-header .header-actions {
+    width: 100%;
+  }
+
+  .page-header .header-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .page-header .header-actions .el-button {
+    width: 100%;
+  }
+
+  .page-content {
+    padding: 1rem;
+  }
+
+  .page-content .el-table {
+    font-size: 12px;
+  }
+
+  .page-content .el-table th {
+    padding: 10px 6px;
+    font-size: 12px;
+  }
+
+  .page-content .el-table td {
+    padding: 10px 6px;
+    font-size: 12px;
+  }
+
+  .page-content .el-button--small {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .page-content .el-tag {
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+
+  .page-content .el-tabs__item {
+    font-size: 13px;
+    padding: 0 12px;
+    height: 38px;
+    line-height: 38px;
+  }
+}
+
+/* phone-regular: 390px - 767px */
+@media (min-width: 390px) and (max-width: 767px) {
+  .page-container {
+    border-radius: 14px;
+  }
+
+  .page-header {
+    padding: 1.125rem 1.25rem;
+    flex-direction: column;
+    gap: 0.875rem;
+    align-items: flex-start !important;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  .page-header .el-button,
+  .page-header .header-actions {
+    width: 100%;
+  }
+
+  .page-header .header-actions {
+    flex-direction: row;
+    gap: 0.625rem;
+  }
+
+  .page-header .header-actions .el-button {
+    flex: 1;
+  }
+
+  .page-content {
+    padding: 1.25rem;
+  }
+
+  .page-content .el-table {
+    font-size: 13px;
+  }
+
+  .page-content .el-table th {
+    padding: 12px 8px;
+    font-size: 13px;
+  }
+
+  .page-content .el-table td {
+    padding: 11px 8px;
+    font-size: 13px;
+  }
+
+  .page-content .el-button--small {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .page-content .el-tag {
+    padding: 3px 10px;
+    font-size: 12px;
+  }
+
+  .page-content .el-tabs__item {
+    font-size: 14px;
+    padding: 0 16px;
+    height: 40px;
+    line-height: 40px;
+  }
+}
+
+/* ipad: 768px - 1099px */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .page-container {
+    border-radius: 14px;
+  }
+
+  .page-header {
+    padding: 1.25rem 1.75rem;
+  }
+
+  .page-title {
+    font-size: 19px;
+  }
+
+  .page-content {
+    padding: 1.5rem 1.75rem;
+  }
+
+  .page-content .el-table th {
+    padding: 14px 10px;
+    font-size: 13px;
+  }
+
+  .page-content .el-table td {
+    padding: 12px 10px;
+    font-size: 13px;
+  }
+
+  .page-content .el-button--small {
+    padding: 5px 12px;
+    font-size: 13px;
+  }
+
+  .page-content .el-tag {
+    padding: 3px 10px;
+    font-size: 12px;
+  }
+
+  .page-content .el-tabs__item {
+    font-size: 14px;
+    padding: 0 20px;
+    height: 42px;
+    line-height: 42px;
+  }
+}
+
+/* laptop-14: 1100px - 1599px */
+@media (min-width: 1100px) and (max-width: 1599px) {
+  .page-container {
+    border-radius: 15px;
+  }
+
+  .page-header {
+    padding: 1.25rem 1.875rem;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .page-content {
+    padding: 1.5rem 1.875rem;
+  }
+
+  .page-content .el-table th {
+    padding: 15px 11px;
+    font-size: 13px;
+  }
+
+  .page-content .el-table td {
+    padding: 13px 11px;
+    font-size: 13px;
+  }
+
+  .page-content .el-button--small {
+    padding: 5px 12px;
+    font-size: 13px;
+  }
+
+  .page-content .el-tag {
+    padding: 3px 11px;
+    font-size: 12px;
+  }
+
+  .page-content .el-tabs__item {
+    font-size: 14px;
+    padding: 0 22px;
+    height: 43px;
+    line-height: 43px;
+  }
+}
+
+/* desktop-24: 1600px - 2239px (base styles already defined above) */
+
+/* desktop-27: >= 2240px */
+@media (min-width: 2240px) {
+  .page-container {
+    border-radius: 18px;
+  }
+
+  .page-header {
+    padding: 1.5rem 2.5rem;
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .page-content {
+    padding: 2rem 2.5rem;
+  }
+
+  .page-content .el-table th {
+    padding: 18px 14px;
+    font-size: 15px;
+  }
+
+  .page-content .el-table td {
+    padding: 16px 14px;
+    font-size: 15px;
+  }
+
+  .page-content .el-button--small {
+    padding: 7px 16px;
+    font-size: 14px;
+  }
+
+  .page-content .el-tag {
+    padding: 5px 14px;
+    font-size: 13px;
+  }
+
+  .page-content .el-tabs__item {
+    font-size: 16px;
+    padding: 0 28px;
+    height: 48px;
+    line-height: 48px;
+  }
+}
+
+/* Dialog responsive styles */
+@media (max-width: 767px) {
+  .el-dialog {
+    width: 95% !important;
+    margin: 0 auto !important;
+  }
+
+  .el-dialog__header {
+    padding: 1.25rem 1.5rem !important;
+  }
+
+  .el-dialog__title {
+    font-size: 18px !important;
+  }
+
+  .el-dialog__body {
+    padding: 1.5rem !important;
+  }
+
+  .el-dialog__footer {
+    padding: 1.25rem 1.5rem !important;
+  }
+
+  .el-form-item__label {
+    font-size: 13px !important;
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    font-size: 14px !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {
+  .el-dialog {
+    width: 85% !important;
+  }
+}
+
+@media (min-width: 2240px) {
+  .el-dialog__header {
+    padding: 1.75rem 2.25rem !important;
+  }
+
+  .el-dialog__title {
+    font-size: 22px !important;
+  }
+
+  .el-dialog__body {
+    padding: 2.25rem !important;
+  }
+
+  .el-dialog__footer {
+    padding: 1.75rem 2.25rem !important;
+  }
+}

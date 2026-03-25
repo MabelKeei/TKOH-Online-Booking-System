@@ -11,6 +11,8 @@ import App from './App.vue'
 import './style.css'
 import './assets/breakpoints.css'
 import './assets/datepicker-theme.css'
+import './assets/admin-styles.css'
+import './assets/admin-responsive.css'
 
 // 注册 Font Awesome 图标
 library.add(fas)

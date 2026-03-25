@@ -1,0 +1,293 @@
+/* Admin Global Styles Enhancement */
+
+/* Dialog Enhancements */
+.el-dialog {
+  border-radius: 16px !important;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2) !important;
+  overflow: hidden;
+}
+
+.el-dialog__header {
+  background: linear-gradient(135deg, #0A3D1F 0%, #005a2f 100%) !important;
+  padding: 1.5rem 2rem !important;
+  margin: 0 !important;
+}
+
+.el-dialog__title {
+  color: #ffffff !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.el-dialog__headerbtn .el-dialog__close {
+  color: #ffffff !important;
+  font-size: 20px !important;
+}
+
+.el-dialog__headerbtn:hover .el-dialog__close {
+  color: #ffffff !important;
+}
+
+.el-dialog__body {
+  padding: 2rem !important;
+}
+
+.el-dialog__footer {
+  padding: 1.5rem 2rem !important;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+/* Form Enhancements */
+.el-form-item__label {
+  font-weight: 500 !important;
+  color: #2c2c2c !important;
+}
+
+.el-input__wrapper {
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 1px #e0e0e0 inset !important;
+  transition: all 0.3s ease !important;
+}
+
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #b8b8b8 inset !important;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 2px #0A3D1F inset !important;
+}
+
+.el-textarea__inner {
+  border-radius: 8px !important;
+  border: 1px solid #e0e0e0 !important;
+  transition: all 0.3s ease !important;
+}
+
+.el-textarea__inner:hover {
+  border-color: #b8b8b8 !important;
+}
+
+.el-textarea__inner:focus {
+  border-color: #0A3D1F !important;
+  box-shadow: 0 0 0 2px rgba(0, 114, 58, 0.1) !important;
+}
+
+.el-select .el-input__wrapper {
+  cursor: pointer;
+}
+
+.el-input-number {
+  border-radius: 8px !important;
+}
+
+/* Button Enhancements */
+.el-button {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  transition: all 0.3s ease !important;
+}
+
+.el-button--primary {
+  background: linear-gradient(135deg, #0A3D1F 0%, #005a2f 100%) !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 114, 58, 0.3) !important;
+}
+
+.el-button--primary:hover {
+  background: linear-gradient(135deg, #005a2f 0%, #004a25 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 114, 58, 0.4) !important;
+}
+
+.el-button--primary:active {
+  transform: translateY(0);
+}
+
+.el-button--success {
+  background: linear-gradient(135deg, #67c23a 0%, #5daf34 100%) !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.3) !important;
+}
+
+.el-button--success:hover {
+  background: linear-gradient(135deg, #5daf34 0%, #529b2e 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.4) !important;
+}
+
+.el-button--danger {
+  background: linear-gradient(135deg, #f56c6c 0%, #f25555 100%) !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(245, 108, 108, 0.3) !important;
+}
+
+.el-button--danger:hover {
+  background: linear-gradient(135deg, #f25555 0%, #e84545 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 108, 108, 0.4) !important;
+}
+
+/* Switch Enhancements */
+.el-switch.is-checked .el-switch__core {
+  background-color: #0A3D1F !important;
+  border-color: #0A3D1F !important;
+}
+
+/* Upload Enhancements */
+.el-upload--picture-card {
+  border-radius: 8px !important;
+  border: 2px dashed #d9d9d9 !important;
+  transition: all 0.3s ease !important;
+}
+
+.el-upload--picture-card:hover {
+  border-color: #0A3D1F !important;
+  background: #f8fcf9 !important;
+}
+
+.el-upload-list--picture-card .el-upload-list__item {
+  border-radius: 8px !important;
+  border: 1px solid #e0e0e0 !important;
+}
+
+/* Message Box Enhancements */
+.el-message-box {
+  border-radius: 16px !important;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2) !important;
+}
+
+.el-message-box__header {
+  padding: 1.5rem 2rem 1rem !important;
+}
+
+.el-message-box__title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #2c2c2c !important;
+}
+
+.el-message-box__content {
+  padding: 1rem 2rem !important;
+}
+
+.el-message-box__btns {
+  padding: 1rem 2rem 1.5rem !important;
+}
+
+/* Message Enhancements */
+.el-message {
+  border-radius: 10px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+  padding: 12px 20px !important;
+  min-width: 300px !important;
+}
+
+.el-message--success {
+  background-color: #f0f9ff !important;
+  border: 1px solid #67c23a !important;
+}
+
+.el-message--warning {
+  background-color: #fef9f0 !important;
+  border: 1px solid #e6a23c !important;
+}
+
+.el-message--error {
+  background-color: #fef0f0 !important;
+  border: 1px solid #f56c6c !important;
+}
+
+.el-message--info {
+  background-color: #f4f4f5 !important;
+  border: 1px solid #909399 !important;
+}
+
+/* Badge Enhancements */
+.el-badge__content {
+  border-radius: 10px !important;
+  padding: 0 8px !important;
+  height: 20px !important;
+  line-height: 20px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+/* Dropdown Enhancements */
+.el-dropdown-menu {
+  border-radius: 10px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid #e0e0e0 !important;
+  padding: 8px !important;
+}
+
+.el-dropdown-menu__item {
+  border-radius: 6px !important;
+  padding: 8px 16px !important;
+  transition: all 0.3s ease !important;
+}
+
+.el-dropdown-menu__item:hover {
+  background: #f8fcf9 !important;
+  color: #0A3D1F !important;
+}
+
+/* Scrollbar Enhancements */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 114, 58, 0.3);
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 114, 58, 0.5);
+}
+
+/* Loading Enhancements */
+.el-loading-mask {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.el-loading-spinner .circular {
+  stroke: #0A3D1F !important;
+}
+
+/* Animation Classes */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.animate-slide-in {
+  animation: slideInRight 0.4s ease;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}

@@ -1,16 +1,19 @@
 <template>
   <div id="app">
     <router-view />
-    <FloatingHelpButton />
+    <FloatingHelpButton v-if="!isAdminRoute" />
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useUserStore } from './stores/user'
 import FloatingHelpButton from './components/FloatingHelpButton.vue'
 
 const userStore = useUserStore()
+const route = useRoute()
+const isAdminRoute = computed(() => route.path.startsWith('/admin'))
 
 onMounted(() => {
   // 初始化用户信息
@@ -37,21 +40,21 @@ onMounted(() => {
 }
 
 .el-date-table td.today .el-date-table-cell__text {
-  color: #00723a !important;
+  color: #0A3D1F !important;
   font-weight: 700 !important;
 }
 
 .el-date-table td.current:not(.disabled) .el-date-table-cell__text {
-  background-color: #00723a !important;
+  background-color: #0A3D1F !important;
   color: white !important;
 }
 
 .el-date-table td.available:hover .el-date-table-cell__text {
   background-color: #d6f3c5 !important;
-  color: #00723a !important;
+  color: #0A3D1F !important;
 }
 
 .el-picker-panel__icon-btn:hover {
-  color: #00723a !important;
+  color: #0A3D1F !important;
 }
 </style>

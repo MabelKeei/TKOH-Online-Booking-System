@@ -73,6 +73,65 @@ const routes = [
     meta: {
       title: 'Login'
     }
+  },
+  {
+    path: '/admin',
+    name: 'AdminManagement',
+    component: () => import('../views/AdminManagement.vue'),
+    redirect: '/admin/ev',
+    children: [
+      {
+        path: 'ev',
+        name: 'AdminEVManagement',
+        component: () => import('../components/admin/EVManagement.vue'),
+        meta: {
+          title: 'Admin - EV Management'
+        }
+      },
+      {
+        path: 'venue',
+        name: 'AdminVenueManagement',
+        component: () => import('../components/admin/VenueManagement.vue'),
+        meta: {
+          title: 'Admin - Venue Management'
+        }
+      },
+      {
+        path: 'user',
+        name: 'AdminUserManagement',
+        component: () => import('../components/admin/UserManagement.vue'),
+        meta: {
+          title: 'Admin - Users Management'
+        }
+      },
+      {
+        path: 'access-right',
+        name: 'AdminAccessRightManagement',
+        component: () => import('../components/admin/AccessRightManagement.vue'),
+        meta: {
+          title: 'Admin - Access Right Management'
+        }
+      },
+      {
+        path: 'approval',
+        name: 'AdminMeetingApproval',
+        component: () => import('../components/admin/MeetingApproval.vue'),
+        meta: {
+          title: 'Admin - Meeting Approval'
+        }
+      },
+      {
+        path: 'prompt',
+        name: 'AdminPromptManagement',
+        component: () => import('../components/admin/PromptManagement.vue'),
+        meta: {
+          title: 'Admin - System Prompts'
+        }
+      }
+    ],
+    meta: {
+      title: 'Admin Management'
+    }
   }
 ]
 

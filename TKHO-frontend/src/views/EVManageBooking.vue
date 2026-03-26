@@ -105,6 +105,7 @@
                   <el-date-picker
                     v-model="dateRange"
                     type="daterange"
+                    :teleported="false"
                     range-separator="to"
                     start-placeholder="Start date"
                     end-placeholder="End date"
@@ -999,20 +1000,21 @@ const onLogout = () => {
 .quick-date-options {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .quick-date-btn {
-  padding: 0.5rem 0.75rem;
+  padding: 0.375rem 0.625rem;
   border: 1px solid #d1d5db;
   border-radius: 0.375rem;
   background-color: white;
   color: #374151;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
+  line-height: 1.2;
 }
 
 .quick-date-btn:hover {

@@ -3,7 +3,7 @@
   <div class="modal-overlay" @click.self="handleClose" v-if="visible">
     <div
       class="booking-dialog-wrapper"
-      :style="{ transform: `translate(${dialogX}px, ${dialogY}px)` }"
+      :style="dialogWrapperStyle"
     >
       <!-- 头部 -->
       <div class="modal-header" @mousedown="handleMouseDown">
@@ -124,12 +124,24 @@
                 ></el-input>
               </el-form-item>
 
+              <el-form-item label="Number of Attendees" prop="attendeeCount" class="no-wrap-label">
+                <el-input-number
+                  v-model="form.attendeeCount"
+                  :min="1"
+                  :max="200"
+                  controls-position="right"
+                  style="width: 100%"
+                />
+              </el-form-item>
+
               <el-form-item label="Tea Service Required?" prop="teaServiceRequired" class="no-wrap-label">
                 <el-radio-group v-model="form.teaServiceRequired">
                   <el-radio :label="true">Yes</el-radio>
                   <el-radio :label="false">No</el-radio>
                 </el-radio-group>
               </el-form-item>
+
+              
             </div>
 
             <div class="paired-right">
@@ -288,6 +300,22 @@ const dragStartY = ref(0)
 const dialogX = ref(0)
 const dialogY = ref(0)
 
+/** 14" 视口（1100–1599）：弹窗略增高，与 MeetingApproval / UserManagement 一致 */
+const VENUE_BOOKING_DIALOG_MODAL_MQ = '(min-width: 1100px) and (max-width: 1599px)'
+const venueBookingDialogMaxHeight = ref('')
+
+function updateVenueBookingDialogMaxHeight () {
+  if (typeof window === 'undefined') return
+  venueBookingDialogMaxHeight.value = window.matchMedia(VENUE_BOOKING_DIALOG_MODAL_MQ).matches ? '124vh' : ''
+}
+
+let venueBookingDialogModalMq = null
+
+const dialogWrapperStyle = computed(() => ({
+  transform: `translate(${dialogX.value}px, ${dialogY.value}px)`,
+  ...(venueBookingDialogMaxHeight.value ? { maxHeight: venueBookingDialogMaxHeight.value } : {})
+}))
+
 function handleMouseDown(e) {
   if (e.target.closest('.modal-close')) return
   isDragging.value = true
@@ -309,9 +337,18 @@ function handleMouseUp() {
   document.removeEventListener('mouseup', handleMouseUp)
 }
 
+onMounted(() => {
+  updateVenueBookingDialogMaxHeight()
+  venueBookingDialogModalMq = window.matchMedia(VENUE_BOOKING_DIALOG_MODAL_MQ)
+  venueBookingDialogModalMq.addEventListener('change', updateVenueBookingDialogMaxHeight)
+})
+
 onUnmounted(() => {
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)
+  if (venueBookingDialogModalMq) {
+    venueBookingDialogModalMq.removeEventListener('change', updateVenueBookingDialogMaxHeight)
+  }
 })
 
 const form = ref({
@@ -322,6 +359,7 @@ const form = ref({
   topic: '',
   remark: '',
   teaServiceRequired: false,
+  attendeeCount: 1,
   teaOrWater: 'tea',
   serviceType: 'pot',
   venueSetup: '',
@@ -404,6 +442,7 @@ function initializeForm() {
       topic: '',
       remark: '',
       teaServiceRequired: false,
+      attendeeCount: 1,
       teaOrWater: 'tea',
       serviceType: 'pot',
       venueSetup: '',
@@ -940,7 +979,7 @@ watch(() => props.visible, (val) => {
 @media (min-width: 1100px) and (max-width: 1599px) {
   .booking-dialog-wrapper {
     width: 95% !important;
-    max-height: 106vh !important;
+    /* max-height：110vh 由脚本 dialogWrapperStyle 控制（与 MeetingApproval 一致） */
   }
 }
 

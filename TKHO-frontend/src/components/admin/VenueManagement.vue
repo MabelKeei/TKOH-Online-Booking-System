@@ -13,6 +13,10 @@
     </div>
 
     <div class="page-content">
+      <el-tabs v-model="activeCategory" @tab-change="handleTabChange">
+        <el-tab-pane label="Conference &amp; Discussion" name="conference_discussion" />
+        <el-tab-pane label="Other Venues" name="other_venues" />
+      </el-tabs>
       <div class="table-card">
       <el-table :data="paginatedData" height="100%" border stripe table-layout="auto" style="width: 100%">
         <el-table-column
@@ -25,14 +29,21 @@
           :index="getRowIndex"
         />
         <el-table-column prop="name" label="Venue Name" min-width="180" />
-        <el-table-column prop="type" label="Type" min-width="150">
+        <el-table-column prop="type" label="Type" min-width="130">
           <template #default="{ row }">
-            <el-tag :type="row.type === 'conference' ? 'primary' : 'success'">
-              {{ row.type === 'conference' ? 'Conference Room' : 'Other Venue' }}
+            <el-tag :type="row.type === 'conference' ? 'primary' : (row.type === 'discussion' ? 'warning' : 'success')">
+              {{ getTypeLabel(row.type) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="capacity" label="Capacity" min-width="110" />
+        <el-table-column prop="color" label="Color" min-width="120">
+          <template #default="{ row }">
+            <div class="venue-color-cell">
+              <span class="venue-color-dot" :style="{ backgroundColor: row.color }"></span>
+              <span>{{ row.color }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="location" label="Location" min-width="170" />
         <el-table-column label="Images" min-width="120">
           <template #default="{ row }">
@@ -60,7 +71,7 @@
 
       <div class="pagination-bar">
         <div class="pagination-info">
-          Showing {{ startIndex + 1 }}-{{ endIndex }} of {{ venueList.length }} records
+          Showing {{ filteredTotal === 0 ? 0 : startIndex + 1 }}-{{ endIndex }} of {{ filteredTotal }} records
         </div>
         <div class="pagination-controls">
           <button class="pagination-btn" :disabled="currentPage === 1" @click="currentPage--">Previous</button>
@@ -95,14 +106,26 @@
         <el-form-item label="Venue Name">
           <el-input v-model="formData.name" />
         </el-form-item>
-        <el-form-item label="Type">
+        <el-form-item v-if="activeCategory === 'conference_discussion'" label="Type">
           <el-select v-model="formData.type" style="width: 100%">
-            <el-option label="Conference Room" value="conference" />
-            <el-option label="Other Venue" value="other" />
+            <el-option label="Conference" value="conference" />
+            <el-option label="Discussion" value="discussion" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Capacity">
-          <el-input-number v-model="formData.capacity" :min="1" />
+        <el-form-item label="Color">
+          <el-select v-model="formData.color" placeholder="Select color for calendar" style="width: 100%">
+            <el-option
+              v-for="option in colorOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            >
+              <div class="color-option-item">
+                <span class="venue-color-dot" :style="{ backgroundColor: option.value }"></span>
+                <span>{{ option.label }} ({{ option.value }})</span>
+              </div>
+            </el-option>
+          </el-select>
         </el-form-item>
         <el-form-item label="Location">
           <el-input v-model="formData.location" />
@@ -143,26 +166,42 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import { getMockVenueList } from '@/mocks/mockData'
 
 const venueList = ref(getMockVenueList())
+const activeCategory = ref('conference_discussion')
+
+const colorOptions = [
+  { label: 'Blue', value: '#3b82f6' },
+  { label: 'Green', value: '#10b981' },
+  { label: 'Cyan', value: '#06b6d4' },
+  { label: 'Amber', value: '#f59e0b' },
+  { label: 'Pink', value: '#ec4899' },
+  { label: 'Indigo', value: '#6366f1' },
+  { label: 'Purple', value: '#8b5cf6' }
+]
 
 const currentPage = ref(1)
 const pageSize = ref(10)
 
+const filteredVenueList = computed(() =>
+  venueList.value.filter(item => (item.tab ?? item.category) === activeCategory.value)
+)
+const filteredTotal = computed(() => filteredVenueList.value.length)
+
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   const end = start + pageSize.value
-  return venueList.value.slice(start, end)
+  return filteredVenueList.value.slice(start, end)
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(venueList.value.length / pageSize.value)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredTotal.value / pageSize.value)))
 const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
-const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, venueList.value.length))
+const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, filteredTotal.value))
 const visiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -179,8 +218,9 @@ const showForm = ref(false)
 const formMode = ref('add')
 const formData = ref({
   name: '',
+  tab: 'conference_discussion',
   type: 'conference',
-  capacity: 10,
+  color: '',
   location: '',
   images: [],
   status: 'active'
@@ -193,14 +233,40 @@ const currentRow = ref(null)
 
 const getRowIndex = (index) => (currentPage.value - 1) * pageSize.value + index + 1
 
+const getTypeLabel = (type) => {
+  if (type === 'conference') return 'Conference'
+  if (type === 'discussion') return 'Discussion'
+  return 'Other'
+}
+
+const handleTabChange = () => {
+  currentPage.value = 1
+}
+
+watch(filteredTotal, () => {
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = totalPages.value
+  }
+})
+
 const handleExport = () => {
-  const exportData = venueList.value.map(item => ({
-    'Venue Name': item.name,
-    'Type': item.type === 'conference' ? 'Conference Room' : 'Other Venue',
-    'Capacity': item.capacity,
-    'Location': item.location,
-    'Status': item.status === 'active' ? 'Active' : 'Inactive'
-  }))
+  const exportData = filteredVenueList.value.map(item => {
+    const base = {
+      'Venue Name': item.name,
+      'Color': item.color,
+      'Location': item.location,
+      'Status': item.status === 'active' ? 'Active' : 'Inactive'
+    }
+
+    if (activeCategory.value === 'conference_discussion') {
+      return {
+        ...base,
+        'Type': getTypeLabel(item.type)
+      }
+    }
+
+    return base
+  })
 
   const ws = XLSX.utils.json_to_sheet(exportData)
   const wb = XLSX.utils.book_new()
@@ -211,24 +277,52 @@ const handleExport = () => {
 
 const handleAdd = () => {
   formMode.value = 'add'
-  formData.value = { name: '', type: 'conference', capacity: 10, location: '', images: [], status: 'active' }
+  formData.value = {
+    name: '',
+    tab: activeCategory.value,
+    type: activeCategory.value === 'conference_discussion' ? 'conference' : 'other',
+    color: '',
+    location: '',
+    images: [],
+    status: 'active'
+  }
   showForm.value = true
 }
 
 const handleEdit = (row) => {
   formMode.value = 'edit'
-  formData.value = { ...row }
+  formData.value = {
+    ...row,
+    tab: row.tab ?? row.category ?? activeCategory.value,
+    type: row.type ?? ((row.tab ?? row.category) === 'conference_discussion' ? 'conference' : 'other')
+  }
   showForm.value = true
 }
 
 const handleSave = () => {
+  if (!formData.value.color) {
+    ElMessage.warning('Please select a color for calendar display')
+    return
+  }
+
+  if (activeCategory.value === 'conference_discussion' && !formData.value.type) {
+    ElMessage.warning('Please select a type')
+    return
+  }
+
+  const normalizedFormData = {
+    ...formData.value,
+    tab: activeCategory.value,
+    type: activeCategory.value === 'conference_discussion' ? formData.value.type : 'other'
+  }
+
   if (formMode.value === 'add') {
-    venueList.value.push({ ...formData.value, id: Date.now() })
+    venueList.value.push({ ...normalizedFormData, id: Date.now() })
     ElMessage.success('Venue added successfully')
   } else {
     const index = venueList.value.findIndex(item => item.id === formData.value.id)
     if (index !== -1) {
-      venueList.value[index] = { ...formData.value }
+      venueList.value[index] = { ...normalizedFormData }
       ElMessage.success('Venue updated successfully')
     }
   }
@@ -353,6 +447,35 @@ const handlePreview = (file) => {
   flex-direction: column;
 }
 
+.page-content :deep(.el-tabs) {
+  flex: none;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-content :deep(.el-tabs__header) {
+  margin-bottom: 0.5rem;
+}
+
+.page-content :deep(.el-tabs__item) {
+  font-size: 15px;
+  font-weight: 500;
+  padding: 0 24px;
+  height: 44px;
+  line-height: 44px;
+}
+
+.page-content :deep(.el-tabs__item.is-active) {
+  color: #00723a;
+  font-weight: 600;
+}
+
+.page-content :deep(.el-tabs__active-bar) {
+  background-color: #00723a;
+  height: 3px;
+}
+
 .page-content :deep(.el-table th) {
   background: #f3f4f6;
   color: #374151;
@@ -399,6 +522,26 @@ const handlePreview = (file) => {
 .header-actions {
   display: flex;
   gap: 0.75rem;
+}
+
+.venue-color-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.venue-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid #d1d5db;
+  display: inline-block;
+}
+
+.color-option-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .pagination-bar {

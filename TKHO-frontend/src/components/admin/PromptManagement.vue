@@ -6,13 +6,21 @@
         <el-button type="default" class="cancel-btn" @click="handleExport">
           <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
         </el-button>
-        <el-button type="default" class="submit-btn" @click="handleAdd">
-          <font-awesome-icon :icon="['fas', 'plus']" /> Add Prompt
+        <el-button v-if="activeTab === 'reject'" type="default" class="submit-btn" @click="handleAdd">
+          <font-awesome-icon :icon="['fas', 'plus']" /> Add {{ activeTabLabel }}
         </el-button>
       </div>
     </div>
 
     <div class="page-content">
+      <el-tabs v-model="activeTab">
+        <el-tab-pane label="System Prompts" name="system" />
+        <el-tab-pane label="Reject Template" name="reject" />
+      </el-tabs>
+      <el-tabs v-if="activeTab === 'reject'" v-model="rejectSubTab" class="sub-tabs">
+        <el-tab-pane label="Meeting Approval" name="meeting_approval" />
+        <el-tab-pane label="Account Application" name="account_application" />
+      </el-tabs>
       <div class="table-card">
       <el-table :data="paginatedData" height="100%" border stripe table-layout="auto" style="width: 100%">
         <el-table-column
@@ -24,26 +32,34 @@
           fixed="left"
           :index="getRowIndex"
         />
-        <el-table-column prop="key" label="Prompt Key" min-width="170" />
-        <el-table-column prop="title" label="Title" min-width="220" />
-        <el-table-column prop="content" label="Content" min-width="320" />
-        <el-table-column prop="type" label="Type" min-width="120">
+        <el-table-column
+          prop="name"
+          label="Name"
+          :width="activeTab === 'reject' ? 360 : undefined"
+          :min-width="activeTab === 'reject' ? undefined : 220"
+        />
+        <el-table-column label="Content" min-width="320">
           <template #default="{ row }">
-            <el-tag :type="getTypeColor(row.type)">{{ row.type }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="Status" min-width="110">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'info'">
-              {{ row.status === 'active' ? 'Active' : 'Inactive' }}
-            </el-tag>
+            <div
+              v-if="activeTab === 'system'"
+              class="formatted-content"
+              v-html="renderFormattedContent(row.content)"
+            />
+            <span v-else>{{ row.content }}</span>
           </template>
         </el-table-column>
         <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button size="small" class="action-btn action-edit" @click="handleEdit(row)">Edit</el-button>
-              <el-button size="small" class="action-btn action-delete" @click="handleDelete(row)">Delete</el-button>
+              <el-button
+                v-if="activeTab === 'reject'"
+                size="small"
+                class="action-btn action-delete"
+                @click="handleDelete(row)"
+              >
+                Delete
+              </el-button>
             </div>
           </template>
         </el-table-column>
@@ -51,7 +67,7 @@
 
       <div class="pagination-bar">
         <div class="pagination-info">
-          Showing {{ startIndex + 1 }}-{{ endIndex }} of {{ promptList.length }} records
+          Showing {{ startIndex + 1 }}-{{ endIndex }} of {{ currentList.length }} records
         </div>
         <div class="pagination-controls">
           <button class="pagination-btn" :disabled="currentPage === 1" @click="currentPage--">Previous</button>
@@ -79,34 +95,58 @@
 
     <BookingStyleModal
       v-model="showForm"
-      :title="formMode === 'add' ? 'Add Prompt' : 'Edit Prompt'"
-      max-width="700px"
+      :title="formMode === 'add' ? `Add ${activeTabLabel}` : `Edit ${activeTabLabel}`"
+      :max-width="activeTab === 'system' ? '1240px' : '700px'"
+      :max-height="formModalMaxHeight"
     >
       <el-form :model="formData" label-width="120px">
-        <el-form-item label="Prompt Key">
-          <el-input v-model="formData.key" placeholder="e.g., booking_success" />
+        <el-form-item v-if="activeTab === 'reject' && formMode === 'edit'" label="Type">
+          <el-input v-model="formData.key" :disabled="activeTab === 'system' || formMode === 'edit'" placeholder="e.g., reject_template_01" />
         </el-form-item>
-        <el-form-item label="Title">
-          <el-input v-model="formData.title" placeholder="Display title" />
-        </el-form-item>
-        <el-form-item label="Type">
-          <el-select v-model="formData.type" style="width: 100%">
-            <el-option label="Success" value="success" />
-            <el-option label="Warning" value="warning" />
-            <el-option label="Error" value="error" />
-            <el-option label="Info" value="info" />
+        <el-form-item v-if="activeTab === 'reject' && formMode === 'add'" label="Template Type">
+          <el-select
+            v-model="formData.templateType"
+            style="width: 100%"
+            :teleported="false"
+            @change="handleRejectTemplateTypeChange"
+          >
+            <el-option
+              v-for="option in rejectTemplateTypeOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
           </el-select>
         </el-form-item>
+        <el-form-item label="Name">
+          <el-input v-model="formData.name" :disabled="activeTab === 'system'" placeholder="Display name" />
+        </el-form-item>
         <el-form-item label="Content">
+          <template v-if="activeTab === 'system'">
+            <div class="rich-editor-wrap">
+              <div class="rich-editor-toolbar">
+                <el-button size="small" @click="applyTextStyle('bold')"><b>B</b></el-button>
+                <el-button size="small" @click="applyTextStyle('underline')"><u>U</u></el-button>
+                <label class="color-picker-label">A<input type="color" @click="applyColor($event.target.value)" @input="applyColor($event.target.value)" @change="applyColor($event.target.value)" /></label>
+                <label class="color-picker-label">Bg<input type="color" @click="applyBackgroundColor($event.target.value)" @input="applyBackgroundColor($event.target.value)" @change="applyBackgroundColor($event.target.value)" /></label>
+                <el-button size="small" @click="insertLineBreak">↵</el-button>
+              </div>
+              <div
+                ref="richEditorRef"
+                class="rich-editor"
+                contenteditable="true"
+                @input="handleRichEditorInput"
+                @keydown="handleRichEditorKeydown"
+              />
+            </div>
+          </template>
           <el-input
+            v-else
             v-model="formData.content"
             type="textarea"
             :rows="6"
             placeholder="Prompt message content"
           />
-        </el-form-item>
-        <el-form-item label="Status">
-          <el-switch v-model="formData.status" active-value="active" inactive-value="inactive" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -126,13 +166,40 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import { getMockPromptList } from '@/mocks/mockData'
 
 const promptList = ref(getMockPromptList())
+const rejectTemplateTypeOptions = [
+  { value: 'meeting_approval', label: 'Meeting Approval Reject Template' },
+  { value: 'account_application', label: 'Account Application Reject Template' }
+]
+const rejectTemplateDefaults = {
+  meeting_approval: {
+    key: 'meeting_approval_reject_template',
+    name: 'Meeting Approval Reject Template',
+    content: 'Your meeting booking request is rejected. Reason: {reason}'
+  },
+  account_application: {
+    key: 'account_application_reject_template',
+    name: 'Account Application Reject Template',
+    content: 'Your account application is rejected. Reason: {reason}'
+  }
+}
+const activeTab = ref('system')
+const rejectSubTab = ref('meeting_approval')
+const activeTabLabel = computed(() => (activeTab.value === 'system' ? 'System Prompt' : 'Reject Template'))
+const currentList = computed(() => {
+  if (activeTab.value === 'system') {
+    return promptList.value.filter(item => item.category === 'system_fixed')
+  }
+  return promptList.value.filter(
+    item => item.category === 'reject_template' && item.templateType === rejectSubTab.value
+  )
+})
 
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -140,12 +207,12 @@ const pageSize = ref(10)
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   const end = start + pageSize.value
-  return promptList.value.slice(start, end)
+  return currentList.value.slice(start, end)
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(promptList.value.length / pageSize.value)))
+const totalPages = computed(() => Math.max(1, Math.ceil(currentList.value.length / pageSize.value)))
 const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
-const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, promptList.value.length))
+const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, currentList.value.length))
 const visiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -158,51 +225,102 @@ const visiblePages = computed(() => {
   return pages
 })
 
+watch(activeTab, () => {
+  currentPage.value = 1
+})
+watch(rejectSubTab, () => {
+  currentPage.value = 1
+})
+
 const showForm = ref(false)
 const formMode = ref('add')
 const formData = ref({
   key: '',
-  title: '',
+  name: '',
   content: '',
-  type: 'info',
-  status: 'active'
+  category: 'reject_template',
+  canAdd: true,
+  templateType: 'meeting_approval'
 })
 
 const showDeleteDialog = ref(false)
 const currentRow = ref(null)
-
-const getTypeColor = (type) => {
-  const colors = {
-    success: 'success',
-    warning: 'warning',
-    error: 'danger',
-    info: 'info'
+const richEditorRef = ref(null)
+const SYSTEM_PROMPT_MODAL_MQ = '(min-width: 1100px) and (max-width: 1599px)'
+const systemPromptEditModalMaxHeight = ref('94vh')
+const formModalMaxHeight = computed(() => {
+  if (activeTab.value === 'system' && formMode.value === 'edit') {
+    return systemPromptEditModalMaxHeight.value
   }
-  return colors[type] || 'info'
+  return '94vh'
+})
+let systemPromptModalMq = null
+
+function updateSystemPromptEditModalMaxHeight () {
+  if (typeof window === 'undefined') return
+  systemPromptEditModalMaxHeight.value = window.matchMedia(SYSTEM_PROMPT_MODAL_MQ).matches ? '120vh' : '94vh'
 }
+
+onMounted(() => {
+  updateSystemPromptEditModalMaxHeight()
+  systemPromptModalMq = window.matchMedia(SYSTEM_PROMPT_MODAL_MQ)
+  systemPromptModalMq.addEventListener('change', updateSystemPromptEditModalMaxHeight)
+})
+
+onUnmounted(() => {
+  if (systemPromptModalMq) {
+    systemPromptModalMq.removeEventListener('change', updateSystemPromptEditModalMaxHeight)
+  }
+})
+watch(showForm, async (opened) => {
+  if (!opened || activeTab.value !== 'system') return
+  await nextTick()
+  if (richEditorRef.value) {
+    richEditorRef.value.innerHTML = sanitizeHtml(formData.value.content || '')
+  }
+})
 
 const getRowIndex = (index) => (currentPage.value - 1) * pageSize.value + index + 1
 
 const handleExport = () => {
-  const exportData = promptList.value.map(item => ({
-    'Prompt Key': item.key,
-    'Title': item.title,
+  const exportData = currentList.value.map(item => ({
+    'Type': item.key,
+    'Name': item.name,
     'Content': item.content,
-    'Type': item.type,
-    'Status': item.status === 'active' ? 'Active' : 'Inactive'
+    'Template Rule': item.canAdd ? 'Customizable' : 'Fixed'
   }))
 
   const ws = XLSX.utils.json_to_sheet(exportData)
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'System Prompts')
-  XLSX.writeFile(wb, `System_Prompts_${new Date().toISOString().split('T')[0]}.xlsx`)
+  const sheetName = activeTab.value === 'system' ? 'System Prompts' : 'Reject Template'
+  const filePrefix = activeTab.value === 'system' ? 'System_Prompts' : 'Reject_Template'
+  XLSX.utils.book_append_sheet(wb, ws, sheetName)
+  XLSX.writeFile(wb, `${filePrefix}_${new Date().toISOString().split('T')[0]}.xlsx`)
   ElMessage.success('Excel file exported successfully')
 }
 
 const handleAdd = () => {
+  if (activeTab.value === 'system') return
+  const defaultType = rejectSubTab.value === 'account_application' ? 'account_application' : 'meeting_approval'
+  const defaultPreset = rejectTemplateDefaults[defaultType]
   formMode.value = 'add'
-  formData.value = { key: '', title: '', content: '', type: 'info', status: 'active' }
+  formData.value = {
+    key: defaultPreset.key,
+    name: defaultPreset.name,
+    content: defaultPreset.content,
+    category: 'reject_template',
+    canAdd: true,
+    templateType: defaultType
+  }
   showForm.value = true
+}
+
+const handleRejectTemplateTypeChange = (templateType) => {
+  const preset = rejectTemplateDefaults[templateType]
+  if (!preset) return
+  formData.value.key = preset.key
+  formData.value.name = preset.name
+  formData.value.content = preset.content
 }
 
 const handleEdit = (row) => {
@@ -211,20 +329,89 @@ const handleEdit = (row) => {
   showForm.value = true
 }
 
+function sanitizeHtml (html) {
+  const container = document.createElement('div')
+  container.innerHTML = html || ''
+  container.querySelectorAll('script, iframe, object, embed, style, link').forEach((node) => node.remove())
+  container.querySelectorAll('*').forEach((el) => {
+    for (const attr of [...el.attributes]) {
+      const name = attr.name.toLowerCase()
+      const value = String(attr.value || '')
+      if (name.startsWith('on')) {
+        el.removeAttribute(attr.name)
+        continue
+      }
+      if ((name === 'href' || name === 'src') && value.trim().toLowerCase().startsWith('javascript:')) {
+        el.removeAttribute(attr.name)
+      }
+      if (name === 'style') {
+        const safe = value
+          .split(';')
+          .map(s => s.trim())
+          .filter(Boolean)
+          .filter(rule => /^(color|background-color|font-weight|text-decoration)\s*:/i.test(rule))
+          .join('; ')
+        if (safe) {
+          el.setAttribute('style', safe)
+        } else {
+          el.removeAttribute('style')
+        }
+      }
+    }
+  })
+  return container.innerHTML
+}
+
+const renderFormattedContent = (content) => sanitizeHtml(content)
+
+const handleRichEditorInput = () => {
+  formData.value.content = sanitizeHtml(richEditorRef.value?.innerHTML || '')
+}
+
+function applyTextStyle (command) {
+  document.execCommand(command)
+  handleRichEditorInput()
+}
+
+function applyColor (color) {
+  document.execCommand('foreColor', false, color)
+  handleRichEditorInput()
+}
+
+function applyBackgroundColor (color) {
+  document.execCommand('hiliteColor', false, color)
+  handleRichEditorInput()
+}
+
+function insertLineBreak () {
+  document.execCommand('insertLineBreak')
+  handleRichEditorInput()
+}
+
+function handleRichEditorKeydown (event) {
+  if (event.key !== 'Tab') return
+  event.preventDefault()
+  document.execCommand('insertText', false, '    ')
+  handleRichEditorInput()
+}
+
 const handleSave = () => {
-  if (!formData.value.key || !formData.value.title || !formData.value.content) {
+  if (activeTab.value === 'system') {
+    formData.value.content = sanitizeHtml(formData.value.content || '')
+  }
+  if (!formData.value.key || !formData.value.name || !formData.value.content) {
     ElMessage.warning('Please fill in all required fields')
     return
   }
 
   if (formMode.value === 'add') {
     promptList.value.push({ ...formData.value, id: Date.now() })
-    ElMessage.success('Prompt added successfully')
+    ElMessage.success(`${activeTabLabel.value} added successfully`)
   } else {
     const index = promptList.value.findIndex(item => item.id === formData.value.id)
     if (index !== -1) {
       promptList.value[index] = { ...formData.value }
-      ElMessage.success('Prompt updated successfully')
+      ElMessage.success(`${activeTabLabel.value} updated successfully`)
     }
   }
   showForm.value = false
@@ -236,10 +423,12 @@ const handleDelete = (row) => {
 }
 
 const confirmDelete = () => {
-  const index = promptList.value.findIndex(item => item.id === currentRow.value.id)
-  if (index !== -1) {
-    promptList.value.splice(index, 1)
-    ElMessage.success('Deleted successfully')
+  if (activeTab.value === 'reject') {
+    const index = promptList.value.findIndex(item => item.id === currentRow.value.id)
+    if (index !== -1) {
+      promptList.value.splice(index, 1)
+      ElMessage.success('Deleted successfully')
+    }
   }
   showDeleteDialog.value = false
   currentRow.value = null
@@ -336,6 +525,54 @@ const confirmDelete = () => {
   flex-direction: column;
 }
 
+.page-content :deep(.el-tabs__header) {
+  margin-bottom: 0.5rem;
+}
+
+.page-content :deep(.el-tabs) {
+  flex: 0 0 auto;
+}
+
+.page-content :deep(.el-tabs__item) {
+  font-size: 15px;
+  font-weight: 500;
+  padding: 0 24px;
+  height: 44px;
+  line-height: 44px;
+}
+
+.page-content :deep(.el-tabs__item.is-active) {
+  color: #00723a;
+  font-weight: 600;
+}
+
+.page-content :deep(.el-tabs__active-bar) {
+  background-color: #00723a;
+  height: 3px;
+}
+
+.sub-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0.5rem;
+}
+
+.sub-tabs :deep(.el-tabs__item) {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0 20px;
+  height: 40px;
+  line-height: 40px;
+}
+
+.sub-tabs :deep(.el-tabs__item.is-active) {
+  color: #00723a;
+  font-weight: 600;
+}
+
+.sub-tabs :deep(.el-tabs__active-bar) {
+  background-color: #00723a;
+  height: 2px;
+}
+
 .page-content :deep(.el-table) {
   border-radius: 0;
   overflow: hidden;
@@ -386,6 +623,69 @@ const confirmDelete = () => {
   border-radius: 6px;
   font-weight: 500;
   border: none;
+}
+
+.rich-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rich-editor-wrap {
+  display: block;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+}
+
+.color-picker-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.color-picker-label input[type='color'] {
+  width: 28px;
+  height: 24px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 4px;
+  padding: 0;
+}
+
+.rich-editor {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 100%;
+  min-height: 150px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  line-height: 1.5;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-y: auto;
+}
+
+.rich-editor:focus {
+  border-color: #00723a;
+}
+
+.formatted-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Keep system prompt content editor width stable inside el-form flex layout */
+:deep(.el-form-item__content) .rich-editor-wrap {
+  flex: 1 1 100%;
 }
 
 .header-actions {

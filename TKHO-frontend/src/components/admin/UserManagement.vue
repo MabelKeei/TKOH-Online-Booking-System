@@ -44,12 +44,12 @@
                   <el-table-column prop="department" label="Department" min-width="150" />
                   <el-table-column prop="role" label="Role" min-width="140" />
                   <el-table-column prop="email" label="Email" min-width="220" />
-                  <el-table-column label="Annual Quota (EV)" min-width="165">
+                  <el-table-column label="EV Quota" min-width="165">
                     <template #default="{ row }">
                       {{ row.usedQuotaEV }} / {{ row.annualQuotaEV }}
                     </template>
                   </el-table-column>
-                  <el-table-column label="Annual Quota (Venue)" min-width="185">
+                  <el-table-column label="Venue Quota" min-width="110">
                     <template #default="{ row }">
                       {{ row.usedQuotaVenue }} / {{ row.annualQuotaVenue }}
                     </template>
@@ -59,6 +59,11 @@
                       <span :class="['status-pill', `status-${row.status}`]">
                         {{ row.status === 'active' ? 'Active' : row.status === 'inactive' ? 'Inactive' : 'Expired' }}
                       </span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="lastLoginTime" label="Last login time" min-width="180">
+                    <template #default="{ row }">
+                      {{ row.lastLoginTime || '-' }}
                     </template>
                   </el-table-column>
                   <el-table-column label="Actions" width="230" fixed="right" class-name="actions-col">
@@ -143,21 +148,26 @@
                   <el-table-column prop="department" label="Department" min-width="150" />
                   <el-table-column prop="role" label="Role" min-width="140" />
                   <el-table-column prop="email" label="Email" min-width="220" />
-                  <el-table-column label="Annual Quota (EV)" min-width="165">
-                    <template #default="{ row }">
-                      {{ row.usedQuotaEV }} / {{ row.annualQuotaEV }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="Annual Quota (Venue)" min-width="185">
-                    <template #default="{ row }">
-                      {{ row.usedQuotaVenue }} / {{ row.annualQuotaVenue }}
-                    </template>
-                  </el-table-column>
                   <el-table-column prop="status" label="Status" min-width="120">
                     <template #default="{ row }">
                       <span :class="['status-pill', `status-${row.status}`]">
                         {{ row.status === 'expired' ? 'Expired' : 'Inactive' }}
                       </span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="lastLoginTime" label="Last login time" min-width="180">
+                    <template #default="{ row }">
+                      {{ row.lastLoginTime || '-' }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="EV Quota" min-width="165">
+                    <template #default="{ row }">
+                      {{ row.usedQuotaEV }} / {{ row.annualQuotaEV }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="Venue Quota" min-width="110">
+                    <template #default="{ row }">
+                      {{ row.usedQuotaVenue }} / {{ row.annualQuotaVenue }}
                     </template>
                   </el-table-column>
                   <el-table-column label="Actions" width="230" fixed="right" class-name="actions-col">
@@ -240,6 +250,11 @@
                       <el-table-column prop="department" label="Department" min-width="150" />
                       <el-table-column prop="role" label="Role" min-width="140" />
                       <el-table-column prop="email" label="Email" min-width="220" />
+                      <el-table-column prop="lastLoginTime" label="Last login time" min-width="180">
+                        <template #default="{ row }">
+                          {{ row.lastLoginTime || '-' }}
+                        </template>
+                      </el-table-column>
                       <el-table-column prop="reason" label="申请理由" min-width="240" />
                       <el-table-column prop="submittedAt" label="Submitted At" min-width="180" />
                       <el-table-column label="Actions" width="120" fixed="right" class-name="actions-col">
@@ -299,6 +314,11 @@
                       <el-table-column prop="department" label="Department" min-width="150" />
                       <el-table-column prop="role" label="Role" min-width="140" />
                       <el-table-column prop="email" label="Email" min-width="220" />
+                      <el-table-column prop="lastLoginTime" label="Last login time" min-width="180">
+                        <template #default="{ row }">
+                          {{ row.lastLoginTime || '-' }}
+                        </template>
+                      </el-table-column>
                       <el-table-column prop="approvedAt" label="Approved At" min-width="180" />
                       <el-table-column prop="approvedBy" label="Approved By" min-width="140" />
                     </el-table>
@@ -351,6 +371,11 @@
                       <el-table-column prop="department" label="Department" min-width="150" />
                       <el-table-column prop="role" label="Role" min-width="140" />
                       <el-table-column prop="email" label="Email" min-width="220" />
+                      <el-table-column prop="lastLoginTime" label="Last login time" min-width="180">
+                        <template #default="{ row }">
+                          {{ row.lastLoginTime || '-' }}
+                        </template>
+                      </el-table-column>
                       <el-table-column prop="rejectedAt" label="Rejected At" min-width="180" />
                       <el-table-column prop="rejectedBy" label="Rejected By" min-width="140" />
                       <el-table-column prop="rejectReason" label="Reject Reason" min-width="240" />
@@ -551,6 +576,30 @@
             :rows="4"
           />
         </el-form-item>
+        <el-form-item label="Reject Template">
+          <el-select
+            v-model="pendingHandleForm.rejectTemplateKey"
+            placeholder="Select reject template"
+            style="width: 100%"
+            :teleported="false"
+            @change="handlePendingRejectTemplateChange"
+          >
+            <el-option
+              v-for="tpl in rejectTemplateOptions"
+              :key="tpl.id"
+              :label="tpl.name"
+              :value="tpl.key"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Reject Reason">
+          <el-input
+            v-model="pendingHandleForm.rejectReason"
+            type="textarea"
+            :rows="4"
+            placeholder="Required only when rejecting"
+          />
+        </el-form-item>
       </el-form>
 
       <template #footer>
@@ -575,6 +624,22 @@
     <!-- Reject Reason Dialog -->
     <BookingStyleModal v-model="showRejectDialog" title="Reject Registration" max-width="500px">
       <el-form :model="rejectForm" label-width="120px">
+        <el-form-item label="Template">
+          <el-select
+            v-model="rejectForm.templateKey"
+            placeholder="Select reject template"
+            style="width: 100%"
+            :teleported="false"
+            @change="handleUserRejectTemplateChange"
+          >
+            <el-option
+              v-for="tpl in rejectTemplateOptions"
+              :key="tpl.key"
+              :label="tpl.name"
+              :value="tpl.key"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="Reject Reason">
           <el-input v-model="rejectForm.reason" type="textarea" :rows="4" placeholder="Please provide a reason for rejection" />
         </el-form-item>
@@ -598,7 +663,8 @@ import {
   getMockEmployeeListNormalized,
   getMockPendingListNormalized,
   getMockAccessRoleList,
-  getMockDepartmentList
+  getMockDepartmentList,
+  getMockPromptList
 } from '@/mocks/mockData'
 
 const adminStore = useAdminStore()
@@ -895,12 +961,20 @@ const pendingHandleForm = ref({
   email: '',
   password: DEFAULT_PASSWORD,
   submittedAt: '',
-  reason: ''
+  reason: '',
+  rejectTemplateKey: 'account_application_reject_template',
+  rejectReason: ''
 })
 
 const rejectForm = ref({
+  templateKey: 'account_application_reject_template',
   reason: ''
 })
+const rejectTemplateOptions = computed(() =>
+  getMockPromptList().filter(
+    item => item.category === 'reject_template' && item.templateType === 'account_application'
+  )
+)
 
 const registrationUrl = ref('https://tkoh.com/register?token=abc123')
 const qrCanvas = ref(null)
@@ -965,9 +1039,9 @@ const handleExport = () => {
     'Department': item.department,
     'Role': item.role,
     'Email': item.email,
-    'Annual Quota (EV)': item.annualQuotaEV,
+    'EV Quota': item.annualQuotaEV,
     'Used Quota (EV)': item.usedQuotaEV,
-    'Annual Quota (Venue)': item.annualQuotaVenue,
+    'Venue Quota': item.annualQuotaVenue,
     'Used Quota (Venue)': item.usedQuotaVenue,
     'Status': item.status === 'active' ? 'Active' : item.status === 'inactive' ? 'Inactive' : 'Expired'
   }))
@@ -1068,8 +1142,11 @@ const handlePending = (row) => {
   currentRow.value = row
   pendingHandleForm.value = {
     ...row,
-    password: DEFAULT_PASSWORD
+    password: DEFAULT_PASSWORD,
+    rejectTemplateKey: 'account_application_reject_template',
+    rejectReason: ''
   }
+  handlePendingRejectTemplateChange(pendingHandleForm.value.rejectTemplateKey)
   showPendingHandleDialog.value = true
 }
 
@@ -1104,8 +1181,27 @@ const confirmPendingApprove = () => {
 }
 
 const confirmPendingReject = () => {
-  rejectForm.value.reason = ''
-  showRejectDialog.value = true
+  if (!pendingHandleForm.value.rejectReason.trim()) {
+    ElMessage.warning('Please provide a reason for rejection')
+    return
+  }
+
+  const data = pendingHandleForm.value
+  pendingRejectedList.value.push({
+    ...data,
+    rejectedAt: new Date().toLocaleString('en-CA', { hour12: false }).replace(',', ''),
+    rejectedBy: 'Admin',
+    rejectReason: pendingHandleForm.value.rejectReason.trim()
+  })
+
+  const index = pendingList.value.findIndex(item => item.id === data.id)
+  if (index !== -1) {
+    pendingList.value.splice(index, 1)
+    ElMessage.success('Registration rejected')
+    adminStore.fetchPendingCounts()
+  }
+  showPendingHandleDialog.value = false
+  currentRow.value = null
 }
 
 const handleActivate = (row) => {
@@ -1149,8 +1245,22 @@ const confirmApprove = () => {
 
 const handleReject = (row) => {
   currentRow.value = row
+  rejectForm.value.templateKey = 'account_application_reject_template'
   rejectForm.value.reason = ''
+  handleUserRejectTemplateChange(rejectForm.value.templateKey)
   showRejectDialog.value = true
+}
+
+const handleUserRejectTemplateChange = (templateKey) => {
+  const selectedTemplate = rejectTemplateOptions.value.find(item => item.key === templateKey)
+  if (!selectedTemplate) return
+  rejectForm.value.reason = selectedTemplate.content || ''
+}
+
+const handlePendingRejectTemplateChange = (templateKey) => {
+  const selectedTemplate = rejectTemplateOptions.value.find(item => item.key === templateKey)
+  if (!selectedTemplate) return
+  pendingHandleForm.value.rejectReason = selectedTemplate.content || ''
 }
 
 const confirmReject = () => {

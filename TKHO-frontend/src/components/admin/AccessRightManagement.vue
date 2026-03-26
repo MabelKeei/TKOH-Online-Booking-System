@@ -28,14 +28,14 @@
         />
         <el-table-column prop="roleName" label="Role Name" min-width="170" />
         <el-table-column prop="description" label="Description" min-width="240" />
-        <el-table-column label="Venue Quota" min-width="150">
+        <el-table-column label="Annual Venue Quota" min-width="150">
           <template #default="{ row }">
-            <el-tag type="primary">{{ row.venueQuota }} bookings/year</el-tag>
+            <el-tag type="primary">{{ row.AnnualVenueQuota }} bookings/year</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="EV Quota" min-width="130">
+        <el-table-column label="Annual EV Quota" min-width="130">
           <template #default="{ row }">
-            <el-tag type="success">{{ row.evQuota }} bookings/year</el-tag>
+            <el-tag type="success">{{ row.AnnualEvQuota }} bookings/year</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="employeeCount" label="Users" min-width="120" />
@@ -137,7 +137,7 @@
       :title="getFormTitle"
       max-width="500px"
     >
-      <el-form :model="formData" label-width="140px">
+      <el-form :model="formData" label-width="160px">
         <el-form-item :label="activeTab === 'role' ? 'Role Name' : 'Department Name'">
           <el-input v-model="formData.name" />
         </el-form-item>
@@ -145,13 +145,11 @@
           <el-input v-model="formData.description" type="textarea" :rows="3" />
         </el-form-item>
         <template v-if="activeTab === 'role'">
-          <el-form-item label="Venue Quota">
-            <el-input-number v-model="formData.venueQuota" :min="0" />
-            <span style="margin-left: 10px; color: #666;">bookings per year</span>
+          <el-form-item label="Annual Venue Quota">
+            <el-input-number v-model="formData.AnnualVenueQuota" :min="0" />
           </el-form-item>
-          <el-form-item label="EV Quota">
-            <el-input-number v-model="formData.evQuota" :min="0" />
-            <span style="margin-left: 10px; color: #666;">bookings per year</span>
+          <el-form-item label="Annual EV Quota">
+            <el-input-number v-model="formData.AnnualEvQuota" :min="0" />
           </el-form-item>
         </template>
       </el-form>
@@ -236,8 +234,8 @@ const formMode = ref('add')
 const formData = ref({
   name: '',
   description: '',
-  venueQuota: 30,
-  evQuota: 60
+  AnnualVenueQuota: 30,
+  AnnualEvQuota: 60
 })
 
 const getFormTitle = computed(() => {
@@ -259,8 +257,8 @@ const handleExport = () => {
     const exportData = roleList.value.map(item => ({
       'Role Name': item.roleName,
       'Description': item.description,
-      'Venue Quota': item.venueQuota,
-      'EV Quota': item.evQuota,
+      'Annual Venue Quota': item.AnnualVenueQuota,
+      'Annual EV Quota': item.AnnualEvQuota,
       'User Count': item.employeeCount
     }))
 
@@ -286,7 +284,7 @@ const handleExport = () => {
 const handleAdd = () => {
   formMode.value = 'add'
   if (activeTab.value === 'role') {
-    formData.value = { name: '', description: '', venueQuota: 30, evQuota: 60 }
+    formData.value = { name: '', description: '', AnnualVenueQuota: 30, AnnualEvQuota: 60 }
   } else {
     formData.value = { name: '', description: '' }
   }

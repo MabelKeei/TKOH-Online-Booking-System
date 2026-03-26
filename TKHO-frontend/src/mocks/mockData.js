@@ -52,7 +52,7 @@ function normalizeEmployeeRaw (u) {
 export function getMockEmployeeListRaw () {
   if (_employeeListRaw) return cloneMockList(_employeeListRaw)
 
-  _employeeListRaw = [
+  const baseList = [
     { id: 1, corpId: 'E001', name: 'John Doe', department: 'IT', position: 'Manager', email: 'john@tkoh.com', annualQuota: 50, usedQuota: 12, status: 'active' },
     { id: 2, corpId: 'E002', name: 'Jane Smith', department: 'HR', position: 'Staff', email: 'jane@tkoh.com', annualQuota: 30, usedQuota: 5, status: 'active' },
     { id: 3, corpId: 'E003', name: 'Michael Tan', department: 'Finance', position: 'Senior Staff', email: 'michael.tan@tkoh.com', annualQuota: 40, usedQuota: 9, status: 'active' },
@@ -79,6 +79,11 @@ export function getMockEmployeeListRaw () {
     { id: 24, corpId: 'E024', name: 'Lily Wong', department: 'Venue', role: 'Venue Booking', email: 'lily.wong@tkoh.com', annualQuotaEV: 25, usedQuotaEV: 15, annualQuotaVenue: 55, usedQuotaVenue: 28, status: 'expired' },
     { id: 25, corpId: 'E025', name: 'Ethan Lim', department: 'Admin', role: 'Admin', email: 'ethan.lim@tkoh.com', annualQuotaEV: 60, usedQuotaEV: 40, annualQuotaVenue: 60, usedQuotaVenue: 35, status: 'expired' }
   ]
+  _employeeListRaw = baseList.map((u, idx) => ({
+    ...u,
+    // 统一提供最近登录时间，供 UserManagement 表格展示
+    lastLoginTime: u.lastLoginTime ?? `2026-03-${String((idx % 27) + 1).padStart(2, '0')} ${String(8 + (idx % 10)).padStart(2, '0')}:${String((idx * 7) % 60).padStart(2, '0')}`
+  }))
 
   return cloneMockList(_employeeListRaw)
 }
@@ -105,6 +110,7 @@ export function getMockPendingListRaw () {
       department: 'Finance',
       role: 'Staff',
       email: 'bob@tkoh.com',
+      lastLoginTime: '2026-03-18 09:20',
       submittedAt: '2026-03-20 10:30',
       reason: 'Requesting access to make EV/Venue bookings for team meetings.'
     }
@@ -134,6 +140,7 @@ let _parkingList = null
 let _promptList = null
 let _venueList = null
 let _licensePlateList = null
+let _evTimePeriods = null
 
 export function getMockMeetingPendingList () {
   if (_meetingPendingList) return cloneMockList(_meetingPendingList)
@@ -142,7 +149,7 @@ export function getMockMeetingPendingList () {
       id: 1,
       bookingId: 'BK20260320001',
       venueName: 'Conference Room A',
-      employeeName: 'John Doe',
+      userName: 'John Doe',
       department: 'IT',
       meetingTitle: 'Q1 Project Review Meeting',
       date: '2026-03-25',
@@ -153,7 +160,7 @@ export function getMockMeetingPendingList () {
       id: 2,
       bookingId: 'BK20260320002',
       venueName: 'Conference Room B',
-      employeeName: 'Jane Smith',
+      userName: 'Jane Smith',
       department: 'HR',
       meetingTitle: 'Team Building Planning',
       date: '2026-03-26',
@@ -171,7 +178,7 @@ export function getMockMeetingApprovedList () {
       id: 101,
       bookingId: 'BK20260319001',
       venueName: 'Conference Room A',
-      employeeName: 'Bob Wilson',
+      userName: 'Bob Wilson',
       meetingTitle: 'Budget Review',
       date: '2026-03-24',
       time: '09:00-11:00',
@@ -189,7 +196,7 @@ export function getMockMeetingRejectedList () {
       id: 201,
       bookingId: 'BK20260318001',
       venueName: 'Conference Room B',
-      employeeName: 'Alice Brown',
+      userName: 'Alice Brown',
       meetingTitle: 'Casual Discussion',
       date: '2026-03-23',
       time: '15:00-17:00',
@@ -204,10 +211,10 @@ export function getMockMeetingRejectedList () {
 export function getMockAccessRoleList () {
   if (_accessRoleList) return cloneMockList(_accessRoleList)
   _accessRoleList = [
-    { id: 1, roleName: 'Manager', description: 'Department managers', venueQuota: 50, evQuota: 100, employeeCount: 15 },
-    { id: 2, roleName: 'Staff', description: 'Regular staff members', venueQuota: 30, evQuota: 60, employeeCount: 120 },
-    { id: 3, roleName: 'Senior Staff', description: 'Senior level staff', venueQuota: 40, evQuota: 80, employeeCount: 35 },
-    { id: 4, roleName: 'Executive', description: 'Executive level', venueQuota: 100, evQuota: 200, employeeCount: 8 }
+    { id: 1, roleName: 'Manager', description: 'Department managers', AnnualVenueQuota: 50, AnnualEvQuota: 100, employeeCount: 15 },
+    { id: 2, roleName: 'Staff', description: 'Regular staff members', AnnualVenueQuota: 30, AnnualEvQuota: 60, employeeCount: 120 },
+    { id: 3, roleName: 'Senior Staff', description: 'Senior level staff', AnnualVenueQuota: 40, AnnualEvQuota: 80, employeeCount: 35 },
+    { id: 4, roleName: 'Executive', description: 'Executive level', AnnualVenueQuota: 100, AnnualEvQuota: 200, employeeCount: 8 }
   ]
   return cloneMockList(_accessRoleList)
 }
@@ -235,14 +242,21 @@ export function getMockDepartmentList () {
 export function getMockEVParkingList () {
   if (_parkingList) return cloneMockList(_parkingList)
   _parkingList = [
-    { id: 1, slotNumber: 'A-01', location: 'Ground Floor', type: 'EV', status: 'active' },
-    { id: 2, slotNumber: 'A-02', location: 'Ground Floor', type: 'EV', status: 'active' },
-    { id: 3, slotNumber: 'B-01', location: 'Level 1', type: 'Regular', status: 'active' },
-    { id: 4, slotNumber: 'B-02', location: 'Level 1', type: 'Regular', status: 'active' },
-    { id: 5, slotNumber: 'C-01', location: 'Level 2', type: 'EV', status: 'active' },
-    { id: 6, slotNumber: 'C-02', location: 'Level 2', type: 'Regular', status: 'inactive' }
+    { id: 1, slotNumber: 'A-01', location: 'Ground Floor', space: 'A', quantity: 2, type: 'EV', status: 'active' },
+    { id: 2, slotNumber: 'B-01', location: 'Level 1', space: 'B', quantity: 3, type: 'EV', status: 'active' },
+    { id: 3, slotNumber: 'C-01', location: 'Level 2', space: 'C', quantity: 2, type: 'EV', status: 'active' }
   ]
   return cloneMockList(_parkingList)
+}
+
+export function getMockEVTimePeriods () {
+  if (_evTimePeriods) return cloneMockList(_evTimePeriods)
+  _evTimePeriods = [
+    { id: 1, period: 'AM', startTime: '08:30', endTime: '13:00', status: 'active' },
+    { id: 2, period: 'PM', startTime: '13:45', endTime: '18:15', status: 'active' },
+    { id: 3, period: 'Night', startTime: '19:00', endTime: '23:30', status: 'active' }
+  ]
+  return cloneMockList(_evTimePeriods)
 }
 
 export function getMockPromptList () {
@@ -250,43 +264,147 @@ export function getMockPromptList () {
   _promptList = [
     {
       id: 1,
-      key: 'booking_success',
-      title: 'Booking Success',
-      content: 'Your booking has been submitted successfully. Please wait for admin approval.',
-      type: 'success',
-      status: 'active'
+      key: 'ev_booking_points_to_note',
+      name: 'EV Booking Points to Note',
+      content: `<p><strong>Points to Note:</strong>
+<p>1. For reservation of other venues (e.g. Courtyard or Glasshouse), please contact General Office at 22081951 directly
+<p>2. General Office reserves the right to cancel any booking or reassign another venue under necessary circumstances.
+<p>3. Should user require the following service for the meeting, please directly contact the respective department in advance for arrangement</p>
+<table style="border-collapse: collapse; width: 100%; background-color: #f9fafb;">
+  <thead>
+    <tr>
+      <th style="text-align: left; padding: 6px 8px; border: 1px solid #d1d5db;">Service/Equipment</th>
+      <th style="text-align: left; padding: 6px 8px; border: 1px solid #d1d5db;">Subject Department</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Zoom/Video Conferencing</td>
+      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Information Technology Dept (Tel: 22081830)</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Venue Setting / Furniture on-loan</td>
+      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Facility Management Dept (Tek: 22081845)</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Eguipment on-loar</td>
+      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">General Office (Tet: 22081951)</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Tea Service for Conference Rooms (ad-hoc)</td>
+      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">General Office (Tel: 22081951)</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Tea Service for Other Venue and Rooms</td>
+      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Via ADS</td>
+    </tr>
+  </tbody>
+</table>`,
+      category: 'system_fixed',
+      canAdd: false
     },
     {
       id: 2,
-      key: 'booking_cancelled',
-      title: 'Booking Cancelled',
-      content: 'Your booking has been cancelled successfully.',
-      type: 'info',
-      status: 'active'
+      key: 'venue_booking_points_to_note',
+      name: 'Venue Booking Points to Note',
+      content: 'Please arrive on time, keep the venue clean, and restore layout after use.',
+      category: 'system_fixed',
+      canAdd: false
     },
     {
       id: 3,
-      key: 'quota_exceeded',
-      title: 'Quota Exceeded',
-      content: 'You have reached your annual booking quota. Please contact admin for assistance.',
-      type: 'warning',
-      status: 'active'
+      key: 'venue_add_booking_setup',
+      name: 'Venue Setup',
+      content: 'Specify seating layout and setup details clearly for venue preparation.',
+      category: 'system_fixed',
+      canAdd: false
     },
     {
       id: 4,
-      key: 'approval_rejected',
-      title: 'Booking Rejected',
-      content: 'Your booking request has been rejected by admin. Reason: {reason}',
-      type: 'error',
-      status: 'active'
+      key: 'venue_add_booking_equipment',
+      name: 'Equipment',
+      content: 'List all required equipment (projector, microphone, screen, etc.) in advance.',
+      category: 'system_fixed',
+      canAdd: false
     },
     {
       id: 5,
-      key: 'venue_unavailable',
-      title: 'Venue Unavailable',
-      content: 'The selected venue is not available for the chosen time slot.',
-      type: 'warning',
-      status: 'active'
+      key: 'venue_add_booking_tools_materials',
+      name: 'Tools and Materials',
+      content: 'Provide tools/materials requirements to ensure support is ready before the event.',
+      category: 'system_fixed',
+      canAdd: false
+    },
+    {
+      id: 6,
+      key: 'venue_add_booking_others_special_requests',
+      name: 'Others / Special Requests',
+      content: 'State any special arrangements or additional support requests clearly.',
+      category: 'system_fixed',
+      canAdd: false
+    },
+    {
+      id: 9,
+      key: 'meeting_approval_reject_template',
+      name: 'Meeting Title Non-compliant',
+      content: 'Your meeting booking request is rejected because the meeting title is not compliant. Please provide a clear and business-related title.',
+      category: 'reject_template',
+      canAdd: true,
+      templateType: 'meeting_approval'
+    },
+    {
+      id: 10,
+      key: 'meeting_approval_reject_template',
+      name: 'Insufficient Meeting Details',
+      content: 'Your meeting booking request is rejected due to insufficient meeting details. Please complete the purpose and required information before resubmission.',
+      category: 'reject_template',
+      canAdd: true,
+      templateType: 'meeting_approval'
+    },
+    {
+      id: 11,
+      key: 'meeting_approval_reject_template',
+      name: 'Duplicate Time Slot Booking',
+      content: 'Your meeting booking request is rejected because the selected date/time conflicts with an existing booking under your account.',
+      category: 'reject_template',
+      canAdd: true,
+      templateType: 'meeting_approval'
+    },
+    {
+      id: 8,
+      key: 'account_application_reject_template',
+      name: 'Account Application Reject Template',
+      content: 'Your account application is rejected. Reason: {reason}',
+      category: 'reject_template',
+      canAdd: true,
+      templateType: 'account_application'
+    },
+    {
+      id: 12,
+      key: 'account_application_reject_template',
+      name: 'Invalid Contact Phone Number',
+      content: 'Your account application is rejected because the contact telephone number is invalid. Please provide a valid and reachable phone number.',
+      category: 'reject_template',
+      canAdd: true,
+      templateType: 'account_application'
+    },
+    {
+      id: 13,
+      key: 'account_application_reject_template',
+      name: 'Email Format Invalid',
+      content: 'Your account application is rejected due to invalid email format. Please provide a valid corporate email address.',
+      category: 'reject_template',
+      canAdd: true,
+      templateType: 'account_application'
+    },
+    {
+      id: 14,
+      key: 'account_application_reject_template',
+      name: 'Department Information Missing',
+      content: 'Your account application is rejected because department information is missing or incorrect. Please update and submit again.',
+      category: 'reject_template',
+      canAdd: true,
+      templateType: 'account_application'
     }
   ]
   return cloneMockList(_promptList)
@@ -295,9 +413,13 @@ export function getMockPromptList () {
 export function getMockVenueList () {
   if (_venueList) return cloneMockList(_venueList)
   _venueList = [
-    { id: 1, name: 'Conference Room A', type: 'conference', capacity: 10, location: '3F', images: [], status: 'active' },
-    { id: 2, name: 'Conference Room B', type: 'conference', capacity: 20, location: '3F', images: [], status: 'active' },
-    { id: 3, name: 'Courtyard', type: 'other', capacity: 50, location: 'Ground Floor', images: [], status: 'active' }
+    { id: 1, name: 'Conference Room 1', tab: 'conference_discussion', type: 'conference', color: '#3b82f6', location: '3F', images: [], status: 'active' },
+    { id: 2, name: 'Conference Room 2', tab: 'conference_discussion', type: 'conference', color: '#10b981', location: '3F', images: [], status: 'active' },
+    { id: 3, name: 'Conference Room 3', tab: 'conference_discussion', type: 'conference', color: '#06b6d4', location: '3F', images: [], status: 'active' },
+    { id: 4, name: 'Discussion Room', tab: 'conference_discussion', type: 'discussion', color: '#f59e0b', location: '3F', images: [], status: 'active' },
+    { id: 5, name: 'Function Room', tab: 'other_venues', type: 'other', color: '#ec4899', location: 'Ground Floor', images: [], status: 'active' },
+    { id: 6, name: 'Lecture Theatre', tab: 'other_venues', type: 'other', color: '#6366f1', location: '2F', images: [], status: 'active' },
+    { id: 7, name: 'Auditorium', tab: 'other_venues', type: 'other', color: '#8b5cf6', location: '1F', images: [], status: 'active' }
   ]
   return cloneMockList(_venueList)
 }

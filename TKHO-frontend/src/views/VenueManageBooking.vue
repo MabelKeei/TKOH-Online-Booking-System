@@ -105,6 +105,7 @@
                   <el-date-picker
                     v-model="dateRange"
                     type="daterange"
+                    :teleported="false"
                     range-separator="to"
                     start-placeholder="Start date"
                     end-placeholder="End date"
@@ -223,7 +224,19 @@
                   <span class="reason-label">Reason:</span>
                   <span class="reason-text">{{ booking.reason }}</span>
                 </div>
-                <button v-if="booking.status == 'upcoming'" class="btn-cancel" @click="cancelBooking(booking.id)">
+                <button
+                  v-if="isAdminAllBookingsView && booking.status === 'upcoming'"
+                  type="button"
+                  class="btn-action btn-edit"
+                  @click="openHandleBooking(booking)"
+                >
+                  Handle
+                </button>
+                <button
+                  v-else-if="!isAdminAllBookingsView && booking.status === 'upcoming'"
+                  class="btn-cancel"
+                  @click="cancelBooking(booking.id)"
+                >
                   Cancel Booking
                 </button>
               </div>
@@ -273,12 +286,24 @@
                   <td v-if="availableColumns[9].visible">{{ booking.reason || '-' }}</td>
                   <td class="actions-td">
                     <div class="actions-cell">
-                      <button class="btn-action btn-edit" @click="editBooking(booking.id)">
-                        Edit
-                      </button>
-                      <button class="btn-action btn-cancel-small" @click="cancelBooking(booking.id)">
-                        Cancel
-                      </button>
+                      <template v-if="isAdminAllBookingsView">
+                        <button
+                          v-if="booking.status === 'upcoming'"
+                          type="button"
+                          class="btn-action btn-edit"
+                          @click="openHandleBooking(booking)"
+                        >
+                          Handle
+                        </button>
+                      </template>
+                      <template v-else>
+                        <button type="button" class="btn-action btn-edit" @click="editBooking(booking.id)">
+                          Edit
+                        </button>
+                        <button type="button" class="btn-action btn-cancel-small" @click="cancelBooking(booking.id)">
+                          Cancel
+                        </button>
+                      </template>
                     </div>
                   </td>
                 </tr>
@@ -346,17 +371,82 @@
         <el-button type="default" class="action-btn action-delete" @click="confirmCancel">Confirm Cancel</el-button>
       </template>
     </BookingStyleModal>
+
+    <!-- Handle Booking???? All Bookings + upcoming????MeetingApproval??-->
+    <BookingStyleModal
+      v-model="showHandleDialog"
+      title="Handle Booking"
+      max-width="620px"
+      :max-height="handleBookingModalMaxHeight"
+    >
+      <el-form :model="handleForm" label-width="130px">
+        <el-form-item label="Room">
+          <el-input v-model="handleForm.room" disabled />
+        </el-form-item>
+        <el-form-item label="Topic / Event Name">
+          <el-input v-model="handleForm.topic" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item label="Date">
+          <el-input v-model="handleForm.date" disabled />
+        </el-form-item>
+        <el-form-item label="Time">
+          <el-input v-model="handleForm.time" disabled />
+        </el-form-item>
+        <div class="handle-contact-section">
+          <el-form-item label="Full Name" label-width="154px">
+            <el-input v-model="handleForm.userName" disabled />
+          </el-form-item>
+          <el-form-item label="Department / Unit" label-width="154px">
+            <el-input v-model="handleForm.departmentUnit" disabled />
+          </el-form-item>
+          <el-form-item label="Contact Telephone No" label-width="154px">
+            <el-input v-model="handleForm.contactPhone" disabled />
+          </el-form-item>
+          <el-form-item label="Contact Email" label-width="154px">
+            <el-input v-model="handleForm.contactEmail" disabled />
+          </el-form-item>
+        </div>
+        <el-form-item label="Reject Reason">
+          <el-select
+            v-model="handleForm.rejectTemplateKey"
+            placeholder="Select reject template"
+            style="width: 100%; margin-bottom: 8px;"
+            :teleported="false"
+            @change="handleVenueRejectTemplateChange"
+          >
+            <el-option
+              v-for="tpl in meetingRejectTemplateOptions"
+              :key="tpl.id"
+              :label="tpl.name"
+              :value="tpl.key"
+            />
+          </el-select>
+          <el-input
+            v-model="handleForm.reason"
+            type="textarea"
+            :rows="3"
+            placeholder="Required only when rejecting"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button type="default" class="cancel-btn" @click="showHandleDialog = false">Cancel</el-button>
+        <el-button type="default" class="action-btn action-delete" @click="confirmHandleReject">Reject</el-button>
+        <el-button type="default" class="action-btn action-approve" @click="confirmHandleApprove">Approve</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import { getMockEmployeeListNormalized, getMockPromptList } from '@/mocks/mockData'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -364,6 +454,11 @@ const { isAdmin, userInfo } = storeToRefs(userStore)
 
 const currentView = ref('card')
 const bookingView = ref('my') // 'my' or 'all' - for admin to switch between personal and all bookings
+
+/** ???? All Bookings?? upcoming ?? Handle???? Edit/Cancel */
+const isAdminAllBookingsView = computed(
+  () => isAdmin.value && bookingView.value === 'all'
+)
 const searchQuery = ref('')
 const showColumnsFilter = ref(false)
 const showStatusFilter = ref(false)
@@ -374,6 +469,38 @@ const showCancelDialog = ref(false)
 const cancelReason = ref('')
 const cancelBookingId = ref(null)
 const dateRange = ref(null)
+
+const employeeList = ref([])
+const showHandleDialog = ref(false)
+const currentHandleBookingId = ref(null)
+const handleForm = ref({
+  room: '',
+  topic: '',
+  date: '',
+  time: '',
+  userName: '',
+  departmentUnit: '',
+  contactPhone: '',
+  contactEmail: '',
+  rejectTemplateKey: 'meeting_approval_reject_template',
+  reason: ''
+})
+const meetingRejectTemplateOptions = computed(() =>
+  getMockPromptList().filter(
+    item => item.category === 'reject_template' && item.templateType === 'meeting_approval'
+  )
+)
+
+/** 14" ????100??599??Handle Booking ?????? MeetingApproval ???*/
+const HANDLE_BOOKING_MODAL_MQ = '(min-width: 1100px) and (max-width: 1599px)'
+const handleBookingModalMaxHeight = ref('94vh')
+
+function updateHandleBookingModalMaxHeight () {
+  if (typeof window === 'undefined') return
+  handleBookingModalMaxHeight.value = window.matchMedia(HANDLE_BOOKING_MODAL_MQ).matches ? '120vh' : '94vh'
+}
+
+let handleBookingModalMq = null
 
 // Status filters (multi-select)
 const statusFilters = ref({
@@ -774,27 +901,25 @@ const toggleDateFilter = (event) => {
 
   if (showDateFilter.value) {
     setTimeout(() => {
-      document.addEventListener('click', handleDateFilterClickOutside, { once: false })
+      document.addEventListener('mousedown', handleDateFilterClickOutside, true)
     }, 0)
   } else {
-    document.removeEventListener('click', handleDateFilterClickOutside)
+    document.removeEventListener('mousedown', handleDateFilterClickOutside, true)
   }
 }
 
 // Click outside to close date filter
 const handleDateFilterClickOutside = (event) => {
+  const target = event.target
   const dropdown = document.querySelector('.date-filter-dropdown')
-  const filterBtn = event.target.closest('.date-filter-wrapper')
+  const filterWrapper = target.closest('.date-filter-wrapper')
+  const inDatePicker = !!target.closest('.el-picker__popper')
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : []
+  const inDropdownPath = dropdown ? path.includes(dropdown) : false
 
-  // Check if click is inside el-date-picker popup
-  const datePickerPopup = document.querySelector('.el-picker__popper')
-  if (datePickerPopup && datePickerPopup.contains(event.target)) {
-    return
-  }
-
-  if (!dropdown?.contains(event.target) && !filterBtn) {
+  if (!inDatePicker && !filterWrapper && !inDropdownPath) {
     showDateFilter.value = false
-    document.removeEventListener('click', handleDateFilterClickOutside)
+    document.removeEventListener('mousedown', handleDateFilterClickOutside, true)
   }
 }
 
@@ -911,6 +1036,79 @@ const confirmCancel = () => {
 const editBooking = (id) => {
   ElMessage.info('Edit booking: ' + id)
 }
+
+function openHandleBooking (booking) {
+  if (booking.status !== 'upcoming') return
+  currentHandleBookingId.value = booking.id
+  const name = booking.reservedBy || ''
+  const matched = employeeList.value.find(
+    (e) => e.name === name || (e.name && name && e.name.toLowerCase() === name.toLowerCase())
+  )
+  handleForm.value = {
+    room: booking.room || '',
+    topic: booking.topic || '',
+    date: booking.date || '',
+    time: booking.time || '',
+    userName: booking.reservedBy || '',
+    departmentUnit: matched?.department || '-',
+    contactPhone: booking.contact || '-',
+    contactEmail: booking.email || '-',
+    rejectTemplateKey: 'meeting_approval_reject_template',
+    reason: ''
+  }
+  handleVenueRejectTemplateChange(handleForm.value.rejectTemplateKey)
+  showHandleDialog.value = true
+}
+
+function handleVenueRejectTemplateChange (templateKey) {
+  const selectedTemplate = meetingRejectTemplateOptions.value.find(item => item.key === templateKey)
+  if (!selectedTemplate) return
+  handleForm.value.reason = selectedTemplate.content || ''
+}
+
+function confirmHandleApprove () {
+  const id = currentHandleBookingId.value
+  if (id == null) return
+  const booking = bookings.value.find((b) => b.id === id)
+  if (booking) {
+    booking.topic = handleForm.value.topic.trim() || booking.topic
+  }
+  showHandleDialog.value = false
+  currentHandleBookingId.value = null
+  ElMessage.success('Booking approved successfully')
+}
+
+function confirmHandleReject () {
+  if (!handleForm.value.reason.trim()) {
+    ElMessage.warning('Please provide a reason for rejection')
+    return
+  }
+  const id = currentHandleBookingId.value
+  if (id == null) return
+  const booking = bookings.value.find((b) => b.id === id)
+  if (booking) {
+    booking.topic = handleForm.value.topic.trim() || booking.topic
+    booking.status = 'canceled'
+    booking.reason = handleForm.value.reason.trim()
+  }
+  showHandleDialog.value = false
+  currentHandleBookingId.value = null
+  ElMessage.success('Booking rejected')
+}
+
+onMounted(() => {
+  employeeList.value = getMockEmployeeListNormalized()
+  updateHandleBookingModalMaxHeight()
+  handleBookingModalMq = window.matchMedia(HANDLE_BOOKING_MODAL_MQ)
+  handleBookingModalMq.addEventListener('change', updateHandleBookingModalMaxHeight)
+})
+
+onUnmounted(() => {
+  if (handleBookingModalMq) {
+    handleBookingModalMq.removeEventListener('change', updateHandleBookingModalMaxHeight)
+  }
+  document.removeEventListener('mousedown', handleDateFilterClickOutside, true)
+})
 </script>
 
 <style scoped>
@@ -1104,20 +1302,21 @@ const editBooking = (id) => {
 .quick-date-options {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .quick-date-btn {
-  padding: 0.5rem 0.75rem;
+  padding: 0.375rem 0.625rem;
   border: 1px solid #d1d5db;
   border-radius: 0.375rem;
   background-color: white;
   color: #374151;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
+  line-height: 1.2;
 }
 
 .quick-date-btn:hover {
@@ -1859,5 +2058,57 @@ const editBooking = (id) => {
   .pagination-size {
     text-align: center;
   }
+}
+
+/* Handle Booking ???? MeetingApproval ????*/
+.action-btn {
+  border: none !important;
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 0.25rem !important;
+  font-size: 0.6875rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  color: #ffffff !important;
+  transition: all 0.2s !important;
+}
+
+.action-approve {
+  background-color: #00723a !important;
+}
+
+.action-approve:hover {
+  background-color: #005a2e !important;
+}
+
+.action-delete {
+  background-color: #ef4444 !important;
+}
+
+.action-delete:hover {
+  background-color: #dc2626 !important;
+}
+
+.handle-contact-section {
+  background-color: #f3f4f6;
+  padding: 0.75rem 0.75rem 0.25rem 1.25rem;
+  border-radius: 0.375rem;
+  margin-bottom: 0.5rem;
+}
+
+.handle-contact-section :deep(.el-form-item__label) {
+  white-space: nowrap;
+}
+
+.handle-contact-section :deep(.el-form-item__content) {
+  min-width: 0;
+}
+
+.handle-contact-section :deep(.el-input) {
+  width: 96%;
+  max-width: 100%;
+}
+
+.card-footer .btn-action.btn-edit {
+  align-self: flex-end;
 }
 </style>

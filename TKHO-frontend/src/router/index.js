@@ -78,8 +78,15 @@ const routes = [
     path: '/admin',
     name: 'AdminManagement',
     component: () => import('../views/AdminManagement.vue'),
-    redirect: '/admin/ev',
     children: [
+      {
+        path: '',
+        name: 'AdminDashboard',
+        component: () => import('../views/AdminDashboard.vue'),
+        meta: {
+          title: 'Admin - Home'
+        }
+      },
       {
         path: 'ev',
         name: 'AdminEVManagement',
@@ -126,6 +133,14 @@ const routes = [
         component: () => import('../components/admin/PromptManagement.vue'),
         meta: {
           title: 'Admin - System Prompts'
+        }
+      },
+      {
+        path: 'license-plate',
+        name: 'AdminLicensePlateManagement',
+        component: () => import('../components/admin/LicensePlateManagement.vue'),
+        meta: {
+          title: 'Admin - License Plate Management'
         }
       }
     ],

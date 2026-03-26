@@ -77,64 +77,64 @@ export const uploadVenueImage = (id, file) => {
   })
 }
 
-// 员工管理
-export const getEmployees = (params) => {
+// 用户管理
+export const getUsers = (params) => {
   return request({
-    url: '/admin/employees',
+    url: '/admin/users',
     method: 'get',
     params
   })
 }
 
-export const createEmployee = (data) => {
+export const createUser = (data) => {
   return request({
-    url: '/admin/employees',
+    url: '/admin/users',
     method: 'post',
     data
   })
 }
 
-export const updateEmployee = (id, data) => {
+export const updateUser = (id, data) => {
   return request({
-    url: `/admin/employees/${id}`,
+    url: `/admin/users/${id}`,
     method: 'put',
     data
   })
 }
 
-export const deleteEmployee = (id) => {
+export const deleteUser = (id) => {
   return request({
-    url: `/admin/employees/${id}`,
+    url: `/admin/users/${id}`,
     method: 'delete'
   })
 }
 
-export const resetEmployeeQuota = (id) => {
+export const resetUserQuota = (id) => {
   return request({
-    url: `/admin/employees/${id}/reset-quota`,
+    url: `/admin/users/${id}/reset-quota`,
     method: 'post'
   })
 }
 
-// 待审批员工
-export const getPendingEmployees = (params) => {
+// 待审批用户
+export const getPendingUsers = (params) => {
   return request({
-    url: '/admin/employees/pending',
+    url: '/admin/users/pending',
     method: 'get',
     params
   })
 }
 
-export const approveEmployee = (id) => {
+export const approveUser = (id) => {
   return request({
-    url: `/admin/employees/${id}/approve`,
+    url: `/admin/users/${id}/approve`,
     method: 'post'
   })
 }
 
-export const rejectEmployee = (id, reason) => {
+export const rejectUser = (id, reason) => {
   return request({
-    url: `/admin/employees/${id}/reject`,
+    url: `/admin/users/${id}/reject`,
     method: 'post',
     data: { reason }
   })

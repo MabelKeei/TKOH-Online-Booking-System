@@ -13,12 +13,7 @@
     </div>
 
     <!-- 帮助信息弹窗 -->
-    <el-dialog
-      v-model="dialogVisible"
-      title="Points to Note"
-      width="700px"
-      :close-on-click-modal="true"
-    >
+    <BookingStyleModal v-model="dialogVisible" title="Points to Note" max-width="700px">
       <div class="help-content">
         <ol>
           <li>
@@ -63,13 +58,14 @@
           </tbody>
         </table>
       </div>
-    </el-dialog>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
+import BookingStyleModal from './BookingStyleModal.vue'
 
 const route = useRoute()
 const dialogVisible = ref(false)

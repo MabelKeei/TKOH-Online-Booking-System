@@ -8,27 +8,94 @@
     </div>
 
     <nav class="flex items-center gap-4">
-      <RouterLink
-        to="/admin"
-        class="header-link"
-        :class="{ 'is-active': isActive('/admin') }"
-      >
-        Admin
-      </RouterLink>
-      <RouterLink
-        :to="calendarPath"
-        class="header-link"
-        :class="{ 'is-active': isCalendarNavActive }"
-      >
-        Calendar
-      </RouterLink>
-      <RouterLink
-        :to="manageBookingPath"
-        class="header-link"
-        :class="{ 'is-active': isActive(manageBookingPath) }"
-      >
-        Manage Booking
-      </RouterLink>
+      <div v-if="isAdmin" class="admin-link-wrapper">
+        <RouterLink
+          to="/admin"
+          class="header-link admin-link"
+          :class="{ 'is-active': isAdminNavActive }"
+        >
+          Admin
+        </RouterLink>
+        <span v-if="totalPendingCount > 0" class="badge-dot">{{ totalPendingCount > 99 ? '99+' : totalPendingCount }}</span>
+      </div>
+
+      <!-- 管理员：Calendar / Manage Booking 悬停选择 Venue / EV -->
+      <template v-if="isAdmin">
+        <div class="nav-dropdown">
+          <button
+            type="button"
+            class="header-link dropdown-trigger"
+            :class="{ 'is-active': isCalendarNavActive }"
+          >
+            Calendar
+          </button>
+          <div class="dropdown-panel">
+            <div class="dropdown-panel-inner">
+              <RouterLink
+                to="/VenueBooking/Calendar"
+                class="dropdown-link"
+                :class="{ 'is-active-sub': route.path === '/VenueBooking/Calendar' }"
+              >
+                Venue
+              </RouterLink>
+              <RouterLink
+                to="/evBooking/Calendar"
+                class="dropdown-link"
+                :class="{ 'is-active-sub': route.path === '/evBooking/Calendar' || route.path === '/evBooking' }"
+              >
+                EV
+              </RouterLink>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-dropdown">
+          <button
+            type="button"
+            class="header-link dropdown-trigger"
+            :class="{ 'is-active': isManageNavActive }"
+          >
+            Manage Booking
+          </button>
+          <div class="dropdown-panel">
+            <div class="dropdown-panel-inner">
+              <RouterLink
+                to="/VenueBooking/ManageBooking"
+                class="dropdown-link"
+                :class="{ 'is-active-sub': route.path === '/VenueBooking/ManageBooking' }"
+              >
+                Venue
+              </RouterLink>
+              <RouterLink
+                to="/evBooking/ManageBooking"
+                class="dropdown-link"
+                :class="{ 'is-active-sub': route.path === '/evBooking/ManageBooking' }"
+              >
+                EV
+              </RouterLink>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- 普通用户：单链接 + Switch -->
+      <template v-else>
+        <RouterLink
+          :to="calendarPath"
+          class="header-link"
+          :class="{ 'is-active': isCalendarNavActive }"
+        >
+          Calendar
+        </RouterLink>
+        <RouterLink
+          :to="manageBookingPath"
+          class="header-link"
+          :class="{ 'is-active': isActive(manageBookingPath) }"
+        >
+          Manage Booking
+        </RouterLink>
+      </template>
+
       <RouterLink
         to="/Account"
         class="header-link"
@@ -39,7 +106,7 @@
       </RouterLink>
 
       <div class="logout-wrapper">
-        <button class="logout-btn" @click="$emit('logout')">
+        <button type="button" class="logout-btn" @click="$emit('logout')">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
             <polyline points="16 17 21 12 16 7"></polyline>
@@ -47,8 +114,9 @@
           </svg>
           Log out
         </button>
-        <div class="switch-dropdown">
-          <button class="switch-btn" @click="handleSwitch">
+        <!-- 仅非管理员：悬停显示 Venue/EV 切换 -->
+        <div v-if="!isAdmin" class="switch-dropdown">
+          <button type="button" class="switch-btn" @click="handleSwitch">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="17 1 21 5 17 9"></polyline>
               <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
@@ -64,19 +132,48 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { useAdminStore } from '@/stores/admin'
+import { storeToRefs } from 'pinia'
 
 defineEmits(['logout'])
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
+const adminStore = useAdminStore()
+const { isAdmin } = storeToRefs(userStore)
+const { totalPendingCount } = storeToRefs(adminStore)
+
+let pollingInterval = null
+
+onMounted(() => {
+  if (isAdmin.value) {
+    adminStore.fetchPendingCounts()
+    // 每30秒轮询一次
+    pollingInterval = setInterval(() => {
+      adminStore.fetchPendingCounts()
+    }, 30000)
+  }
+})
+
+onUnmounted(() => {
+  if (pollingInterval) {
+    clearInterval(pollingInterval)
+  }
+})
 
 const isActive = (path) => route.path === path
 
-// 判断当前是否在 Venue 相关页面
+/** 所有 /admin 及子路径下均高亮 Admin */
+const isAdminNavActive = computed(() => {
+  const p = route.path
+  return p === '/admin' || p.startsWith('/admin/')
+})
+
 const isVenuePage = computed(() => {
-  // 如果在 Account 页面，检查来源
   if (route.path === '/Account') {
     const fromPath = sessionStorage.getItem('accountFromPath')
     if (fromPath) {
@@ -91,13 +188,26 @@ const calendarPath = computed(() =>
 )
 
 const isCalendarNavActive = computed(() => {
+  if (isAdmin.value) {
+    return (
+      route.path === '/VenueBooking/Calendar' ||
+      route.path === '/evBooking/Calendar' ||
+      route.path === '/evBooking'
+    )
+  }
   if (isVenuePage.value) {
     return route.path === '/VenueBooking/Calendar'
   }
   return route.path === '/evBooking' || route.path === '/evBooking/Calendar'
 })
 
-// 页面标题
+const isManageNavActive = computed(() => {
+  if (isAdmin.value) {
+    return route.path === '/VenueBooking/ManageBooking' || route.path === '/evBooking/ManageBooking'
+  }
+  return route.path === manageBookingPath.value
+})
+
 const headerTitle = computed(() => {
   if (route.path.includes('/admin')) {
     return 'TKOH GA Service Center'
@@ -105,7 +215,6 @@ const headerTitle = computed(() => {
   return isVenuePage.value ? 'TKOH Venue Booking' : 'TKOH EV Booking'
 })
 
-// 切换按钮文字
 const switchButtonText = computed(() => {
   return isVenuePage.value ? 'Switch EV Booking' : 'Switch Venue Booking'
 })
@@ -114,7 +223,6 @@ const manageBookingPath = computed(() => {
   return isVenuePage.value ? '/VenueBooking/ManageBooking' : '/evBooking/ManageBooking'
 })
 
-// 处理切换
 const handleSwitch = () => {
   if (isVenuePage.value) {
     router.push('/evBooking/Calendar')
@@ -123,7 +231,6 @@ const handleSwitch = () => {
   }
 }
 
-// 保存当前路径到 sessionStorage
 const saveCurrentPath = () => {
   if (route.path !== '/Account') {
     sessionStorage.setItem('accountFromPath', route.path)
@@ -168,6 +275,121 @@ const saveCurrentPath = () => {
 
 .header-link.is-active {
   text-decoration: underline;
+}
+
+.admin-link-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.admin-link {
+  display: inline-block;
+}
+
+.admin-link:hover {
+  text-decoration: underline;
+}
+
+.admin-link.is-active {
+  text-decoration: underline;
+}
+
+.badge-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  border-radius: 9px;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  animation: pulse-badge 2s ease-in-out infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+.nav-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-trigger {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  color: inherit;
+}
+
+.nav-dropdown:hover .dropdown-panel,
+.dropdown-panel:hover {
+  display: block;
+}
+
+.dropdown-panel {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  padding-top: 0.35rem;
+  min-width: 148px;
+  z-index: 1001;
+}
+
+.dropdown-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.35rem;
+}
+
+.dropdown-panel-inner {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  background: #fff;
+}
+
+.dropdown-link {
+  display: block;
+  padding: 0.5rem 0.875rem;
+  background: #fff;
+  color: #0a3d1f;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-decoration: none;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dropdown-link:last-child {
+  border-bottom: none;
+}
+
+.dropdown-link:hover {
+  background: #ecfdf5;
+}
+
+.dropdown-link.is-active-sub {
+  background: #d1fae5;
+  color: #065f46;
 }
 
 .logout-wrapper {
@@ -299,12 +521,4 @@ const saveCurrentPath = () => {
     justify-content: flex-end;
   }
 }
-
-@media (min-width: 768px) and (max-width: 1099px) {}
-
-@media (min-width: 1100px) and (max-width: 1599px) {}
-
-@media (min-width: 1600px) and (max-width: 2239px) {}
-
-@media (min-width: 2240px) {}
 </style>

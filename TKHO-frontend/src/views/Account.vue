@@ -1,8 +1,8 @@
 <template>
-  <div class="page h-screen bg-gradient flex flex-col overflow-hidden pt-[52px]">
+  <div class="page h-screen bg-gradient flex flex-col overflow-hidden pt-[64px]">
     <AppHeader @logout="onLogout" />
 
-    <main class="account-main flex-1 flex items-start justify-center px-2 md:px-3 lg:px-4 py-3 md:py-4 overflow-y-auto">
+    <main class="account-main flex-1 flex items-start justify-center px-2 md:px-3 lg:px-4 py-1 md:py-2 overflow-y-auto">
       <div class="account-container max-w-6xl w-full">
         <div class="account-grid">
           <!-- Profile Section -->
@@ -34,7 +34,7 @@
                   <input type="text" v-model="profile.phone" class="form-input" placeholder="12345678" />
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Employee No. <span class="required">*</span></label>
+                  <label class="form-label">User No. <span class="required">*</span></label>
                   <input type="text" v-model="profile.employeeNo" class="form-input" placeholder="123456" />
                 </div>
               </div>
@@ -55,6 +55,46 @@
                   <polyline points="7 3 7 8 15 8"></polyline>
                 </svg>
                 Save Profile
+              </button>
+            </div>
+          </section>
+
+          <!-- Change Password Section -->
+          <section class="password-section card-style">
+            <div class="section-header">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="section-icon">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <h2 class="section-title">Change Password</h2>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Current Password <span class="required">*</span></label>
+                  <input type="password" v-model="password.current" class="form-input" placeholder="Enter current password" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">New Password <span class="required">*</span></label>
+                  <input type="password" v-model="password.new" class="form-input" placeholder="Enter new password" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Confirm New Password <span class="required">*</span></label>
+                  <input type="password" v-model="password.confirm" class="form-input" placeholder="Confirm new password" />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions with-border">
+              <button class="btn-update" @click="updatePassword">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path>
+                </svg>
+                Update Password
               </button>
             </div>
           </section>
@@ -220,46 +260,6 @@
                   </button>
                 </div>
               </div>
-            </div>
-          </section>
-
-          <!-- Change Password Section -->
-          <section class="password-section card-style">
-            <div class="section-header">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="section-icon">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-              </svg>
-              <h2 class="section-title">Change Password</h2>
-            </div>
-
-            <div class="form-grid">
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Current Password <span class="required">*</span></label>
-                  <input type="password" v-model="password.current" class="form-input" placeholder="Enter current password" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">New Password <span class="required">*</span></label>
-                  <input type="password" v-model="password.new" class="form-input" placeholder="Enter new password" />
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Confirm New Password <span class="required">*</span></label>
-                  <input type="password" v-model="password.confirm" class="form-input" placeholder="Confirm new password" />
-                </div>
-              </div>
-            </div>
-
-            <div class="form-actions with-border">
-              <button class="btn-update" @click="updatePassword">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path>
-                </svg>
-                Update Password
-              </button>
             </div>
           </section>
         </div>
@@ -528,12 +528,12 @@ onUnmounted(() => {
   gap: 0.5rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #0A3D1F;
+  border-bottom: 2px solid #00723a;
   flex-shrink: 0;
 }
 
 .section-icon {
-  color: #0A3D1F;
+  color: #00723a;
   flex-shrink: 0;
   width: 20px;
   height: 20px;
@@ -542,7 +542,7 @@ onUnmounted(() => {
 .section-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #0A3D1F;
+  color: #00723a;
   margin: 0;
 }
 
@@ -592,7 +592,7 @@ onUnmounted(() => {
 
 .form-input:focus {
   outline: none;
-  border-color: #0A3D1F;
+  border-color: #00723a;
   box-shadow: 0 0 0 3px rgba(0, 114, 58, 0.1);
 }
 
@@ -623,7 +623,7 @@ onUnmounted(() => {
 .btn-save,
 .btn-update,
 .btn-add {
-  background-color: #0A3D1F;
+  background-color: #00723a;
   color: white;
   padding: 0.4375rem 1.25rem;
   border-radius: 0.375rem;
@@ -670,12 +670,12 @@ onUnmounted(() => {
 
 .vehicle-item:hover {
   background: #f0fdf4;
-  border-color: #0A3D1F;
+  border-color: #00723a;
 }
 
 .vehicle-item.vehicle-default {
   background: #f0fdf4;
-  border-color: #0A3D1F;
+  border-color: #00723a;
   box-shadow: 0 0 0 2px rgba(0, 114, 58, 0.1);
 }
 
@@ -691,7 +691,7 @@ onUnmounted(() => {
   justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  background: #0A3D1F;
+  background: #00723a;
   color: white;
   border-radius: 50%;
   font-size: 0.8125rem;
@@ -724,14 +724,14 @@ onUnmounted(() => {
 .vehicle-plate {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: #0A3D1F;
+  color: #00723a;
   letter-spacing: 0.05em;
 }
 
 .vehicle-plate-input {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: #0A3D1F;
+  color: #00723a;
   letter-spacing: 0.05em;
   background: transparent;
   border: none;
@@ -784,7 +784,7 @@ onUnmounted(() => {
 .vehicle-default-badge {
   font-size: 0.7rem;
   color: white;
-  background: #0A3D1F;
+  background: #00723a;
   padding: 0.125rem 0.5rem;
   border-radius: 0.25rem;
   font-weight: 600;
@@ -879,7 +879,7 @@ onUnmounted(() => {
 }
 
 .btn-save-vehicle {
-  background: #0A3D1F;
+  background: #00723a;
   color: white;
   border: none;
   border-radius: 0.375rem;
@@ -943,7 +943,7 @@ onUnmounted(() => {
 
 .btn-add-vehicle {
   width: 100%;
-  background-color: #0A3D1F;
+  background-color: #00723a;
   color: white;
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
@@ -992,7 +992,7 @@ onUnmounted(() => {
 }
 
 .btn-confirm {
-  background-color: #0A3D1F;
+  background-color: #00723a;
   color: white;
 }
 
@@ -1021,7 +1021,7 @@ onUnmounted(() => {
 }
 
 .btn-add-compact {
-  background-color: #0A3D1F;
+  background-color: #00723a;
   color: white;
   padding: 0.4375rem;
   border-radius: 0.375rem;

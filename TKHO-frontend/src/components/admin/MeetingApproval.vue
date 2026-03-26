@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2 class="page-title">Meeting Approval</h2>
       <div class="header-actions">
-        <el-button @click="handleExport">
+        <el-button type="default" class="cancel-btn" @click="handleExport">
           <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
         </el-button>
       </div>
@@ -32,13 +32,13 @@
             />
             <el-table-column prop="bookingId" label="Booking ID" min-width="140" />
             <el-table-column prop="venueName" label="Venue" min-width="180" />
-            <el-table-column prop="employeeName" label="Employee" min-width="130" />
+            <el-table-column prop="employeeName" label="User" min-width="130" />
             <el-table-column prop="department" label="Department" min-width="120" />
             <el-table-column prop="meetingTitle" label="Meeting Title" min-width="200" />
             <el-table-column prop="date" label="Date" min-width="120" />
             <el-table-column prop="time" label="Time" min-width="130" />
             <el-table-column prop="submittedAt" label="Submitted" min-width="160" />
-            <el-table-column label="Actions" width="220" fixed="right" class-name="actions-col">
+            <el-table-column label="Actions" width="190" fixed="right" class-name="actions-col">
               <template #default="{ row }">
                 <div class="actions-cell">
                   <el-button size="small" class="action-btn action-approve" @click="handleApprove(row)">Approve</el-button>
@@ -90,7 +90,7 @@
             />
             <el-table-column prop="bookingId" label="Booking ID" min-width="140" />
             <el-table-column prop="venueName" label="Venue" min-width="180" />
-            <el-table-column prop="employeeName" label="Employee" min-width="130" />
+            <el-table-column prop="employeeName" label="User" min-width="130" />
             <el-table-column prop="meetingTitle" label="Meeting Title" min-width="200" />
             <el-table-column prop="date" label="Date" min-width="120" />
             <el-table-column prop="time" label="Time" min-width="130" />
@@ -140,7 +140,7 @@
             />
             <el-table-column prop="bookingId" label="Booking ID" min-width="140" />
             <el-table-column prop="venueName" label="Venue" min-width="180" />
-            <el-table-column prop="employeeName" label="Employee" min-width="130" />
+            <el-table-column prop="employeeName" label="User" min-width="130" />
             <el-table-column prop="meetingTitle" label="Meeting Title" min-width="180" />
             <el-table-column prop="date" label="Date" min-width="120" />
             <el-table-column prop="time" label="Time" min-width="130" />
@@ -179,84 +179,49 @@
       </el-tabs>
     </div>
 
-    <el-dialog
-      v-model="showRejectDialog"
-      title="Reject Booking"
-      width="500px"
-    >
+    <BookingStyleModal v-model="showApproveDialog" title="Confirm Approval" max-width="450px">
+      <p>Are you sure you want to approve this booking?</p>
+      <template #footer>
+        <el-button type="default" class="cancel-btn" @click="showApproveDialog = false">Cancel</el-button>
+        <el-button type="default" class="action-btn action-approve" @click="confirmApprove">Approve</el-button>
+      </template>
+    </BookingStyleModal>
+
+    <BookingStyleModal v-model="showRejectDialog" title="Reject Booking" max-width="500px">
       <el-form :model="rejectForm" label-width="100px">
         <el-form-item label="Reason">
           <el-input v-model="rejectForm.reason" type="textarea" :rows="4" placeholder="Please provide a reason for rejection" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showRejectDialog = false">Cancel</el-button>
-        <el-button type="danger" @click="confirmReject">Confirm Reject</el-button>
+        <el-button type="default" class="cancel-btn" @click="showRejectDialog = false">Cancel</el-button>
+        <el-button type="default" class="action-btn action-delete" @click="confirmReject">Confirm Reject</el-button>
       </template>
-    </el-dialog>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
+import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import { useAdminStore } from '@/stores/admin'
+import {
+  getMockMeetingPendingList,
+  getMockMeetingApprovedList,
+  getMockMeetingRejectedList
+} from '@/mocks/mockData'
+
+const adminStore = useAdminStore()
 
 const activeTab = ref('pending')
 
-const pendingList = ref([
-  {
-    id: 1,
-    bookingId: 'BK20260320001',
-    venueName: 'Conference Room A',
-    employeeName: 'John Doe',
-    department: 'IT',
-    meetingTitle: 'Q1 Project Review Meeting',
-    date: '2026-03-25',
-    time: '14:00-16:00',
-    submittedAt: '2026-03-20 10:30'
-  },
-  {
-    id: 2,
-    bookingId: 'BK20260320002',
-    venueName: 'Conference Room B',
-    employeeName: 'Jane Smith',
-    department: 'HR',
-    meetingTitle: 'Team Building Planning',
-    date: '2026-03-26',
-    time: '10:00-12:00',
-    submittedAt: '2026-03-20 11:15'
-  }
-])
+const pendingList = ref(getMockMeetingPendingList())
 
-const approvedList = ref([
-  {
-    id: 101,
-    bookingId: 'BK20260319001',
-    venueName: 'Conference Room A',
-    employeeName: 'Bob Wilson',
-    meetingTitle: 'Budget Review',
-    date: '2026-03-24',
-    time: '09:00-11:00',
-    approvedAt: '2026-03-19 15:30',
-    approvedBy: 'Admin'
-  }
-])
+const approvedList = ref(getMockMeetingApprovedList())
 
-const rejectedList = ref([
-  {
-    id: 201,
-    bookingId: 'BK20260318001',
-    venueName: 'Conference Room B',
-    employeeName: 'Alice Brown',
-    meetingTitle: 'Casual Discussion',
-    date: '2026-03-23',
-    time: '15:00-17:00',
-    rejectedAt: '2026-03-18 16:45',
-    rejectedBy: 'Admin',
-    reason: 'Meeting title not specific enough'
-  }
-])
+const rejectedList = ref(getMockMeetingRejectedList())
 
 const pendingCurrentPage = ref(1)
 const pendingPageSize = ref(10)
@@ -320,10 +285,12 @@ const rejectedVisiblePages = computed(() => {
 })
 
 const showRejectDialog = ref(false)
+const showApproveDialog = ref(false)
 const rejectForm = ref({
   reason: '',
   currentRow: null
 })
+const currentRow = ref(null)
 
 const getPendingRowIndex = (index) => (pendingCurrentPage.value - 1) * pendingPageSize.value + index + 1
 const getApprovedRowIndex = (index) => (approvedCurrentPage.value - 1) * approvedPageSize.value + index + 1
@@ -339,7 +306,7 @@ const handleExport = () => {
   const exportData = allData.map(item => ({
     'Booking ID': item.bookingId,
     'Venue': item.venueName,
-    'Employee': item.employeeName,
+    'User': item.employeeName,
     'Department': item.department || '',
     'Meeting Title': item.meetingTitle,
     'Date': item.date,
@@ -358,20 +325,25 @@ const handleExport = () => {
 }
 
 const handleApprove = (row) => {
-  ElMessageBox.confirm(`Approve booking "${row.meetingTitle}"?`, 'Confirm', {
-    type: 'success'
-  }).then(() => {
-    approvedList.value.push({
-      ...row,
-      approvedAt: new Date().toLocaleString('en-CA', { hour12: false }).replace(',', ''),
-      approvedBy: 'Admin'
-    })
-    const index = pendingList.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      pendingList.value.splice(index, 1)
-    }
-    ElMessage.success('Booking approved successfully')
+  currentRow.value = row
+  showApproveDialog.value = true
+}
+
+const confirmApprove = () => {
+  const row = currentRow.value
+  approvedList.value.push({
+    ...row,
+    approvedAt: new Date().toLocaleString('en-CA', { hour12: false }).replace(',', ''),
+    approvedBy: 'Admin'
   })
+  const index = pendingList.value.findIndex(item => item.id === row.id)
+  if (index !== -1) {
+    pendingList.value.splice(index, 1)
+  }
+  showApproveDialog.value = false
+  currentRow.value = null
+  ElMessage.success('Booking approved successfully')
+  adminStore.fetchPendingCounts()
 }
 
 const handleReject = (row) => {
@@ -398,7 +370,10 @@ const confirmReject = () => {
     pendingList.value.splice(index, 1)
   }
   showRejectDialog.value = false
+  rejectForm.value.currentRow = null
+  rejectForm.value.reason = ''
   ElMessage.success('Booking rejected')
+  adminStore.fetchPendingCounts()
 }
 </script>
 

@@ -1,10 +1,9 @@
 <template>
-  <el-dialog
+  <BookingStyleModal
     :model-value="visible"
     title="Booking Details"
-    width="400px"
-    @update:model-value="handleClose"
-    @close="handleClose"
+    max-width="400px"
+    @update:model-value="onVisibleUpdate"
   >
     <div v-if="booking" class="booking-details">
       <div class="detail-item">
@@ -49,15 +48,15 @@
 
     <template #footer>
       <span class="dialog-footer">
-        <el-button type="danger" @click="handleDelete">Delete</el-button>
-        <el-button @click="handleClose">Close</el-button>
+        <el-button type="default" class="danger-submit-btn" @click="handleDelete">Delete</el-button>
+        <el-button type="default" class="cancel-btn" @click="handleClose">Close</el-button>
       </span>
     </template>
-  </el-dialog>
+  </BookingStyleModal>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import BookingStyleModal from './BookingStyleModal.vue'
 
 const props = defineProps({
   visible: {
@@ -72,6 +71,10 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'delete'])
 
+function onVisibleUpdate(v) {
+  if (!v) handleClose()
+}
+
 const handleDelete = () => {
   if (props.booking) {
     emit('delete', props.booking.id)
@@ -84,10 +87,6 @@ const handleClose = () => {
 </script>
 
 <style scoped>
-:deep(.el-dialog__body) {
-  padding: 1.5rem;
-}
-
 .booking-details {
   display: flex;
   flex-direction: column;
@@ -126,17 +125,6 @@ const handleClose = () => {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+  width: 100%;
 }
-
-@media (max-width: 389px) {}
-
-@media (min-width: 390px) and (max-width: 767px) {}
-
-@media (min-width: 768px) and (max-width: 1099px) {}
-
-@media (min-width: 1100px) and (max-width: 1599px) {}
-
-@media (min-width: 1600px) and (max-width: 2239px) {}
-
-@media (min-width: 2240px) {}
 </style>

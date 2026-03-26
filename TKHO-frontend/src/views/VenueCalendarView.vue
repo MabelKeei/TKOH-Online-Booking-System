@@ -1,5 +1,5 @@
 <template>
-  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[52px]">
+  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
     <AppHeader @logout="onLogout" />
 
     <!-- Progress steps (temporarily hidden) -->
@@ -9,7 +9,7 @@
     /> -->
 
     <!-- Main content -->
-    <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-2 md:py-3 overflow-hidden">
+    <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 overflow-hidden">
       <!-- Top toolbar -->
       <div class="toolbar mb-1 flex items-center justify-between gap-3">
         <div class="toolbar-left flex items-center gap-2">
@@ -37,6 +37,7 @@
               <div class="filter-header">
                 <span class="filter-title">Show rooms:</span>
                 <div class="filter-actions">
+                  <button class="filter-action-btn" @click="selectOtherOnly">Other</button>
                   <button class="filter-action-btn" @click="selectConferenceOnly">Conference Rooms Only</button>
                   <button class="filter-action-btn" @click="selectAllRooms">Select All</button>
                   <button class="filter-action-btn" @click="clearAllRooms">Clear All</button>
@@ -502,6 +503,16 @@ function selectConferenceOnly() {
   })
 }
 
+// Quick action: select other venues only
+function selectOtherOnly() {
+  conferenceRooms.value.forEach(room => {
+    room.selected = false
+  })
+  otherVenues.value.forEach(room => {
+    room.selected = true
+  })
+}
+
 // Quick action: select all rooms
 function selectAllRooms() {
   conferenceRooms.value.forEach(room => room.selected = true)
@@ -585,16 +596,28 @@ function onLogout() {
 
 // Initialize demo bookings
 onMounted(() => {
+  // 根据 roomType 参数自动应用筛选
+  const roomTypeParam = route.query.roomType
+  if (roomTypeParam === 'conference') {
+    // 选择 Conference Rooms and Discussion Room
+    conferenceRooms.value.forEach(room => room.selected = true)
+    otherVenues.value.forEach(room => room.selected = false)
+  } else if (roomTypeParam === 'other') {
+    // 选择 Other Venues
+    conferenceRooms.value.forEach(room => room.selected = false)
+    otherVenues.value.forEach(room => room.selected = true)
+  }
+
   // TODO: fetch bookings from API
   // fetchBookings()
-  
+
   // Demo dates
   const today = new Date()
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
   const nextWeek = new Date(today)
   nextWeek.setDate(nextWeek.getDate() + 7)
-  
+
   // Demo data
   bookings.value = [
     {

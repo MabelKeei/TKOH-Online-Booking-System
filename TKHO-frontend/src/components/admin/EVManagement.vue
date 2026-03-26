@@ -3,10 +3,10 @@
     <div class="page-header">
       <h2 class="page-title">EV Management</h2>
       <div class="header-actions">
-        <el-button @click="handleExport">
+        <el-button type="default" class="cancel-btn" @click="handleExport">
           <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
         </el-button>
-        <el-button type="primary" @click="handleAdd">
+        <el-button type="default" class="submit-btn" @click="handleAdd">
           <font-awesome-icon :icon="['fas', 'plus']" /> Add Parking Slot
         </el-button>
       </div>
@@ -38,7 +38,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Actions" width="180" fixed="right" class-name="actions-col">
+        <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button size="small" class="action-btn action-edit" @click="handleEdit(row)">Edit</el-button>
@@ -76,10 +76,10 @@
       </div>
     </div>
 
-    <el-dialog
+    <BookingStyleModal
       v-model="showForm"
       :title="formMode === 'add' ? 'Add Parking Slot' : 'Edit Parking Slot'"
-      width="500px"
+      max-width="500px"
     >
       <el-form :model="formData" label-width="120px">
         <el-form-item label="Slot Number">
@@ -99,26 +99,29 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showForm = false">Cancel</el-button>
-        <el-button type="primary" @click="handleSave">Save</el-button>
+        <el-button type="default" class="cancel-btn" @click="showForm = false">Cancel</el-button>
+        <el-button type="default" class="submit-btn" @click="handleSave">Save</el-button>
       </template>
-    </el-dialog>
+    </BookingStyleModal>
+
+    <BookingStyleModal v-model="showDeleteDialog" title="Confirm Delete" max-width="450px">
+      <p>Are you sure you want to delete this parking slot?</p>
+      <template #footer>
+        <el-button type="default" class="cancel-btn" @click="showDeleteDialog = false">Cancel</el-button>
+        <el-button type="default" class="action-btn action-delete" @click="confirmDelete">Delete</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
+import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import { getMockEVParkingList } from '@/mocks/mockData'
 
-const parkingList = ref([
-  { id: 1, slotNumber: 'A-01', location: 'Ground Floor', type: 'EV', status: 'active' },
-  { id: 2, slotNumber: 'A-02', location: 'Ground Floor', type: 'EV', status: 'active' },
-  { id: 3, slotNumber: 'B-01', location: 'Level 1', type: 'Regular', status: 'active' },
-  { id: 4, slotNumber: 'B-02', location: 'Level 1', type: 'Regular', status: 'active' },
-  { id: 5, slotNumber: 'C-01', location: 'Level 2', type: 'EV', status: 'active' },
-  { id: 6, slotNumber: 'C-02', location: 'Level 2', type: 'Regular', status: 'inactive' }
-])
+const parkingList = ref(getMockEVParkingList())
 
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -152,6 +155,9 @@ const formData = ref({
   type: 'EV',
   status: 'active'
 })
+
+const showDeleteDialog = ref(false)
+const currentRow = ref(null)
 
 const getRowIndex = (index) => (currentPage.value - 1) * pageSize.value + index + 1
 
@@ -197,15 +203,18 @@ const handleSave = () => {
 }
 
 const handleDelete = (row) => {
-  ElMessageBox.confirm('Are you sure to delete this parking slot?', 'Warning', {
-    type: 'warning'
-  }).then(() => {
-    const index = parkingList.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      parkingList.value.splice(index, 1)
-      ElMessage.success('Deleted successfully')
-    }
-  })
+  currentRow.value = row
+  showDeleteDialog.value = true
+}
+
+const confirmDelete = () => {
+  const index = parkingList.value.findIndex(item => item.id === currentRow.value.id)
+  if (index !== -1) {
+    parkingList.value.splice(index, 1)
+    ElMessage.success('Deleted successfully')
+  }
+  showDeleteDialog.value = false
+  currentRow.value = null
 }
 </script>
 
@@ -284,17 +293,6 @@ const handleDelete = (row) => {
 
 .page-header :deep(.el-button:active) {
   transform: translateY(0);
-}
-
-.page-header :deep(.el-button--primary) {
-  background: #00723a;
-  border-color: #00723a;
-  color: #ffffff;
-}
-
-.page-header :deep(.el-button--primary:hover) {
-  background: #005a2e;
-  border-color: #005a2e;
 }
 
 .page-content :deep(.el-table) {

@@ -5,8 +5,19 @@
     <div class="admin-layout">
       <!-- Left Sidebar Menu -->
       <aside :class="['admin-sidebar', { collapsed: isCollapsed }]">
-        <div class="sidebar-header">
-          <font-awesome-icon v-if="!isCollapsed" :icon="['fas', 'user-shield']" />
+        <div
+          class="sidebar-header"
+          :class="{ 'is-home': isAdminHome }"
+          role="button"
+          tabindex="0"
+          title="Back to admin home"
+          @click="goAdminHome"
+          @keydown.enter.prevent="goAdminHome"
+          @keydown.space.prevent="goAdminHome"
+        >
+          <el-icon class="sidebar-header-icon">
+            <HelpFilled />
+          </el-icon>
           <span v-if="!isCollapsed">Admin Panel</span>
         </div>
         <nav class="sidebar-menu">
@@ -19,6 +30,7 @@
           >
             <font-awesome-icon :icon="['fas', item.icon]" class="menu-icon" />
             <span v-if="!isCollapsed" class="menu-label">{{ item.label }}</span>
+            <span v-if="item.badge && item.badge > 0" class="menu-badge">{{ item.badge > 99 ? '99+' : item.badge }}</span>
           </div>
         </nav>
         <div class="sidebar-toggle" @click="toggleSidebar">
@@ -37,28 +49,46 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
+import { HelpFilled } from '@element-plus/icons-vue'
 import { useUserStore } from '../stores/user'
+import { useAdminStore } from '../stores/admin'
+import { storeToRefs } from 'pinia'
 import AppHeader from '../components/AppHeader.vue'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const adminStore = useAdminStore()
+const { pendingBookingsCount, pendingUsersCount } = storeToRefs(adminStore)
 
 const isCollapsed = ref(false)
 
-const menuItems = [
-  { key: 'approval', label: 'Meeting Approval', icon: 'check-circle', path: '/admin/approval' },
+const menuItems = computed(() => [
+  { key: 'approval', label: 'Meeting Approval', icon: 'check-circle', path: '/admin/approval', badge: pendingBookingsCount.value },
   { key: 'ev', label: 'EV Management', icon: 'car', path: '/admin/ev' },
   { key: 'venue', label: 'Venue Management', icon: 'building', path: '/admin/venue' },
-  { key: 'user', label: 'Users Management', icon: 'users', path: '/admin/user' },
+  { key: 'user', label: 'Users Management', icon: 'users', path: '/admin/user', badge: pendingUsersCount.value },
   { key: 'access-right', label: 'Access Right', icon: 'user-shield', path: '/admin/access-right' },
-  { key: 'prompt', label: 'System Prompts', icon: 'message', path: '/admin/prompt' }
-]
+  { key: 'prompt', label: 'System Prompts', icon: 'message', path: '/admin/prompt' },
+  { key: 'license-plate', label: 'License Plate', icon: 'id-card', path: '/admin/license-plate' }
+])
+
+const isAdminHome = computed(() => {
+  const p = route.path
+  return p === '/admin' || p === '/admin/'
+})
 
 const activeMenu = computed(() => {
-  const currentItem = menuItems.find(item => route.path.startsWith(item.path))
-  return currentItem?.key || 'ev'
+  if (isAdminHome.value) return null
+  const currentItem = menuItems.value.find(item => route.path.startsWith(item.path))
+  return currentItem?.key ?? null
 })
+
+const goAdminHome = () => {
+  if (route.path !== '/admin') {
+    router.push('/admin')
+  }
+}
 
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
@@ -140,7 +170,7 @@ const handleLogout = () => {
 
 .admin-sidebar.collapsed .sidebar-header {
   justify-content: center;
-  padding: 2rem 0.4rem;
+  padding: 2rem 0.4rem 1.75rem 0.4rem;
 }
 
 .admin-sidebar.collapsed .menu-item {
@@ -158,26 +188,44 @@ const handleLogout = () => {
 }
 
 .sidebar-header {
-  padding: 1.3rem 1rem;
+  padding: 1.3rem 1rem 1.15rem 1rem;
   color: #ffffff;
   font-size: 19px;
   font-weight: 700;
+  line-height: 1.2;
   display: flex;
   align-items: center;
   gap: 0.875rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(0, 0, 0, 0.1);
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
 }
 
-.sidebar-header svg {
+.sidebar-header:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-header.is-home {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-header-icon {
+  flex-shrink: 0;
   font-size: 22px;
+  color: inherit;
+}
+
+.sidebar-header-icon :deep(svg) {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .sidebar-menu {
   flex: 1;
-  padding: 0.35rem 0;
+  padding: 0 0 0.35rem 0;
   overflow-y: auto;
 }
 
@@ -211,6 +259,45 @@ const handleLogout = () => {
   border-radius: 10px;
   font-size: 15px;
   white-space: nowrap;
+}
+
+.menu-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  border-radius: 9px;
+  line-height: 1;
+  margin-left: auto;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+  animation: pulse-menu-badge 2s ease-in-out infinite;
+}
+
+@keyframes pulse-menu-badge {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.92;
+  }
+}
+
+.admin-sidebar.collapsed .menu-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 0.625rem;
+  padding: 0 4px;
 }
 
 .menu-item::before {
@@ -305,10 +392,11 @@ const handleLogout = () => {
 
   .sidebar-header {
     font-size: 15px;
-    padding: 0.9rem 0.7rem;
+    padding: 0.9rem 0.7rem 0.8rem 0.7rem;
+    line-height: 1.2;
   }
 
-  .sidebar-header svg {
+  .sidebar-header-icon {
     font-size: 18px;
   }
 
@@ -341,10 +429,11 @@ const handleLogout = () => {
 
   .sidebar-header {
     font-size: 16px;
-    padding: 1rem 0.75rem;
+    padding: 1rem 0.75rem 0.88rem 0.75rem;
+    line-height: 1.2;
   }
 
-  .sidebar-header svg {
+  .sidebar-header-icon {
     font-size: 20px;
   }
 
@@ -377,10 +466,11 @@ const handleLogout = () => {
 
   .sidebar-header {
     font-size: 17px;
-    padding: 1.2rem 0.9rem;
+    padding: 1.2rem 0.9rem 1.05rem 0.9rem;
+    line-height: 1.2;
   }
 
-  .sidebar-header svg {
+  .sidebar-header-icon {
     font-size: 21px;
   }
 
@@ -413,10 +503,11 @@ const handleLogout = () => {
 
   .sidebar-header {
     font-size: 18px;
-    padding: 1.35rem 0.95rem;
+    padding: 1.35rem 0.95rem 1.2rem 0.95rem;
+    line-height: 1.2;
   }
 
-  .sidebar-header svg {
+  .sidebar-header-icon {
     font-size: 22px;
   }
 
@@ -449,10 +540,11 @@ const handleLogout = () => {
 
   .sidebar-header {
     font-size: 19px;
-    padding: 1.45rem 1.05rem;
+    padding: 1.45rem 1.05rem 1.28rem 1.05rem;
+    line-height: 1.2;
   }
 
-  .sidebar-header svg {
+  .sidebar-header-icon {
     font-size: 23px;
   }
 
@@ -485,10 +577,11 @@ const handleLogout = () => {
 
   .sidebar-header {
     font-size: 21px;
-    padding: 1.65rem 1.2rem;
+    padding: 1.65rem 1.2rem 1.45rem 1.2rem;
+    line-height: 1.2;
   }
 
-  .sidebar-header svg {
+  .sidebar-header-icon {
     font-size: 25px;
   }
 

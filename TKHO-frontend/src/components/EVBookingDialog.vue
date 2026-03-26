@@ -26,6 +26,7 @@
               placeholder="Select license plate"
               class="form-input form-input-license"
               size="large"
+              :teleported="false"
             >
               <el-option
                 v-for="vehicle in vehicles"
@@ -70,6 +71,7 @@
               placeholder="Select date"
               class="form-input"
               size="large"
+              :teleported="false"
               :disabled-date="disabledDate"
               format="DD/MM/YYYY"
               value-format="YYYY-MM-DD"
@@ -257,6 +259,7 @@ function handleSave() {
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  /* 让内部背景被圆角裁切：修复右下/左下角不圆 */
   overflow: hidden;
 }
 
@@ -271,6 +274,8 @@ function handleSave() {
   cursor: move;
   user-select: none;
   flex-shrink: 0;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
 }
 
 .modal-title {
@@ -609,7 +614,7 @@ function handleSave() {
     /* height: clamp(96vh, 110vh, 120vh); */
     height: 120vh;
     max-height: 120vh;
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   /* 头部 */

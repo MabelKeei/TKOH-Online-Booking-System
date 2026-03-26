@@ -62,27 +62,31 @@
 
             <div class="form-row">
               <el-form-item label="Start Time" prop="startTime" :rules="[{ required: true, message: 'Please select start time' }]" class="form-item-half">
-                <el-time-select
+                <el-select
                   v-model="form.startTime"
                   placeholder="Select start time"
-                  start="07:00"
-                  end="21:00"
-                  step="00:30"
                   style="width: 100%"
+                  filterable
+                  clearable
+                  :teleported="false"
                   popper-class="time-select-popper"
-                ></el-time-select>
+                >
+                  <el-option v-for="t in timeSlotOptions" :key="t" :label="t" :value="t" />
+                </el-select>
               </el-form-item>
 
               <el-form-item label="End Time" prop="endTime" :rules="[{ required: true, message: 'Please select end time' }]" class="form-item-half">
-                <el-time-select
+                <el-select
                   v-model="form.endTime"
                   placeholder="Select end time"
-                  start="07:00"
-                  end="21:00"
-                  step="00:30"
                   style="width: 100%"
+                  filterable
+                  clearable
+                  :teleported="false"
                   popper-class="time-select-popper"
-                ></el-time-select>
+                >
+                  <el-option v-for="t in timeSlotOptions" :key="t" :label="t" :value="t" />
+                </el-select>
               </el-form-item>
             </div>
 
@@ -340,6 +344,22 @@ const availableRooms = [
   { name: 'Auditorium', color: '#8b5cf6' }
 ]
 
+/** 与原 el-time-select start/end/step（07:00–21:00，30 分钟）一致；改用 el-select 以支持 :teleported="false"（html zoom 下不误位） */
+function buildHalfHourTimeOptions(start = '07:00', end = '21:00', stepMinutes = 30) {
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  const startM = sh * 60 + sm
+  const endM = eh * 60 + em
+  const list = []
+  for (let m = startM; m <= endM; m += stepMinutes) {
+    const h = Math.floor(m / 60)
+    const mi = m % 60
+    list.push(`${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`)
+  }
+  return list
+}
+const timeSlotOptions = buildHalfHourTimeOptions()
+
 const isSameDay = computed(() => {
   if (!form.value.date) return false
   const selectedDate = new Date(form.value.date)
@@ -466,7 +486,8 @@ watch(() => props.visible, (val) => {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* teleported=false 时下拉在弹窗内，避免 overflow:hidden 裁切 */
+  overflow: visible;
   position: relative;
   z-index: 10000;
   /* 修复小屏滚动：确保容器在flex布局中正确计算高度 */
@@ -484,6 +505,8 @@ watch(() => props.visible, (val) => {
   cursor: move;
   user-select: none;
   flex-shrink: 0; /* 头部不收缩 */
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
 }
 .modal-title {
   font-size: 1.0625rem;
@@ -927,13 +950,12 @@ watch(() => props.visible, (val) => {
 
 /* 确保下拉框内容可见 */
 :deep(.el-select-dropdown),
-:deep(.el-time-select-dropdown),
 :deep(.el-popper) {
   z-index: 99999 !important;
 }
 
-/* 修复el-time-select在移动端的显示问题 */
-:deep(.el-time-select) {
+/* 半宽 Start/End Time 的 el-select */
+:deep(.form-row .form-item-half .el-select) {
   width: 100%;
 }
 </style>

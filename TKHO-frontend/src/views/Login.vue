@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="login-container flex flex-col min-h-screen bg-[#f8ecdd]">
     <header class="login-header w-full">
       <div class="header-content">
@@ -148,6 +148,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { login as loginApi } from '../api/auth'
 import { ElMessage } from 'element-plus'
+import { createMockToken, createMockUser } from '@/mocks/mockData'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -195,13 +196,11 @@ const handleLogin = async () => {
           return
         }
 
-        const mockUser = {
-          id: 1,
-          name: loginForm.corpId,
-          role: 'user',
+        const mockUser = createMockUser({
+          corpId: loginForm.corpId,
           system: loginForm.system
-        }
-        const mockToken = 'mock-token-' + Date.now()
+        })
+        const mockToken = createMockToken()
 
         userStore.login(mockUser, mockToken)
         ElMessage.success('Login successful')

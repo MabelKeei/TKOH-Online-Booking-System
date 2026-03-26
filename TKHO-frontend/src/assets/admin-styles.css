@@ -89,6 +89,83 @@
   transition: all 0.3s ease !important;
 }
 
+/* Aligned with VenueBookingDialog.vue — use type="default" + class (not el-button--primary) */
+.el-button.cancel-btn {
+  padding: 0.4375rem 1.25rem !important;
+  font-size: 0.8125rem !important;
+  font-weight: 600 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.el-button.submit-btn {
+  background-color: #00723a !important;
+  border: 1px solid #00723a !important;
+  font-weight: bold !important;
+  padding: 0.4375rem 1.25rem !important;
+  font-size: 0.8125rem !important;
+  color: #ffffff !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.el-button.submit-btn:hover,
+.el-button.submit-btn:focus {
+  background-color: #005a2e !important;
+  border-color: #005a2e !important;
+  color: #ffffff !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Destructive confirm — same footprint as submit-btn */
+.el-button.danger-submit-btn {
+  background-color: #dc2626 !important;
+  border: 1px solid #dc2626 !important;
+  font-weight: bold !important;
+  padding: 0.4375rem 1.25rem !important;
+  font-size: 0.8125rem !important;
+  color: #ffffff !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.el-button.danger-submit-btn:hover,
+.el-button.danger-submit-btn:focus {
+  background-color: #b91c1c !important;
+  border-color: #b91c1c !important;
+  color: #ffffff !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Same palette as VenueBookingDialog.check-btn — secondary blue CTA */
+.el-button.check-btn {
+  background-color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+  font-weight: bold !important;
+  font-size: 0.8125rem !important;
+  padding: 0.5rem 1rem !important;
+  color: #ffffff !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.el-button.check-btn:hover,
+.el-button.check-btn:focus {
+  background-color: #66b1ff !important;
+  border-color: #66b1ff !important;
+  color: #ffffff !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.el-button.check-btn.el-button--small {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.6875rem !important;
+  font-weight: 600 !important;
+}
+
 .el-button--primary {
   background: linear-gradient(135deg, #0A3D1F 0%, #005a2f 100%) !important;
   border: none !important;

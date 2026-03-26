@@ -1,11 +1,29 @@
 <template>
-  <div class="page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[52px]">
+  <div class="page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
     <AppHeader @logout="onLogout" />
 
-    <main class="flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-2 md:py-3 pb-1 overflow-hidden">
+    <main class="flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 pb-1 overflow-hidden">
       <!-- Toolbar -->
       <div class="toolbar bg-white rounded-lg shadow-sm p-3 mb-1 flex items-center justify-between gap-3">
         <div class="toolbar-left flex items-center gap-3">
+          <!-- Admin View Switcher (only for admin) -->
+          <div v-if="isAdmin" class="view-switcher-wrapper">
+            <div class="view-switcher">
+              <button
+                :class="['view-switch-btn', { active: bookingView === 'my' }]"
+                @click="bookingView = 'my'"
+              >
+                My Bookings
+              </button>
+              <button
+                :class="['view-switch-btn', { active: bookingView === 'all' }]"
+                @click="bookingView = 'all'"
+              >
+                All Bookings
+              </button>
+            </div>
+          </div>
+
           <!-- Status Filter -->
           <div class="status-filter-wrapper">
             <button class="status-filter-btn" @click="toggleStatusFilter">
@@ -310,33 +328,42 @@
     </main>
 
     <!-- Cancel Booking Dialog -->
-    <el-dialog v-model="showCancelDialog" title="Cancel Booking" width="400px">
-      <p class="cancel-message">Please provide a reason for cancellation:</p>
-      <el-input
-        v-model="cancelReason"
-        type="textarea"
-        :rows="3"
-        placeholder="e.g., Meeting rescheduled, Room no longer needed"
-        maxlength="100"
-        show-word-limit
-      />
+    <BookingStyleModal v-model="showCancelDialog" title="Cancel Booking" max-width="500px">
+      <el-form label-width="120px">
+        <el-form-item label="Reason">
+          <el-input
+            v-model="cancelReason"
+            type="textarea"
+            :rows="4"
+            placeholder="e.g., Meeting rescheduled, Room no longer needed"
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
       <template #footer>
-        <el-button @click="showCancelDialog = false">Cancel</el-button>
-        <el-button type="danger" @click="confirmCancel">Confirm</el-button>
+        <el-button type="default" class="cancel-btn" @click="showCancelDialog = false">Cancel</el-button>
+        <el-button type="default" class="action-btn action-delete" @click="confirmCancel">Confirm Cancel</el-button>
       </template>
-    </el-dialog>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/stores/user'
+import { storeToRefs } from 'pinia'
 import AppHeader from '../components/AppHeader.vue'
+import BookingStyleModal from '@/components/BookingStyleModal.vue'
 
 const router = useRouter()
+const userStore = useUserStore()
+const { isAdmin, userInfo } = storeToRefs(userStore)
 
 const currentView = ref('card')
+const bookingView = ref('my') // 'my' or 'all' - for admin to switch between personal and all bookings
 const searchQuery = ref('')
 const showColumnsFilter = ref(false)
 const showStatusFilter = ref(false)
@@ -545,6 +572,14 @@ const bookings = ref([
 const filteredBookings = computed(() => {
   let result = bookings.value
 
+  // Filter by booking view (admin only)
+  if (isAdmin.value && bookingView.value === 'my') {
+    // Show only bookings made by current admin user
+    const currentUserEmail = userInfo.value?.email || 'karen.shen@ha.org.hk'
+    result = result.filter(b => b.email === currentUserEmail)
+  }
+  // If bookingView is 'all' or user is not admin, show all bookings
+
   // Filter by status (multi-select)
   const activeStatuses = Object.keys(statusFilters.value).filter(key => statusFilters.value[key])
   if (activeStatuses.length > 0 && activeStatuses.length < 3) {
@@ -595,7 +630,7 @@ const parseDate = (dateStr) => {
 const statusFilterLabel = computed(() => {
   const activeStatuses = Object.keys(statusFilters.value).filter(key => statusFilters.value[key])
   if (activeStatuses.length === 3) {
-    return 'All bookings'
+    return 'All Status'
   } else if (activeStatuses.length === 0) {
     return 'No status selected'
   } else if (activeStatuses.length === 1) {
@@ -879,9 +914,52 @@ const editBooking = (id) => {
 </script>
 
 <style scoped>
+.page {
+  height: var(--zoom-vh);
+  background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
+  position: relative;
+}
+
 .toolbar {
   flex-shrink: 0;
 }
+
+/* Admin View Switcher */
+.view-switcher-wrapper {
+  position: relative;
+}
+
+.view-switcher {
+  display: inline-flex;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.view-switch-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.view-switch-btn:hover {
+  color: #374151;
+}
+
+.view-switch-btn.active {
+  background: #ffffff;
+  color: #00723a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
 
 .filter-select {
   padding: 0.375rem 0.625rem;
@@ -896,7 +974,7 @@ const editBooking = (id) => {
 
 .filter-select:focus {
   outline: none;
-  border-color: #0A3D1F;
+  border-color: #00723a;
 }
 
 .search-input {
@@ -912,7 +990,7 @@ const editBooking = (id) => {
 
 .search-input:focus {
   outline: none;
-  border-color: #0A3D1F;
+  border-color: #00723a;
 }
 
 /* Date Filter */
@@ -938,7 +1016,7 @@ const editBooking = (id) => {
 }
 
 .date-filter-btn .calendar-icon {
-  color: #0A3D1F;
+  color: #00723a;
   flex-shrink: 0;
 }
 
@@ -961,14 +1039,14 @@ const editBooking = (id) => {
   background: white;
   border-radius: 0.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  border: 2px solid #0A3D1F;
+  border: 2px solid #00723a;
   min-width: 320px;
   animation: slideDown 0.2s ease-out;
 }
 
 .date-filter-header {
   padding: 12px 16px;
-  border-bottom: 2px solid #0A3D1F;
+  border-bottom: 2px solid #00723a;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -978,7 +1056,7 @@ const editBooking = (id) => {
 .date-filter-header .filter-title {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #0A3D1F;
+  color: #00723a;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -989,7 +1067,7 @@ const editBooking = (id) => {
   display: inline-block;
   width: 4px;
   height: 16px;
-  background: #0A3D1F;
+  background: #00723a;
   border-radius: 2px;
 }
 
@@ -1044,14 +1122,14 @@ const editBooking = (id) => {
 
 .quick-date-btn:hover {
   background-color: #f0fdf4;
-  border-color: #0A3D1F;
+  border-color: #00723a;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .quick-date-btn.active {
-  background: linear-gradient(135deg, #0A3D1F 0%, #059669 100%);
-  border-color: #0A3D1F;
+  background: linear-gradient(135deg, #00723a 0%, #059669 100%);
+  border-color: #00723a;
   color: white;
   font-weight: 600;
   box-shadow: 0 2px 4px rgba(0, 114, 58, 0.3);
@@ -1069,7 +1147,7 @@ const editBooking = (id) => {
 .custom-date-label {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #0A3D1F;
+  color: #00723a;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1086,11 +1164,11 @@ const editBooking = (id) => {
 }
 
 :deep(.el-date-editor:hover) {
-  border-color: #0A3D1F;
+  border-color: #00723a;
 }
 
 :deep(.el-date-editor.is-active) {
-  border-color: #0A3D1F;
+  border-color: #00723a;
   box-shadow: 0 0 0 3px rgba(0, 114, 58, 0.1);
 }
 
@@ -1101,12 +1179,12 @@ const editBooking = (id) => {
 
 :deep(.el-date-editor .el-range-separator) {
   font-size: 0.75rem;
-  color: #0A3D1F;
+  color: #00723a;
   font-weight: 600;
 }
 
 :deep(.el-date-editor .el-range__icon) {
-  color: #0A3D1F;
+  color: #00723a;
 }
 
 :deep(.el-date-editor .el-range__close-icon) {
@@ -1132,8 +1210,8 @@ const editBooking = (id) => {
 }
 
 .view-toggle-btn.active {
-  background-color: #0A3D1F;
-  border-color: #0A3D1F;
+  background-color: #00723a;
+  border-color: #00723a;
   color: white;
 }
 
@@ -1445,7 +1523,7 @@ const editBooking = (id) => {
 }
 
 .btn-approve {
-  background-color: #0A3D1F;
+  background-color: #00723a;
   color: white;
 }
 
@@ -1547,11 +1625,11 @@ const editBooking = (id) => {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: #0A3D1F;
+  accent-color: #00723a;
 }
 
 .status-checkbox:hover {
-  color: #0A3D1F;
+  color: #00723a;
 }
 
 .select-all-option {
@@ -1634,7 +1712,7 @@ const editBooking = (id) => {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: #0A3D1F;
+  accent-color: #00723a;
 }
 
 .column-checkbox input[type="checkbox"]:disabled {
@@ -1643,7 +1721,7 @@ const editBooking = (id) => {
 }
 
 .column-checkbox:hover {
-  color: #0A3D1F;
+  color: #00723a;
 }
 
 /* Pagination */
@@ -1700,8 +1778,8 @@ const editBooking = (id) => {
 }
 
 .pagination-btn.page-number.active {
-  background-color: #0A3D1F;
-  border-color: #0A3D1F;
+  background-color: #00723a;
+  border-color: #00723a;
   color: white;
 }
 
@@ -1734,7 +1812,7 @@ const editBooking = (id) => {
 
 .page-size-select:focus {
   outline: none;
-  border-color: #0A3D1F;
+  border-color: #00723a;
 }
 
 @media (max-width: 389px), (min-width: 390px) and (max-width: 767px) {

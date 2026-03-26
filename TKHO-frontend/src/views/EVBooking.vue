@@ -1,9 +1,9 @@
 <template>
-  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[52px]">
+  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
     <AppHeader @logout="onLogout" />
 
     <!-- 主体内容 -->
-    <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-2 md:py-3 overflow-hidden">
+    <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 overflow-hidden">
       <!-- 日历内容区域 -->
       <div class="calendar-container flex-1 overflow-auto">
         <div class="calendar-wrapper">
@@ -58,6 +58,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AppHeader from '../components/AppHeader.vue'
 import EVBookingDialog from '../components/EVBookingDialog.vue'
+import { generateEVBookingsMock } from '@/mocks/mockData'
 
 const router = useRouter()
 
@@ -193,40 +194,11 @@ function onLogout() {
 
 // 初始化数据
 onMounted(() => {
-  const today = new Date()
-  const formatDate = (date) => date.toISOString().split('T')[0]
-
-  // 生成未来14天的mock数据
-  const mockData = {}
-
-  for (let i = 0; i < 14; i++) {
-    const date = new Date(today)
-    date.setDate(date.getDate() + i)
-    const dateStr = formatDate(date)
-
-    // 随机生成预订数据
-    const periods = ['am', 'pm', 'night']
-    periods.forEach(period => {
-      const key = `${dateStr}-${period}`
-      const random = Math.random()
-
-      if (random < 0.15) {
-        // 15% 概率已订满
-        mockData[key] = { available: 0, total: 3 }
-      } else if (random < 0.30) {
-        // 15% 概率仅剩1个
-        mockData[key] = { available: 1, total: 3 }
-      } else if (random < 0.50) {
-        // 20% 概率剩2个
-        mockData[key] = { available: 2, total: 3 }
-      } else {
-        // 50% 概率全部可用
-        mockData[key] = { available: 3, total: 3 }
-      }
-    })
-  }
-
-  bookings.value = mockData
+  bookings.value = generateEVBookingsMock({
+    days: 14,
+    periods: timePeriods.map((p) => p.id),
+    totalPerSlot: 3
+  })
 })
 </script>
 

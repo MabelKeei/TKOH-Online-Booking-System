@@ -3,10 +3,10 @@
     <div class="page-header">
       <h2 class="page-title">System Prompts Management</h2>
       <div class="header-actions">
-        <el-button @click="handleExport">
+        <el-button type="default" class="cancel-btn" @click="handleExport">
           <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
         </el-button>
-        <el-button type="primary" @click="handleAdd">
+        <el-button type="default" class="submit-btn" @click="handleAdd">
           <font-awesome-icon :icon="['fas', 'plus']" /> Add Prompt
         </el-button>
       </div>
@@ -39,7 +39,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Actions" width="180" fixed="right" class-name="actions-col">
+        <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button size="small" class="action-btn action-edit" @click="handleEdit(row)">Edit</el-button>
@@ -77,10 +77,10 @@
       </div>
     </div>
 
-    <el-dialog
+    <BookingStyleModal
       v-model="showForm"
       :title="formMode === 'add' ? 'Add Prompt' : 'Edit Prompt'"
-      width="700px"
+      max-width="700px"
     >
       <el-form :model="formData" label-width="120px">
         <el-form-item label="Prompt Key">
@@ -110,60 +110,29 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showForm = false">Cancel</el-button>
-        <el-button type="primary" @click="handleSave">Save</el-button>
+        <el-button type="default" class="cancel-btn" @click="showForm = false">Cancel</el-button>
+        <el-button type="default" class="submit-btn" @click="handleSave">Save</el-button>
       </template>
-    </el-dialog>
+    </BookingStyleModal>
+
+    <BookingStyleModal v-model="showDeleteDialog" title="Confirm Delete" max-width="450px">
+      <p>Are you sure you want to delete this prompt?</p>
+      <template #footer>
+        <el-button type="default" class="cancel-btn" @click="showDeleteDialog = false">Cancel</el-button>
+        <el-button type="default" class="action-btn action-delete" @click="confirmDelete">Delete</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
+import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import { getMockPromptList } from '@/mocks/mockData'
 
-const promptList = ref([
-  {
-    id: 1,
-    key: 'booking_success',
-    title: 'Booking Success',
-    content: 'Your booking has been submitted successfully. Please wait for admin approval.',
-    type: 'success',
-    status: 'active'
-  },
-  {
-    id: 2,
-    key: 'booking_cancelled',
-    title: 'Booking Cancelled',
-    content: 'Your booking has been cancelled successfully.',
-    type: 'info',
-    status: 'active'
-  },
-  {
-    id: 3,
-    key: 'quota_exceeded',
-    title: 'Quota Exceeded',
-    content: 'You have reached your annual booking quota. Please contact admin for assistance.',
-    type: 'warning',
-    status: 'active'
-  },
-  {
-    id: 4,
-    key: 'approval_rejected',
-    title: 'Booking Rejected',
-    content: 'Your booking request has been rejected by admin. Reason: {reason}',
-    type: 'error',
-    status: 'active'
-  },
-  {
-    id: 5,
-    key: 'venue_unavailable',
-    title: 'Venue Unavailable',
-    content: 'The selected venue is not available for the chosen time slot.',
-    type: 'warning',
-    status: 'active'
-  }
-])
+const promptList = ref(getMockPromptList())
 
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -198,6 +167,9 @@ const formData = ref({
   type: 'info',
   status: 'active'
 })
+
+const showDeleteDialog = ref(false)
+const currentRow = ref(null)
 
 const getTypeColor = (type) => {
   const colors = {
@@ -259,15 +231,18 @@ const handleSave = () => {
 }
 
 const handleDelete = (row) => {
-  ElMessageBox.confirm('Are you sure to delete this prompt?', 'Warning', {
-    type: 'warning'
-  }).then(() => {
-    const index = promptList.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      promptList.value.splice(index, 1)
-      ElMessage.success('Deleted successfully')
-    }
-  })
+  currentRow.value = row
+  showDeleteDialog.value = true
+}
+
+const confirmDelete = () => {
+  const index = promptList.value.findIndex(item => item.id === currentRow.value.id)
+  if (index !== -1) {
+    promptList.value.splice(index, 1)
+    ElMessage.success('Deleted successfully')
+  }
+  showDeleteDialog.value = false
+  currentRow.value = null
 }
 </script>
 
@@ -350,17 +325,6 @@ const handleDelete = (row) => {
 
 .page-header :deep(.el-button:active) {
   transform: translateY(0);
-}
-
-.page-header :deep(.el-button--primary) {
-  background: #00723a;
-  border-color: #00723a;
-  color: #ffffff;
-}
-
-.page-header :deep(.el-button--primary:hover) {
-  background: #005a2e;
-  border-color: #005a2e;
 }
 
 .page-content {

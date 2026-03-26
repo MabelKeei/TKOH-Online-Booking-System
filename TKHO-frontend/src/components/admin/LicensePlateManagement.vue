@@ -1,139 +1,138 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2 class="page-title">Venue Management</h2>
+      <h2 class="page-title">License Plate Management</h2>
       <div class="header-actions">
         <el-button type="default" class="cancel-btn" @click="handleExport">
           <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
         </el-button>
         <el-button type="default" class="submit-btn" @click="handleAdd">
-          <font-awesome-icon :icon="['fas', 'plus']" /> Add Venue
+          <font-awesome-icon :icon="['fas', 'plus']" /> Add License Plate
         </el-button>
       </div>
     </div>
 
     <div class="page-content">
       <div class="table-card">
-      <el-table :data="paginatedData" height="100%" border stripe table-layout="auto" style="width: 100%">
-        <el-table-column
-          type="index"
-          label="#"
-          width="70"
-          align="center"
-          header-align="center"
-          fixed="left"
-          :index="getRowIndex"
-        />
-        <el-table-column prop="name" label="Venue Name" min-width="180" />
-        <el-table-column prop="type" label="Type" min-width="150">
-          <template #default="{ row }">
-            <el-tag :type="row.type === 'conference' ? 'primary' : 'success'">
-              {{ row.type === 'conference' ? 'Conference Room' : 'Other Venue' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="capacity" label="Capacity" min-width="110" />
-        <el-table-column prop="location" label="Location" min-width="170" />
-        <el-table-column label="Images" min-width="120">
-          <template #default="{ row }">
-            <el-button type="default" size="small" class="check-btn" @click="handleViewImages(row)">
-              View ({{ row.images?.length || 0 }})
-            </el-button>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="Status" min-width="110">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
-              {{ row.status === 'active' ? 'Active' : 'Inactive' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
-          <template #default="{ row }">
-            <div class="actions-cell">
-              <el-button size="small" class="action-btn action-edit" @click="handleEdit(row)">Edit</el-button>
-              <el-button size="small" class="action-btn action-delete" @click="handleDelete(row)">Delete</el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
+        <el-table :data="paginatedData" height="100%" border stripe table-layout="auto" style="width: 100%">
+          <el-table-column
+            type="index"
+            label="#"
+            width="70"
+            align="center"
+            header-align="center"
+            fixed="left"
+            :index="getRowIndex"
+          />
+          <el-table-column prop="plateNumber" label="Plate Number" min-width="170" />
+          <el-table-column prop="type" label="Type" min-width="140" />
+          <el-table-column prop="owner" label="Owner" min-width="200">
+            <template #default="{ row }">
+              {{ row.owner }} ({{ row.corpId }})
+            </template>
+          </el-table-column>
+          <el-table-column prop="status" label="Status" min-width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'active' ? 'success' : 'info'">
+                {{ row.status === 'active' ? 'Active' : 'Inactive' }}
+              </el-tag>
+            </template>
+          </el-table-column>
 
-      <div class="pagination-bar">
-        <div class="pagination-info">
-          Showing {{ startIndex + 1 }}-{{ endIndex }} of {{ venueList.length }} records
+          <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
+            <template #default="{ row }">
+              <div class="actions-cell">
+                <el-button size="small" class="action-btn action-edit" @click="handleEdit(row)">Edit</el-button>
+                <el-button size="small" class="action-btn action-delete" @click="handleDelete(row)">Delete</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pagination-bar">
+          <div class="pagination-info">
+            Showing {{ startIndex + 1 }}-{{ endIndex }} of {{ licensePlateList.length }} records
+          </div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" :disabled="currentPage === 1" @click="currentPage--">Previous</button>
+            <button
+              v-for="page in visiblePages"
+              :key="page"
+              :class="['pagination-btn', 'page-number', { active: page === currentPage }]"
+              @click="currentPage = page"
+            >
+              {{ page }}
+            </button>
+            <button class="pagination-btn" :disabled="currentPage === totalPages" @click="currentPage++">Next</button>
+          </div>
+          <div class="pagination-size">
+            <select v-model.number="pageSize" class="page-size-select" @change="currentPage = 1">
+              <option :value="10">10 / page</option>
+              <option :value="20">20 / page</option>
+              <option :value="50">50 / page</option>
+              <option :value="100">100 / page</option>
+            </select>
+          </div>
         </div>
-        <div class="pagination-controls">
-          <button class="pagination-btn" :disabled="currentPage === 1" @click="currentPage--">Previous</button>
-          <button
-            v-for="page in visiblePages"
-            :key="page"
-            :class="['pagination-btn', 'page-number', { active: page === currentPage }]"
-            @click="currentPage = page"
-          >
-            {{ page }}
-          </button>
-          <button class="pagination-btn" :disabled="currentPage === totalPages" @click="currentPage++">Next</button>
-        </div>
-        <div class="pagination-size">
-          <select v-model.number="pageSize" class="page-size-select" @change="currentPage = 1">
-            <option :value="10">10 / page</option>
-            <option :value="20">20 / page</option>
-            <option :value="50">50 / page</option>
-            <option :value="100">100 / page</option>
-          </select>
-        </div>
-      </div>
       </div>
     </div>
 
     <BookingStyleModal
       v-model="showForm"
-      :title="formMode === 'add' ? 'Add Venue' : 'Edit Venue'"
-      max-width="600px"
+      :title="formMode === 'add' ? 'Add License Plate' : 'Edit License Plate'"
+      max-width="520px"
     >
-      <el-form :model="formData" label-width="120px">
-        <el-form-item label="Venue Name">
-          <el-input v-model="formData.name" />
-        </el-form-item>
-        <el-form-item label="Type">
-          <el-select v-model="formData.type" style="width: 100%">
-            <el-option label="Conference Room" value="conference" />
-            <el-option label="Other Venue" value="other" />
+      <el-form :model="formData" label-width="140px">
+        <el-form-item label="Owner">
+          <el-select
+            v-model="formData.owner"
+            filterable
+            allow-create
+            default-first-option
+            style="width: 100%"
+            placeholder="Type to search or enter owner name"
+            :teleported="false"
+            popper-class="license-plate-owner-select"
+          >
+            <el-option
+              v-for="user in employeeOptions"
+              :key="user.corpId"
+              :label="`${user.name} (${user.corpId})`"
+              :value="user.name"
+            >
+              <span>{{ user.name }}</span>
+              <span style="float: right; color: #8492a6; font-size: 13px">{{ user.corpId }}</span>
+            </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="Capacity">
-          <el-input-number v-model="formData.capacity" :min="1" />
-        </el-form-item>
-        <el-form-item label="Location">
-          <el-input v-model="formData.location" />
-        </el-form-item>
-        <el-form-item label="Images">
-          <el-upload
-            v-model:file-list="formData.images"
-            action="#"
-            list-type="picture-card"
-            :auto-upload="false"
-            :on-preview="handlePreview"
+        <el-form-item label="Type">
+          <el-select
+            v-model="formData.type"
+            style="width: 100%"
+            placeholder="Select type"
+            :teleported="false"
+            popper-class="license-plate-type-select"
           >
-            <font-awesome-icon :icon="['fas', 'plus']" />
-          </el-upload>
+            <el-option label="Personal" value="personal" />
+            <el-option label="Company" value="company" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Plate Number">
+          <el-input v-model="formData.plateNumber" />
         </el-form-item>
         <el-form-item label="Status">
           <el-switch v-model="formData.status" active-value="active" inactive-value="inactive" />
         </el-form-item>
       </el-form>
+
       <template #footer>
         <el-button type="default" class="cancel-btn" @click="showForm = false">Cancel</el-button>
         <el-button type="default" class="submit-btn" @click="handleSave">Save</el-button>
       </template>
     </BookingStyleModal>
 
-    <BookingStyleModal v-model="showImagePreview" title="Image Preview" max-width="800px" dialog-width="94%">
-      <img :src="previewImageUrl" style="width: 100%" alt="" />
-    </BookingStyleModal>
-
     <BookingStyleModal v-model="showDeleteDialog" title="Confirm Delete" max-width="450px">
-      <p>Are you sure you want to delete this venue?</p>
+      <p>Are you sure you want to delete this license plate?</p>
       <template #footer>
         <el-button type="default" class="cancel-btn" @click="showDeleteDialog = false">Cancel</el-button>
         <el-button type="default" class="action-btn action-delete" @click="confirmDelete">Delete</el-button>
@@ -143,13 +142,18 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
-import { getMockVenueList } from '@/mocks/mockData'
+import { getMockLicensePlateList, getMockEmployeeListNormalized } from '@/mocks/mockData'
 
-const venueList = ref(getMockVenueList())
+const licensePlateList = ref(getMockLicensePlateList())
+const employeeList = ref(getMockEmployeeListNormalized())
+
+const employeeOptions = computed(() => {
+  return employeeList.value.filter(u => u.status === 'active')
+})
 
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -157,20 +161,18 @@ const pageSize = ref(10)
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   const end = start + pageSize.value
-  return venueList.value.slice(start, end)
+  return licensePlateList.value.slice(start, end)
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(venueList.value.length / pageSize.value)))
+const totalPages = computed(() => Math.max(1, Math.ceil(licensePlateList.value.length / pageSize.value)))
 const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
-const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, venueList.value.length))
+const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, licensePlateList.value.length))
 const visiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
   let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2))
   let end = Math.min(totalPages.value, start + maxVisible - 1)
-  if (end - start < maxVisible - 1) {
-    start = Math.max(1, end - maxVisible + 1)
-  }
+  if (end - start < maxVisible - 1) start = Math.max(1, end - maxVisible + 1)
   for (let i = start; i <= end; i++) pages.push(i)
   return pages
 })
@@ -178,40 +180,37 @@ const visiblePages = computed(() => {
 const showForm = ref(false)
 const formMode = ref('add')
 const formData = ref({
-  name: '',
-  type: 'conference',
-  capacity: 10,
-  location: '',
-  images: [],
+  corpId: '',
+  owner: '',
+  type: 'personal',
+  plateNumber: '',
   status: 'active'
 })
 
-const showImagePreview = ref(false)
-const previewImageUrl = ref('')
 const showDeleteDialog = ref(false)
 const currentRow = ref(null)
 
 const getRowIndex = (index) => (currentPage.value - 1) * pageSize.value + index + 1
 
 const handleExport = () => {
-  const exportData = venueList.value.map(item => ({
-    'Venue Name': item.name,
-    'Type': item.type === 'conference' ? 'Conference Room' : 'Other Venue',
-    'Capacity': item.capacity,
-    'Location': item.location,
+  const exportData = licensePlateList.value.map(item => ({
+    'Corp ID': item.corpId,
+    'Plate Number': item.plateNumber,
+    'Owner': item.owner,
+    'Type': item.type === 'company' ? 'Company' : 'Personal',
     'Status': item.status === 'active' ? 'Active' : 'Inactive'
   }))
 
   const ws = XLSX.utils.json_to_sheet(exportData)
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Venues')
-  XLSX.writeFile(wb, `Venue_Management_${new Date().toISOString().split('T')[0]}.xlsx`)
+  XLSX.utils.book_append_sheet(wb, ws, 'License Plates')
+  XLSX.writeFile(wb, `License_Plates_${new Date().toISOString().split('T')[0]}.xlsx`)
   ElMessage.success('Excel file exported successfully')
 }
 
 const handleAdd = () => {
   formMode.value = 'add'
-  formData.value = { name: '', type: 'conference', capacity: 10, location: '', images: [], status: 'active' }
+  formData.value = { corpId: '', owner: '', type: 'personal', plateNumber: '', status: 'active' }
   showForm.value = true
 }
 
@@ -222,14 +221,18 @@ const handleEdit = (row) => {
 }
 
 const handleSave = () => {
+  // Auto-fill corpId based on selected owner from employee list
+  const matchedEmployee = employeeList.value.find(u => u.name === formData.value.owner)
+  const corpId = matchedEmployee ? matchedEmployee.corpId : ''
+
   if (formMode.value === 'add') {
-    venueList.value.push({ ...formData.value, id: Date.now() })
-    ElMessage.success('Venue added successfully')
+    licensePlateList.value.push({ ...formData.value, corpId, id: Date.now() })
+    ElMessage.success('License plate added successfully')
   } else {
-    const index = venueList.value.findIndex(item => item.id === formData.value.id)
+    const index = licensePlateList.value.findIndex(item => item.id === formData.value.id)
     if (index !== -1) {
-      venueList.value[index] = { ...formData.value }
-      ElMessage.success('Venue updated successfully')
+      licensePlateList.value[index] = { ...formData.value, corpId }
+      ElMessage.success('License plate updated successfully')
     }
   }
   showForm.value = false
@@ -241,22 +244,13 @@ const handleDelete = (row) => {
 }
 
 const confirmDelete = () => {
-  const index = venueList.value.findIndex(item => item.id === currentRow.value.id)
+  const index = licensePlateList.value.findIndex(item => item.id === currentRow.value.id)
   if (index !== -1) {
-    venueList.value.splice(index, 1)
+    licensePlateList.value.splice(index, 1)
     ElMessage.success('Deleted successfully')
   }
   showDeleteDialog.value = false
   currentRow.value = null
-}
-
-const handleViewImages = (row) => {
-  ElMessage.info(`Viewing images for ${row.name}`)
-}
-
-const handlePreview = (file) => {
-  previewImageUrl.value = file.url
-  showImagePreview.value = true
 }
 </script>
 
@@ -338,10 +332,9 @@ const handlePreview = (file) => {
 }
 
 .page-content :deep(.el-table) {
-  border-radius: 0;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: none;
-  font-size: 0.8125rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .page-content {
@@ -481,6 +474,13 @@ const handlePreview = (file) => {
   border-color: #00723a;
 }
 
+.page-content :deep(.el-table) {
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow: none;
+  font-size: 0.8125rem;
+}
+
 .table-card {
   background: #ffffff;
   border: 1px solid #e5e7eb;
@@ -537,5 +537,13 @@ const handlePreview = (file) => {
 
 .action-delete:hover {
   background-color: #dc2626 !important;
+}
+
+.license-plate-owner-select {
+  max-height: 150px;
+}
+
+.license-plate-type-select {
+  max-height: 100px;
 }
 </style>

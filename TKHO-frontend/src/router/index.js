@@ -142,6 +142,14 @@ const routes = [
         meta: {
           title: 'Admin - License Plate Management'
         }
+      },
+      {
+        path: 'display',
+        name: 'AdminDisplayManagement',
+        component: () => import('../components/admin/DisplayManagement.vue'),
+        meta: {
+          title: 'Admin - Display Management'
+        }
       }
     ],
     meta: {

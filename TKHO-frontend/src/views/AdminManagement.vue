@@ -70,7 +70,8 @@ const menuItems = computed(() => [
   { key: 'user', label: 'Users Management', icon: 'users', path: '/admin/user', badge: pendingUsersCount.value },
   { key: 'access-right', label: 'Access Right', icon: 'user-shield', path: '/admin/access-right' },
   { key: 'prompt', label: 'System Prompts', icon: 'message', path: '/admin/prompt' },
-  { key: 'license-plate', label: 'License Plate', icon: 'id-card', path: '/admin/license-plate' }
+  { key: 'license-plate', label: 'License Plate', icon: 'id-card', path: '/admin/license-plate' },
+  { key: 'display', label: 'Display Management', icon: 'desktop', path: '/admin/display' }
 ])
 
 const isAdminHome = computed(() => {

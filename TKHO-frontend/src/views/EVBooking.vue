@@ -4,6 +4,9 @@
 
     <!-- 主体内容 -->
     <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 overflow-hidden">
+      <div class="booking-window-tip">
+        Current EV booking date range: {{ evBookingWindow.currentStartDate }} to {{ evBookingWindow.currentEndDate }}
+      </div>
       <!-- 日历内容区域 -->
       <div class="calendar-container flex-1 overflow-auto">
         <div class="calendar-wrapper">
@@ -58,7 +61,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AppHeader from '../components/AppHeader.vue'
 import EVBookingDialog from '../components/EVBookingDialog.vue'
-import { generateEVBookingsMock } from '@/mocks/mockData'
+import { generateEVBookingsMock, getMockBookingWindow } from '@/mocks/mockData'
 
 const router = useRouter()
 
@@ -66,6 +69,11 @@ const router = useRouter()
 const dialogVisible = ref(false)
 const selectedDate = ref('')
 const selectedPeriod = ref('')
+const evBookingWindow = ref(getMockBookingWindow('ev'))
+const evWindowRange = computed(() => ({
+  start: new Date(`${evBookingWindow.value.currentStartDate}T00:00:00`),
+  end: new Date(`${evBookingWindow.value.currentEndDate}T23:59:59`)
+}))
 
 // 时间段定义
 const timePeriods = [
@@ -85,6 +93,13 @@ function getWeekStart(date) {
   d.setDate(diff)
   d.setHours(0, 0, 0, 0)
   return d
+}
+
+function isDateInEvWindow(dateLike) {
+  const date = new Date(dateLike)
+  if (Number.isNaN(date.getTime())) return false
+  const { start, end } = evWindowRange.value
+  return date >= start && date <= end
 }
 
 // 生成两周的数据（固定显示未来14天）
@@ -127,6 +142,9 @@ const weeks = computed(() => {
 
 // 获取可用性数据
 function getAvailabilityData(date, period) {
+  if (!isDateInEvWindow(`${date}T12:00:00`)) {
+    return { available: 0, total: 0, outOfWindow: true }
+  }
   const key = `${date}-${period}`
   return bookings.value[key] || { available: 3, total: 3 }
 }
@@ -134,6 +152,7 @@ function getAvailabilityData(date, period) {
 // 获取可用性文本
 function getAvailabilityText(date, period) {
   const data = getAvailabilityData(date, period)
+  if (data.outOfWindow) return 'Closed'
   if (data.available === 0) {
     return 'Full'
   }
@@ -143,6 +162,9 @@ function getAvailabilityText(date, period) {
 // 获取可用性样式类
 function getAvailabilityClass(date, period) {
   const data = getAvailabilityData(date, period)
+  if (data.outOfWindow) {
+    return 'is-closed'
+  }
   if (data.available === 0) {
     return 'is-full'
   }
@@ -154,6 +176,10 @@ function getAvailabilityClass(date, period) {
 
 // 选择时间段
 function selectTimeSlot(date, period) {
+  if (!isDateInEvWindow(`${date}T12:00:00`)) {
+    ElMessage.warning('This date is outside the EV booking date range')
+    return
+  }
   const data = getAvailabilityData(date, period)
   if (data.available === 0) {
     ElMessage.warning('This time slot is fully booked')
@@ -241,6 +267,17 @@ onMounted(() => {
 
 .calendar-container:hover {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.booking-window-tip {
+  margin-bottom: 0.25rem;
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .calendar-wrapper {
@@ -345,6 +382,16 @@ onMounted(() => {
 .time-cell.is-full {
   background-color: #fecaca;
   cursor: not-allowed;
+}
+
+.time-cell.is-closed {
+  background-color: #e5e7eb;
+  cursor: not-allowed;
+}
+
+.time-cell.is-closed .availability {
+  color: #6b7280;
+  font-weight: 700;
 }
 
 .time-cell.is-full:hover {

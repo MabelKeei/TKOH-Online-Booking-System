@@ -25,20 +25,22 @@
             :index="getRowIndex"
           />
           <el-table-column prop="plateNumber" label="Plate Number" min-width="170" />
-          <el-table-column prop="type" label="Type" min-width="140" />
+          <el-table-column prop="brand" label="Brand" min-width="150" />
+          <el-table-column prop="type" label="Type" min-width="140">
+            <template #default="{ row }">
+              <el-tag
+                effect="light"
+                :class="row.type === 'company' ? 'plate-type-tag plate-type-company' : 'plate-type-tag plate-type-personal'"
+              >
+                {{ row.type === 'company' ? 'Company' : 'Personal' }}
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="owner" label="Owner" min-width="200">
             <template #default="{ row }">
               {{ row.owner }} ({{ row.corpId }})
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="Status" min-width="120">
-            <template #default="{ row }">
-              <el-tag :type="row.status === 'active' ? 'success' : 'info'">
-                {{ row.status === 'active' ? 'Active' : 'Inactive' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-
           <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
             <template #default="{ row }">
               <div class="actions-cell">
@@ -120,8 +122,8 @@
         <el-form-item label="Plate Number">
           <el-input v-model="formData.plateNumber" />
         </el-form-item>
-        <el-form-item label="Status">
-          <el-switch v-model="formData.status" active-value="active" inactive-value="inactive" />
+        <el-form-item label="Brand">
+          <el-input v-model="formData.brand" />
         </el-form-item>
       </el-form>
 
@@ -182,9 +184,9 @@ const formMode = ref('add')
 const formData = ref({
   corpId: '',
   owner: '',
+  brand: '',
   type: 'personal',
-  plateNumber: '',
-  status: 'active'
+  plateNumber: ''
 })
 
 const showDeleteDialog = ref(false)
@@ -196,9 +198,9 @@ const handleExport = () => {
   const exportData = licensePlateList.value.map(item => ({
     'Corp ID': item.corpId,
     'Plate Number': item.plateNumber,
+    'Brand': item.brand ?? '',
     'Owner': item.owner,
-    'Type': item.type === 'company' ? 'Company' : 'Personal',
-    'Status': item.status === 'active' ? 'Active' : 'Inactive'
+    'Type': item.type === 'company' ? 'Company' : 'Personal'
   }))
 
   const ws = XLSX.utils.json_to_sheet(exportData)
@@ -210,7 +212,7 @@ const handleExport = () => {
 
 const handleAdd = () => {
   formMode.value = 'add'
-  formData.value = { corpId: '', owner: '', type: 'personal', plateNumber: '', status: 'active' }
+  formData.value = { corpId: '', owner: '', brand: '', type: 'personal', plateNumber: '' }
   showForm.value = true
 }
 
@@ -387,6 +389,22 @@ const confirmDelete = () => {
   border-radius: 6px;
   font-weight: 500;
   border: none;
+}
+
+.page-content :deep(.plate-type-tag) {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0 10px;
+}
+
+.page-content :deep(.plate-type-company) {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.page-content :deep(.plate-type-personal) {
+  background-color: #fef3c7;
+  color: #92400e;
 }
 
 .header-actions {

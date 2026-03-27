@@ -141,6 +141,8 @@ let _promptList = null
 let _venueList = null
 let _licensePlateList = null
 let _evTimePeriods = null
+let _bookingWindows = null
+let _displayConfig = null
 
 export function getMockMeetingPendingList () {
   if (_meetingPendingList) return cloneMockList(_meetingPendingList)
@@ -413,13 +415,25 @@ export function getMockPromptList () {
 export function getMockVenueList () {
   if (_venueList) return cloneMockList(_venueList)
   _venueList = [
-    { id: 1, name: 'Conference Room 1', tab: 'conference_discussion', type: 'conference', color: '#3b82f6', location: '3F', images: [], status: 'active' },
-    { id: 2, name: 'Conference Room 2', tab: 'conference_discussion', type: 'conference', color: '#10b981', location: '3F', images: [], status: 'active' },
-    { id: 3, name: 'Conference Room 3', tab: 'conference_discussion', type: 'conference', color: '#06b6d4', location: '3F', images: [], status: 'active' },
-    { id: 4, name: 'Discussion Room', tab: 'conference_discussion', type: 'discussion', color: '#f59e0b', location: '3F', images: [], status: 'active' },
-    { id: 5, name: 'Function Room', tab: 'other_venues', type: 'other', color: '#ec4899', location: 'Ground Floor', images: [], status: 'active' },
-    { id: 6, name: 'Lecture Theatre', tab: 'other_venues', type: 'other', color: '#6366f1', location: '2F', images: [], status: 'active' },
-    { id: 7, name: 'Auditorium', tab: 'other_venues', type: 'other', color: '#8b5cf6', location: '1F', images: [], status: 'active' }
+    {
+      id: 1,
+      name: 'Conference Room 1',
+      tab: 'conference_discussion',
+      type: 'conference',
+      color: '#3b82f6',
+      location: '3F',
+      images: [],
+      blocks: [
+        { id: 1001, startAt: '2026-03-30 13:00', endAt: '2026-03-30 16:00', reason: 'Projector maintenance' }
+      ],
+      status: 'active'
+    },
+    { id: 2, name: 'Conference Room 2', tab: 'conference_discussion', type: 'conference', color: '#10b981', location: '3F', images: [], blocks: [], status: 'active' },
+    { id: 3, name: 'Conference Room 3', tab: 'conference_discussion', type: 'conference', color: '#06b6d4', location: '3F', images: [], blocks: [], status: 'active' },
+    { id: 4, name: 'Discussion Room', tab: 'conference_discussion', type: 'discussion', color: '#f59e0b', location: '3F', images: [], blocks: [], status: 'active' },
+    { id: 5, name: 'Function Room', tab: 'other_venues', type: 'other', color: '#ec4899', location: 'Ground Floor', images: [], blocks: [], status: 'active' },
+    { id: 6, name: 'Lecture Theatre', tab: 'other_venues', type: 'other', color: '#6366f1', location: '2F', images: [], blocks: [], status: 'active' },
+    { id: 7, name: 'Auditorium', tab: 'other_venues', type: 'other', color: '#8b5cf6', location: '1F', images: [], blocks: [], status: 'active' }
   ]
   return cloneMockList(_venueList)
 }
@@ -428,10 +442,10 @@ export function getMockLicensePlateList () {
   if (_licensePlateList) return cloneMockList(_licensePlateList)
 
   _licensePlateList = [
-    { id: 1, corpId: 'E001', owner: 'John Doe', type: 'personal', plateNumber: 'SJA1234A', status: 'active' },
-    { id: 2, corpId: 'E002', owner: 'Jane Smith', type: 'company', plateNumber: 'SJB5678B', status: 'active' },
-    { id: 3, corpId: 'E006', owner: 'Olivia Chan', type: 'personal', plateNumber: 'SKO9012C', status: 'inactive' },
-    { id: 4, corpId: 'E020', owner: 'Ivy Cheong', type: 'company', plateNumber: 'SKP3456D', status: 'active' }
+    { id: 1, corpId: 'E001', owner: 'John Doe', brand: 'Toyota', type: 'personal', plateNumber: 'SJA1234A', status: 'active' },
+    { id: 2, corpId: 'E002', owner: 'Jane Smith', brand: 'Tesla', type: 'company', plateNumber: 'SJB5678B', status: 'active' },
+    { id: 3, corpId: 'E006', owner: 'Olivia Chan', brand: 'Honda', type: 'personal', plateNumber: 'SKO9012C', status: 'inactive' },
+    { id: 4, corpId: 'E020', owner: 'Ivy Cheong', brand: 'BYD', type: 'company', plateNumber: 'SKP3456D', status: 'active' }
   ]
 
   return cloneMockList(_licensePlateList)
@@ -471,5 +485,121 @@ export function generateEVBookingsMock ({
   }
 
   return bookings
+}
+
+function cloneBookingWindow (window) {
+  return {
+    ...window,
+    history: Array.isArray(window.history) ? window.history.map(item => ({ ...item })) : []
+  }
+}
+
+function ensureBookingWindows () {
+  if (_bookingWindows) return
+  const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const today = new Date()
+  const evEnd = new Date(today)
+  evEnd.setDate(evEnd.getDate() + 13)
+  const now = new Date().toISOString()
+  _bookingWindows = {
+    venue: {
+      resourceType: 'venue',
+      currentStartDate: '2026-01-01',
+      currentEndDate: '2026-12-31',
+      updatedBy: 'System Admin',
+      updatedAt: now,
+      history: [
+        {
+          id: 1,
+          startDate: '2026-01-01',
+          endDate: '2026-12-31',
+          publishedAt: now,
+          publishedBy: 'System Admin'
+        }
+      ]
+    },
+    ev: {
+      resourceType: 'ev',
+      currentStartDate: formatDate(today),
+      currentEndDate: formatDate(evEnd),
+      updatedBy: 'System Admin',
+      updatedAt: now,
+      history: [
+        {
+          id: 1,
+          startDate: formatDate(today),
+          endDate: formatDate(evEnd),
+          publishedAt: now,
+          publishedBy: 'System Admin'
+        }
+      ]
+    }
+  }
+}
+
+export function getMockBookingWindow (resourceType) {
+  ensureBookingWindows()
+  const key = resourceType === 'ev' ? 'ev' : 'venue'
+  return cloneBookingWindow(_bookingWindows[key])
+}
+
+export function publishMockBookingWindow ({ resourceType, startDate, endDate, publishedBy = 'Admin' }) {
+  ensureBookingWindows()
+  const key = resourceType === 'ev' ? 'ev' : 'venue'
+  const target = _bookingWindows[key]
+  const now = new Date().toISOString()
+
+  target.currentStartDate = startDate
+  target.currentEndDate = endDate
+  target.updatedBy = publishedBy
+  target.updatedAt = now
+  target.history.unshift({
+    id: Date.now(),
+    startDate,
+    endDate,
+    publishedAt: now,
+    publishedBy
+  })
+
+  return cloneBookingWindow(target)
+}
+
+function ensureDisplayConfig () {
+  if (_displayConfig) return
+  _displayConfig = {
+    venueDisplayMode: 'mixed',
+    evDisplayMode: 'independent',
+    venueRules: [
+      { venueId: 1, displayType: 'merge', mergeGroup: 'Group A' },
+      { venueId: 2, displayType: 'merge', mergeGroup: 'Group A' },
+      { venueId: 3, displayType: 'independent', mergeGroup: '' },
+      { venueId: 4, displayType: 'independent', mergeGroup: '' },
+      { venueId: 5, displayType: 'merge', mergeGroup: 'Group B' },
+      { venueId: 6, displayType: 'merge', mergeGroup: 'Group B' },
+      { venueId: 7, displayType: 'independent', mergeGroup: '' }
+    ],
+    updatedBy: 'System Admin',
+    updatedAt: new Date().toISOString()
+  }
+}
+
+export function getMockDisplayConfig () {
+  ensureDisplayConfig()
+  return {
+    ..._displayConfig,
+    venueRules: _displayConfig.venueRules.map(item => ({ ...item }))
+  }
+}
+
+export function saveMockDisplayConfig (nextConfig, updatedBy = 'Admin') {
+  ensureDisplayConfig()
+  _displayConfig = {
+    venueDisplayMode: nextConfig.venueDisplayMode,
+    evDisplayMode: nextConfig.evDisplayMode,
+    venueRules: Array.isArray(nextConfig.venueRules) ? nextConfig.venueRules.map(item => ({ ...item })) : [],
+    updatedBy,
+    updatedAt: new Date().toISOString()
+  }
+  return getMockDisplayConfig()
 }
 

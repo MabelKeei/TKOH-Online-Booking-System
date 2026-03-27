@@ -59,6 +59,14 @@ const props = defineProps({
     type: String,
     default: '94vh'
   },
+  dialogHeight: {
+    type: String,
+    default: ''
+  },
+  overlayPadding: {
+    type: String,
+    default: '20px 0'
+  },
   /** 为 false 时点击遮罩不关闭（对齐 el-dialog close-on-click-modal=false） */
   closeOnClickOverlay: {
     type: Boolean,
@@ -78,7 +86,9 @@ const wrapperStyle = computed(() => ({
   transform: `translate(${dialogX.value}px, ${dialogY.value}px)`,
   '--bsm-width': props.dialogWidth,
   '--bsm-max-width': props.maxWidth,
-  '--bsm-max-height': props.maxHeight
+  '--bsm-max-height': props.maxHeight,
+  '--bsm-height': props.dialogHeight || 'auto',
+  '--bsm-overlay-padding': props.overlayPadding
 }))
 
 function handleMouseDown(e) {
@@ -149,12 +159,13 @@ onUnmounted(() => {
   justify-content: center;
   z-index: 10050;
   overflow-y: auto;
-  padding: 20px 0;
+  padding: var(--bsm-overlay-padding, 20px 0);
 }
 
 .booking-style-modal-root .booking-dialog-wrapper {
   width: var(--bsm-width, 92%);
   max-width: var(--bsm-max-width, 640px);
+  height: var(--bsm-height, auto);
   max-height: var(--bsm-max-height, 94vh);
   background: #fff;
   border-radius: 12px;

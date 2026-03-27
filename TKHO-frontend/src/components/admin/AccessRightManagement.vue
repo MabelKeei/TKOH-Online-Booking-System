@@ -30,12 +30,12 @@
         <el-table-column prop="description" label="Description" min-width="240" />
         <el-table-column label="Annual Venue Quota" min-width="150">
           <template #default="{ row }">
-            <el-tag type="primary">{{ row.AnnualVenueQuota }} bookings/year</el-tag>
+            <el-tag effect="light" class="quota-tag quota-tag-venue">{{ row.AnnualVenueQuota }} bookings/year</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="Annual EV Quota" min-width="130">
           <template #default="{ row }">
-            <el-tag type="success">{{ row.AnnualEvQuota }} bookings/year</el-tag>
+            <el-tag effect="light" class="quota-tag quota-tag-ev">{{ row.AnnualEvQuota }} bookings/year</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="employeeCount" label="Users" min-width="120" />
@@ -555,6 +555,22 @@ const confirmDelete = () => {
   border-radius: 6px;
   font-weight: 500;
   border: none;
+}
+
+.page-content :deep(.quota-tag) {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0 10px;
+}
+
+.page-content :deep(.quota-tag-venue) {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.page-content :deep(.quota-tag-ev) {
+  background-color: #dcfce7;
+  color: #166534;
 }
 
 .header-actions {

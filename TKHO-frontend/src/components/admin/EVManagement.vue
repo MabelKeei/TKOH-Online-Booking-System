@@ -3,10 +3,10 @@
     <div class="page-header">
       <h2 class="page-title">EV Management</h2>
       <div class="header-actions">
-        <el-button type="default" class="cancel-btn" @click="handleExport">
+        <el-button v-if="activeTab !== 'bookingWindow'" type="default" class="cancel-btn" @click="handleExport">
           <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
         </el-button>
-        <el-button type="default" class="submit-btn" @click="handleAdd">
+        <el-button v-if="activeTab !== 'bookingWindow'" type="default" class="submit-btn" @click="handleAdd">
           <font-awesome-icon :icon="['fas', 'plus']" /> {{ activeTab === 'parking' ? 'Add EV' : 'Add Time Period' }}
         </el-button>
       </div>
@@ -120,6 +120,38 @@
             </div>
           </div>
         </el-tab-pane>
+        <el-tab-pane label="Booking Date Range" name="bookingWindow">
+          <div class="booking-window-card">
+            <div class="booking-window-header">
+              <h3>EV Booking Date Range</h3>
+              <span class="window-pill">
+                <span class="window-pill-label">Current</span>
+                <span class="window-pill-range">{{ evWindow.currentStartDate }} ~ {{ evWindow.currentEndDate }}</span>
+              </span>
+            </div>
+            <div class="booking-window-form">
+              <el-date-picker
+                v-model="evWindowForm.startDate"
+                type="date"
+                value-format="YYYY-MM-DD"
+                placeholder="Start date"
+                :teleported="false"
+              />
+              <el-date-picker
+                v-model="evWindowForm.endDate"
+                type="date"
+                value-format="YYYY-MM-DD"
+                placeholder="End date"
+                :teleported="false"
+              />
+              <el-button type="default" class="submit-btn" @click="handlePublishEvWindow">Publish</el-button>
+              <el-button type="default" @click="applyNext14Days">Next 14 Days</el-button>
+            </div>
+            <div class="booking-window-meta">
+              Last published by {{ evWindow.updatedBy }} at {{ formatDateTime(evWindow.updatedAt) }}
+            </div>
+          </div>
+        </el-tab-pane>
       </el-tabs>
     </div>
 
@@ -192,11 +224,16 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
-import { getMockEVParkingList, getMockEVTimePeriods } from '@/mocks/mockData'
+import { getMockEVParkingList, getMockEVTimePeriods, getMockBookingWindow, publishMockBookingWindow } from '@/mocks/mockData'
 
 const activeTab = ref('parking')
 const parkingList = ref(getMockEVParkingList())
 const timePeriodsList = ref(getMockEVTimePeriods())
+const evWindow = ref(getMockBookingWindow('ev'))
+const evWindowForm = ref({
+  startDate: evWindow.value.currentStartDate,
+  endDate: evWindow.value.currentEndDate
+})
 
 // Parking pagination
 const parkingCurrentPage = ref(1)
@@ -271,6 +308,13 @@ const getFormTitle = computed(() => {
 const getParkingRowIndex = (index) => (parkingCurrentPage.value - 1) * parkingPageSize.value + index + 1
 const getTimePeriodsRowIndex = (index) => (timePeriodsCurrentPage.value - 1) * timePeriodsPageSize.value + index + 1
 
+const formatDateTime = (value) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('en-US', { hour12: false })
+}
+
 const handleExport = () => {
   if (activeTab.value === 'parking') {
     const exportData = parkingList.value.map(item => ({
@@ -309,6 +353,34 @@ const handleAdd = () => {
     formData.value = { period: '', startTime: '', endTime: '', status: 'active' }
   }
   showForm.value = true
+}
+
+const handlePublishEvWindow = () => {
+  if (!evWindowForm.value.startDate || !evWindowForm.value.endDate) {
+    ElMessage.warning('Please select start and end date')
+    return
+  }
+  if (evWindowForm.value.endDate < evWindowForm.value.startDate) {
+    ElMessage.warning('End date must be later than start date')
+    return
+  }
+
+  evWindow.value = publishMockBookingWindow({
+    resourceType: 'ev',
+    startDate: evWindowForm.value.startDate,
+    endDate: evWindowForm.value.endDate,
+    publishedBy: 'EV Admin'
+  })
+  ElMessage.success('EV booking date range published')
+}
+
+const applyNext14Days = () => {
+  const start = new Date()
+  const end = new Date(start)
+  end.setDate(end.getDate() + 13)
+  const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  evWindowForm.value.startDate = formatDate(start)
+  evWindowForm.value.endDate = formatDate(end)
 }
 
 const handleEdit = (row) => {
@@ -692,5 +764,65 @@ const confirmDelete = () => {
 .page-content :deep(.el-tabs__active-bar) {
   background-color: #00723a;
   height: 3px;
+}
+
+.booking-window-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.booking-window-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.booking-window-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.window-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border: 1px solid #86efac;
+  box-shadow: 0 2px 6px rgba(22, 101, 52, 0.12);
+}
+
+.window-pill-label {
+  background: #166534;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.window-pill-range {
+  color: #14532d;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.booking-window-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.booking-window-meta {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
 }
 </style>

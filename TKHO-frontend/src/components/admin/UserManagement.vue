@@ -255,7 +255,7 @@
                           {{ row.lastLoginTime || '-' }}
                         </template>
                       </el-table-column>
-                      <el-table-column prop="reason" label="申请理由" min-width="240" />
+                      <el-table-column prop="reason" label="Application Reason" min-width="240" />
                       <el-table-column prop="submittedAt" label="Submitted At" min-width="180" />
                       <el-table-column label="Actions" width="120" fixed="right" class-name="actions-col">
                         <template #default="{ row }">
@@ -569,7 +569,7 @@
         <el-form-item label="Submitted At">
           <el-input v-model="pendingHandleForm.submittedAt" />
         </el-form-item>
-        <el-form-item label="申请理由">
+        <el-form-item label="Application Reason">
           <el-input
             v-model="pendingHandleForm.reason"
             type="textarea"

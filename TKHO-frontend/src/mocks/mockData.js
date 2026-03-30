@@ -422,18 +422,19 @@ export function getMockVenueList () {
       type: 'conference',
       color: '#3b82f6',
       location: '3F',
-      images: [],
+      displayType: 'merge',
+      image: '',
       blocks: [
         { id: 1001, startAt: '2026-03-30 13:00', endAt: '2026-03-30 16:00', reason: 'Projector maintenance' }
       ],
       status: 'active'
     },
-    { id: 2, name: 'Conference Room 2', tab: 'conference_discussion', type: 'conference', color: '#10b981', location: '3F', images: [], blocks: [], status: 'active' },
-    { id: 3, name: 'Conference Room 3', tab: 'conference_discussion', type: 'conference', color: '#06b6d4', location: '3F', images: [], blocks: [], status: 'active' },
-    { id: 4, name: 'Discussion Room', tab: 'conference_discussion', type: 'discussion', color: '#f59e0b', location: '3F', images: [], blocks: [], status: 'active' },
-    { id: 5, name: 'Function Room', tab: 'other_venues', type: 'other', color: '#ec4899', location: 'Ground Floor', images: [], blocks: [], status: 'active' },
-    { id: 6, name: 'Lecture Theatre', tab: 'other_venues', type: 'other', color: '#6366f1', location: '2F', images: [], blocks: [], status: 'active' },
-    { id: 7, name: 'Auditorium', tab: 'other_venues', type: 'other', color: '#8b5cf6', location: '1F', images: [], blocks: [], status: 'active' }
+    { id: 2, name: 'Conference Room 2', tab: 'conference_discussion', type: 'conference', color: '#10b981', location: '3F', displayType: 'merge', image: '', blocks: [], status: 'active' },
+    { id: 3, name: 'Conference Room 3', tab: 'conference_discussion', type: 'conference', color: '#06b6d4', location: '3F', displayType: 'merge', image: '', blocks: [], status: 'active' },
+    { id: 4, name: 'Discussion Room', tab: 'conference_discussion', type: 'discussion', color: '#f59e0b', location: '3F', displayType: 'single', image: '', blocks: [], status: 'active' },
+    { id: 5, name: 'Function Room', tab: 'other_venues', type: 'other', color: '#ec4899', location: 'Ground Floor', displayType: 'single', image: '', blocks: [], status: 'active' },
+    { id: 6, name: 'Lecture Theatre', tab: 'other_venues', type: 'other', color: '#6366f1', location: '2F', displayType: 'single', image: '', blocks: [], status: 'active' },
+    { id: 7, name: 'Auditorium', tab: 'other_venues', type: 'other', color: '#8b5cf6', location: '1F', displayType: 'single', image: '', blocks: [], status: 'active' }
   ]
   return cloneMockList(_venueList)
 }
@@ -568,15 +569,15 @@ function ensureDisplayConfig () {
   if (_displayConfig) return
   _displayConfig = {
     venueDisplayMode: 'mixed',
-    evDisplayMode: 'independent',
+    evDisplayMode: 'single',
     venueRules: [
       { venueId: 1, displayType: 'merge', mergeGroup: 'Group A' },
       { venueId: 2, displayType: 'merge', mergeGroup: 'Group A' },
-      { venueId: 3, displayType: 'independent', mergeGroup: '' },
-      { venueId: 4, displayType: 'independent', mergeGroup: '' },
-      { venueId: 5, displayType: 'merge', mergeGroup: 'Group B' },
-      { venueId: 6, displayType: 'merge', mergeGroup: 'Group B' },
-      { venueId: 7, displayType: 'independent', mergeGroup: '' }
+      { venueId: 3, displayType: 'merge', mergeGroup: '' },
+      { venueId: 4, displayType: 'single', mergeGroup: '' },
+      { venueId: 5, displayType: 'single', mergeGroup: 'Group B' },
+      { venueId: 6, displayType: 'single', mergeGroup: 'Group B' },
+      { venueId: 7, displayType: 'single', mergeGroup: '' }
     ],
     updatedBy: 'System Admin',
     updatedAt: new Date().toISOString()

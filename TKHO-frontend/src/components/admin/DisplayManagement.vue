@@ -17,10 +17,20 @@
               <el-table-column prop="venueName" label="Venue" min-width="180" />
               <el-table-column label="Display Type" min-width="180">
                 <template #default="{ row }">
-                  <el-radio-group v-model="row.displayType">
-                    <el-radio label="independent">Single</el-radio>
-                    <el-radio label="merge">Merge</el-radio>
-                  </el-radio-group>
+                  <div class="display-type-buttons">
+                    <button
+                      :class="['type-btn', 'type-btn-single', { active: row.displayType === 'single' }]"
+                      @click="row.displayType = 'single'"
+                    >
+                      Single
+                    </button>
+                    <button
+                      :class="['type-btn', 'type-btn-merge', { active: row.displayType === 'merge' }]"
+                      @click="row.displayType = 'merge'"
+                    >
+                      Merge
+                    </button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -83,18 +93,18 @@ const form = ref({
     return {
       venueId: venue.id,
       venueName: venue.name,
-      displayType: matched?.displayType || 'independent'
+      displayType: matched?.displayType || 'single'
     }
   })
 })
 
 const independentPreviewLinks = computed(() =>
   form.value.venueRules
-    .filter(item => item.displayType === 'independent')
+    .filter(item => item.displayType === 'single')
     .map(item => ({
-      key: `independent-${item.venueId}`,
+      key: `single-${item.venueId}`,
       label: item.venueName,
-      url: `${baseUrl}/VenueBooking/Calendar?displayType=independent&venueId=${item.venueId}`
+      url: `${baseUrl}/VenueBooking/Calendar?displayType=single&venueId=${item.venueId}`
     }))
 )
 
@@ -118,9 +128,9 @@ const evPreviewLink = computed(() => ({
 }))
 
 const handleSaveConfig = () => {
-  const hasIndependent = form.value.venueRules.some(item => item.displayType === 'independent')
+  const hasSingle = form.value.venueRules.some(item => item.displayType === 'single')
   const hasMerge = form.value.venueRules.some(item => item.displayType === 'merge')
-  const venueDisplayMode = hasIndependent && hasMerge ? 'mixed' : hasMerge ? 'merge' : 'independent'
+  const venueDisplayMode = hasSingle && hasMerge ? 'mixed' : hasMerge ? 'merge' : 'single'
 
   config.value = saveMockDisplayConfig({
     venueDisplayMode,
@@ -316,6 +326,46 @@ const handleSaveConfig = () => {
 .empty-text {
   font-size: 0.8125rem;
   color: #6b7280;
+}
+
+.display-type-buttons {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.type-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 12px;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  min-width: 70px;
+}
+
+.type-btn:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.type-btn-single.active {
+  border-color: #16a34a;
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.type-btn-merge.active {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #2563eb;
 }
 
 @keyframes fadeInUp {

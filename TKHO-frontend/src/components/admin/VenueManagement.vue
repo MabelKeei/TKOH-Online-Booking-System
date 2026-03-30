@@ -48,11 +48,19 @@
           </template>
         </el-table-column>
         <el-table-column prop="location" label="Location" min-width="170" />
-        <el-table-column label="Images" min-width="120">
+        <el-table-column label="Display Type" min-width="150">
           <template #default="{ row }">
-            <el-button type="default" size="small" class="check-btn" @click="handleViewImages(row)">
-              View ({{ row.images?.length || 0 }})
+            <el-tag effect="light" :class="row.displayType === 'single' ? 'display-tag-single' : 'display-tag-merge'">
+              {{ row.displayType === 'single' ? 'Single' : 'Merge' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Image" min-width="120">
+          <template #default="{ row }">
+            <el-button v-if="row.image" type="default" size="small" class="check-btn" @click="handleViewImage(row)">
+              View
             </el-button>
+            <span v-else style="color: #9ca3af;">No image</span>
           </template>
         </el-table-column>
         <el-table-column label="Blocked Periods" min-width="170">
@@ -65,7 +73,7 @@
         </el-table-column>
         <el-table-column prop="status" label="Status" min-width="110">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
+            <el-tag effect="light" :class="row.status === 'active' ? 'status-tag-active' : 'status-tag-inactive'">
               {{ row.status === 'active' ? 'Active' : 'Inactive' }}
             </el-tag>
           </template>
@@ -167,13 +175,33 @@
         <el-form-item label="Location">
           <el-input v-model="formData.location" />
         </el-form-item>
-        <el-form-item label="Images">
+        <el-form-item label="Display Type">
+          <div class="display-type-buttons">
+            <button
+              type="button"
+              :class="['type-btn', 'type-btn-single', { active: formData.displayType === 'single' }]"
+              @click="formData.displayType = 'single'"
+            >
+              Single
+            </button>
+            <button
+              type="button"
+              :class="['type-btn', 'type-btn-merge', { active: formData.displayType === 'merge' }]"
+              @click="formData.displayType = 'merge'"
+            >
+              Merge
+            </button>
+          </div>
+        </el-form-item>
+        <el-form-item label="Image">
           <el-upload
-            v-model:file-list="formData.images"
+            v-model:file-list="formData.imageList"
             action="#"
             list-type="picture-card"
             :auto-upload="false"
+            :limit="1"
             :on-preview="handlePreview"
+            :on-exceed="handleExceed"
           >
             <font-awesome-icon :icon="['fas', 'plus']" />
           </el-upload>
@@ -343,7 +371,9 @@ const formData = ref({
   type: 'conference',
   color: '',
   location: '',
-  images: [],
+  displayType: 'single',
+  image: '',
+  imageList: [],
   status: 'active'
 })
 
@@ -517,7 +547,9 @@ const handleAdd = () => {
     type: activeCategory.value === 'conference_discussion' ? 'conference' : 'other',
     color: '',
     location: '',
-    images: [],
+    displayType: 'single',
+    image: '',
+    imageList: [],
     blocks: [],
     status: 'active'
   }
@@ -531,7 +563,9 @@ const handleEdit = (row) => {
     ...row,
     tab: row.tab ?? row.category ?? activeCategory.value,
     type: row.type ?? ((row.tab ?? row.category) === 'conference_discussion' ? 'conference' : 'other'),
-    blocks: Array.isArray(row.blocks) ? row.blocks : []
+    blocks: Array.isArray(row.blocks) ? row.blocks : [],
+    displayType: row.displayType || 'single',
+    imageList: row.image ? [{ url: row.image }] : []
   }
   showForm.value = true
 }
@@ -555,8 +589,10 @@ const handleSave = () => {
   const normalizedFormData = {
     ...formData.value,
     tab: activeCategory.value,
-    type: formData.value.type
+    type: formData.value.type,
+    image: formData.value.imageList?.[0]?.url || ''
   }
+  delete normalizedFormData.imageList
 
   if (formMode.value === 'add') {
     venueList.value.push({ ...normalizedFormData, id: Date.now() })
@@ -586,8 +622,17 @@ const confirmDelete = () => {
   currentRow.value = null
 }
 
-const handleViewImages = (row) => {
-  ElMessage.info(`Viewing images for ${row.name}`)
+const handleViewImage = (row) => {
+  if (row.image) {
+    previewImageUrl.value = row.image
+    showImagePreview.value = true
+  } else {
+    ElMessage.info('No image available')
+  }
+}
+
+const handleExceed = () => {
+  ElMessage.warning('Only one image is allowed')
 }
 
 const resetBlockForm = () => {
@@ -871,6 +916,22 @@ const handlePreview = (file) => {
 .page-content :deep(.type-tag-other) {
   background-color: #dcfce7;
   color: #166534;
+}
+
+.page-content :deep(.status-tag-active) {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0 10px;
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.page-content :deep(.status-tag-inactive) {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0 10px;
+  background-color: #fee2e2;
+  color: #991b1b;
 }
 
 .header-actions {
@@ -1174,5 +1235,61 @@ const handlePreview = (file) => {
 
 .action-block:hover {
   background-color: #2563eb !important;
+}
+
+.display-type-buttons {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.type-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 12px;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  min-width: 70px;
+}
+
+.type-btn:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.type-btn-single.active {
+  border-color: #16a34a;
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.type-btn-merge.active {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.page-content :deep(.display-tag-single) {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0 10px;
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.page-content :deep(.display-tag-merge) {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0 10px;
+  background-color: #dbeafe;
+  color: #2563eb;
 }
 </style>

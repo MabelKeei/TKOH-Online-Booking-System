@@ -115,8 +115,12 @@ const recalibrateAfterRouteChange = async () => {
   })
 }
 
-// 检查是否在登录页面
-const isLoginPage = computed(() => route.path === '/login' || route.path === '/')
+// 检查是否在登录页面或 display 页面
+const isLoginPage = computed(() =>
+  route.path === '/login' ||
+  route.path === '/' ||
+  route.path === '/VenueBooking/Display'
+)
 
 // 初始化位置（右下角）
 onMounted(() => {

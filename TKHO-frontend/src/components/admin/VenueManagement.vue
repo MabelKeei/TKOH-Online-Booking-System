@@ -31,7 +31,8 @@
           fixed="left"
           :index="getRowIndex"
         />
-        <el-table-column prop="name" label="Venue Name" min-width="180" />
+        <el-table-column prop="name" label="Venue Name" min-width="240" />
+        <el-table-column prop="nameZh" label="Name (ZH)" min-width="240" />
         <el-table-column prop="type" label="Type" min-width="130">
           <template #default="{ row }">
             <el-tag effect="light" :class="getTypeTagClass(row.type)">
@@ -47,7 +48,8 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="location" label="Location" min-width="170" />
+        <el-table-column prop="location" label="Location" min-width="220" />
+        <el-table-column prop="locationZh" label="Location (ZH)" min-width="200" />
         <el-table-column label="Display Type" min-width="150">
           <template #default="{ row }">
             <el-tag effect="light" :class="row.displayType === 'single' ? 'display-tag-single' : 'display-tag-merge'">
@@ -55,7 +57,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Image" min-width="120">
+        <el-table-column label="Image" min-width="160">
           <template #default="{ row }">
             <el-button v-if="row.image" type="default" size="small" class="check-btn" @click="handleViewImage(row)">
               View
@@ -116,6 +118,7 @@
           </div>
           </div>
         </el-tab-pane>
+
         <el-tab-pane label="Booking Date Range" name="bookingWindow">
           <div class="booking-window-card">
             <div class="booking-window-header">
@@ -159,6 +162,9 @@
         <el-form-item label="Venue Name">
           <el-input v-model="formData.name" />
         </el-form-item>
+        <el-form-item label="Name (ZH)">
+          <el-input v-model="formData.nameZh" placeholder="場地中文名稱" />
+        </el-form-item>
         <el-form-item label="Type">
           <el-select v-model="formData.type" style="width: 100%" :teleported="false">
             <el-option label="Conference" value="conference" />
@@ -174,6 +180,9 @@
         </el-form-item>
         <el-form-item label="Location">
           <el-input v-model="formData.location" />
+        </el-form-item>
+        <el-form-item label="Location (ZH)">
+          <el-input v-model="formData.locationZh" placeholder="位置中文名稱" />
         </el-form-item>
         <el-form-item label="Display Type">
           <div class="display-type-buttons">
@@ -367,10 +376,12 @@ const showForm = ref(false)
 const formMode = ref('add')
 const formData = ref({
   name: '',
+  nameZh: '',
   tab: 'conference_discussion',
   type: 'conference',
   color: '',
   location: '',
+  locationZh: '',
   displayType: 'single',
   image: '',
   imageList: [],
@@ -491,8 +502,10 @@ const handleExport = () => {
   const exportData = filteredVenueList.value.map(item => {
     const base = {
       'Venue Name': item.name,
+      'Name (ZH)': item.nameZh || '',
       'Color': item.color,
       'Location': item.location,
+      'Location (ZH)': item.locationZh || '',
       'Status': item.status === 'active' ? 'Active' : 'Inactive'
     }
 
@@ -543,10 +556,12 @@ const handleAdd = () => {
   formMode.value = 'add'
   formData.value = {
     name: '',
+    nameZh: '',
     tab: activeCategory.value,
     type: activeCategory.value === 'conference_discussion' ? 'conference' : 'other',
     color: '',
     location: '',
+    locationZh: '',
     displayType: 'single',
     image: '',
     imageList: [],
@@ -565,6 +580,8 @@ const handleEdit = (row) => {
     type: row.type ?? ((row.tab ?? row.category) === 'conference_discussion' ? 'conference' : 'other'),
     blocks: Array.isArray(row.blocks) ? row.blocks : [],
     displayType: row.displayType || 'single',
+    nameZh: row.nameZh || '',
+    locationZh: row.locationZh || '',
     imageList: row.image ? [{ url: row.image }] : []
   }
   showForm.value = true
@@ -754,7 +771,7 @@ const handlePreview = (file) => {
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
-  margin: 0.5rem 0.75rem 0.5rem;
+  margin: 0.5rem 0.75rem 0.3rem;
   min-height: 56px;
 }
 
@@ -800,7 +817,7 @@ const handlePreview = (file) => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0.5rem 0.75rem 0.75rem;
+  padding: 0.3rem 0.75rem 0.75rem;
   display: flex;
   flex-direction: column;
 }
@@ -833,7 +850,7 @@ const handlePreview = (file) => {
 }
 
 .page-content :deep(.el-tabs__header) {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
 }
 
 .page-content :deep(.el-tabs__item) {

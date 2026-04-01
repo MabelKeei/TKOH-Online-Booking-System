@@ -418,10 +418,12 @@ export function getMockVenueList () {
     {
       id: 1,
       name: 'Conference Room 1',
+      nameZh: '會議室1',
       tab: 'conference_discussion',
       type: 'conference',
       color: '#3b82f6',
-      location: '3F',
+      location: '8/F Ambulatory Care Block',
+      locationZh: '日間醫療大樓8樓',
       displayType: 'merge',
       image: '',
       blocks: [
@@ -429,12 +431,12 @@ export function getMockVenueList () {
       ],
       status: 'active'
     },
-    { id: 2, name: 'Conference Room 2', tab: 'conference_discussion', type: 'conference', color: '#10b981', location: '3F', displayType: 'merge', image: '', blocks: [], status: 'active' },
-    { id: 3, name: 'Conference Room 3', tab: 'conference_discussion', type: 'conference', color: '#06b6d4', location: '3F', displayType: 'merge', image: '', blocks: [], status: 'active' },
-    { id: 4, name: 'Discussion Room', tab: 'conference_discussion', type: 'discussion', color: '#f59e0b', location: '3F', displayType: 'single', image: '', blocks: [], status: 'active' },
-    { id: 5, name: 'Function Room', tab: 'other_venues', type: 'other', color: '#ec4899', location: 'Ground Floor', displayType: 'single', image: '', blocks: [], status: 'active' },
-    { id: 6, name: 'Lecture Theatre', tab: 'other_venues', type: 'other', color: '#6366f1', location: '2F', displayType: 'single', image: '', blocks: [], status: 'active' },
-    { id: 7, name: 'Auditorium', tab: 'other_venues', type: 'other', color: '#8b5cf6', location: '1F', displayType: 'single', image: '', blocks: [], status: 'active' }
+    { id: 2, name: 'Conference Room 2', nameZh: '會議室2', tab: 'conference_discussion', type: 'conference', color: '#10b981', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'merge', image: '', blocks: [], status: 'active' },
+    { id: 3, name: 'Conference Room 3', nameZh: '會議室3', tab: 'conference_discussion', type: 'conference', color: '#06b6d4', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'merge', image: '', blocks: [], status: 'active' },
+    { id: 4, name: 'Discussion Room', nameZh: '討論室', tab: 'conference_discussion', type: 'discussion', color: '#f59e0b', location: '3F', locationZh: '3樓', displayType: 'single', image: '', blocks: [], status: 'active' },
+    { id: 5, name: 'Function Room', nameZh: '多功能室', tab: 'other_venues', type: 'other', color: '#ec4899', location: 'Ground Floor', locationZh: '地下', displayType: 'single', image: '', blocks: [], status: 'active' },
+    { id: 6, name: 'Lecture Theatre', nameZh: '演講廳', tab: 'other_venues', type: 'other', color: '#6366f1', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'single', image: '', blocks: [], status: 'active' },
+    { id: 7, name: 'Auditorium', nameZh: '禮堂', tab: 'other_venues', type: 'other', color: '#8b5cf6', location: '1F', locationZh: '1樓', displayType: 'single', image: '', blocks: [], status: 'active' }
   ]
   return cloneMockList(_venueList)
 }
@@ -579,6 +581,10 @@ function ensureDisplayConfig () {
       { venueId: 6, displayType: 'single', mergeGroup: 'Group B' },
       { venueId: 7, displayType: 'single', mergeGroup: '' }
     ],
+    mergeDisplaySettings: {
+      footerTickerText: '請在會議期間佩戴外科口罩並保持安靜。For enquiries regarding Conference Rooms, please contact General Office.',
+      qrCodeImage: ''
+    },
     updatedBy: 'System Admin',
     updatedAt: new Date().toISOString()
   }
@@ -586,9 +592,20 @@ function ensureDisplayConfig () {
 
 export function getMockDisplayConfig () {
   ensureDisplayConfig()
+  const mergeDisplaySettings = _displayConfig.mergeDisplaySettings || {
+    footerTickerText: '',
+    qrCodeImage: ''
+  }
+  const fallbackTicker = [mergeDisplaySettings.footerLine1, mergeDisplaySettings.footerLine2]
+    .filter(Boolean)
+    .join('  |  ')
   return {
     ..._displayConfig,
-    venueRules: _displayConfig.venueRules.map(item => ({ ...item }))
+    venueRules: _displayConfig.venueRules.map(item => ({ ...item })),
+    mergeDisplaySettings: {
+      footerTickerText: mergeDisplaySettings.footerTickerText || fallbackTicker || '',
+      qrCodeImage: mergeDisplaySettings.qrCodeImage || ''
+    }
   }
 }
 
@@ -598,6 +615,10 @@ export function saveMockDisplayConfig (nextConfig, updatedBy = 'Admin') {
     venueDisplayMode: nextConfig.venueDisplayMode,
     evDisplayMode: nextConfig.evDisplayMode,
     venueRules: Array.isArray(nextConfig.venueRules) ? nextConfig.venueRules.map(item => ({ ...item })) : [],
+    mergeDisplaySettings: {
+      footerTickerText: nextConfig.mergeDisplaySettings?.footerTickerText || '',
+      qrCodeImage: nextConfig.mergeDisplaySettings?.qrCodeImage || ''
+    },
     updatedBy,
     updatedAt: new Date().toISOString()
   }

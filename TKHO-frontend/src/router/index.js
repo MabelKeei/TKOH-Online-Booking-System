@@ -23,6 +23,22 @@ const routes = [
     }
   },
   {
+    path: '/VenueBooking/Display',
+    name: 'VenueDisplayView',
+    component: () => import('../views/display/VenueDisplayView.vue'),
+    meta: {
+      title: 'Venue Display'
+    }
+  },
+  {
+    path: '/VenueBooking/Display/Merge',
+    name: 'VenueMergeDisplayView',
+    component: () => import('../views/display/VenueMergeDisplayView.vue'),
+    meta: {
+      title: 'Venue Merge Display'
+    }
+  },
+  {
     path: '/VenueBooking/ManageBooking',
     name: 'VenueManageBooking',
     component: () => import('../views/VenueManageBooking.vue'),

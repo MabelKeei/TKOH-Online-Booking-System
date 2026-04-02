@@ -39,6 +39,14 @@ const routes = [
     }
   },
   {
+    path: '/VenueBooking/Display/TeaService',
+    name: 'TeaServiceDisplayView',
+    component: () => import('../views/display/TeaServiceDisplayView.vue'),
+    meta: {
+      title: 'Tea Service Display'
+    }
+  },
+  {
     path: '/VenueBooking/ManageBooking',
     name: 'VenueManageBooking',
     component: () => import('../views/VenueManageBooking.vue'),

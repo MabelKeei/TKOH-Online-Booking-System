@@ -577,9 +577,13 @@ const getPendingRowIndex = (index) => (pendingCurrentPage.value - 1) * pendingPa
 const getApprovedRowIndex = (index) => (approvedCurrentPage.value - 1) * approvedPageSize.value + index + 1
 const getRejectedRowIndex = (index) => (rejectedCurrentPage.value - 1) * rejectedPageSize.value + index + 1
 
-/** ???????? + ?????corpId????username ?? */
+/** 展示姓名 + corpId；优先 bookerCorpId（mock 中与员工表关联），否则按姓名查员工表 */
 function formatReservedBy (row) {
   const name = row.userName || ''
+  const corpFromRow = row.bookerCorpId
+  if (corpFromRow) {
+    return name ? `${name} (${corpFromRow})` : corpFromRow
+  }
   const emp = employeeList.value.find((e) => e.name === name)
   const uid = emp?.corpId || emp?.username || ''
   if (name && uid) return `${name} (${uid})`
@@ -595,6 +599,7 @@ const handleExport = () => {
 
   const exportData = allData.map(item => ({
     'Booking ID': item.bookingId,
+    'Venue ID': item.venueId ?? '',
     'Venue': item.venueName,
     'Reserved By': formatReservedBy(item),
     'Department': item.department || '',
@@ -616,6 +621,7 @@ const handleExport = () => {
 
 const handleOpen = (row) => {
   const matchedEmployee = employeeList.value.find(item => item.name === row.userName)
+    || (row.bookerCorpId ? employeeList.value.find(item => item.corpId === row.bookerCorpId) : null)
   currentHandleRow.value = row
   handleForm.value = {
     venueName: row.venueName || '',

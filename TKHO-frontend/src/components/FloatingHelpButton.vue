@@ -115,11 +115,13 @@ const recalibrateAfterRouteChange = async () => {
   })
 }
 
-// 检查是否在登录页面或 display 页面
+// 检查是否在登录页面或 display 页面（含 merge 独立页，不显示悬浮帮助）
 const isLoginPage = computed(() =>
   route.path === '/login' ||
   route.path === '/' ||
-  route.path === '/VenueBooking/Display'
+  route.path === '/VenueBooking/Display' ||
+  route.path === '/VenueBooking/Display/Merge' ||
+  route.path === '/VenueBooking/Display/TeaService'
 )
 
 // 初始化位置（右下角）

@@ -33,6 +33,26 @@
                     </div>
                   </template>
                 </el-table-column>
+                <el-table-column label="Display Name" min-width="160">
+                  <template #default="{ row }">
+                    <el-input
+                      v-model="row.displayName"
+                      placeholder="e.g. CR1"
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column label="Arrow Direction" min-width="170">
+                  <template #default="{ row }">
+                    <el-select v-model="row.arrowDirection" placeholder="Direction" style="width: 100%">
+                      <el-option
+                        v-for="option in arrowDirectionOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </template>
+                </el-table-column>
               </el-table>
 
               <div v-if="rulesTotalPages > 1" class="pagination-bar">
@@ -87,6 +107,16 @@
                   </div>
                 </div>
               </div>
+
+              <div class="table-card">
+                <div class="card-title">Tea Service Display</div>
+                <div class="link-list">
+                  <div class="link-row">
+                    <span class="link-label">Tea Service Board Preview</span>
+                    <a :href="teaServicePreviewLink.url" target="_blank" rel="noopener noreferrer" class="link-url">{{ teaServicePreviewLink.url }}</a>
+                  </div>
+                </div>
+              </div>
             </el-tab-pane>
 
             <el-tab-pane label="Merge" name="merge">
@@ -107,6 +137,14 @@
                 <div class="merge-config-grid">
                   <div class="merge-config-form">
                     <el-form label-width="150px">
+                      <el-form-item label="Name &amp; Location">
+                        <el-input
+                          v-model="form.mergeDisplaySettings.panelTitleText"
+                          type="textarea"
+                          :rows="4"
+                          :placeholder="mergePanelTitlePlaceholder"
+                        />
+                      </el-form-item>
                       <el-form-item label="Footer Ticker Text">
                         <el-input
                           v-model.trim="form.mergeDisplaySettings.footerTickerText"
@@ -142,7 +180,7 @@
                   <div class="merge-preview-card">
                     <div class="preview-title">Merge Screen Preview</div>
                     <div class="preview-top">
-                      <div class="preview-header-text">Date/Time</div>
+                      <div class="preview-header-text merge-preview-title">{{ form.mergeDisplaySettings.panelTitleText || 'Name & location preview' }}</div>
                       <img
                         v-if="form.mergeDisplaySettings.qrCodeImage"
                         :src="form.mergeDisplaySettings.qrCodeImage"
@@ -174,8 +212,19 @@ import { getMockVenueList, getMockDisplayConfig, saveMockDisplayConfig } from '@
 const activeTab = ref('rules')
 const previewSubTab = ref('single')
 const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+const mergePanelTitlePlaceholder = 'Conference Room | 8/F Ambulatory Care Block\n會議室 | 日間醫療大樓8樓'
 const rulesCurrentPage = ref(1)
 const rulesPageSize = ref(10)
+const arrowDirectionOptions = [
+  { label: 'Up', value: 'up' },
+  { label: 'Up Right', value: 'up-right' },
+  { label: 'Right', value: 'right' },
+  { label: 'Down Right', value: 'down-right' },
+  { label: 'Down', value: 'down' },
+  { label: 'Down Left', value: 'down-left' },
+  { label: 'Left', value: 'left' },
+  { label: 'Up Left', value: 'up-left' }
+]
 
 const venueList = getMockVenueList()
 const config = ref(getMockDisplayConfig())
@@ -183,6 +232,7 @@ const config = ref(getMockDisplayConfig())
 const form = ref({
   evDisplayMode: config.value.evDisplayMode,
   mergeDisplaySettings: {
+    panelTitleText: config.value.mergeDisplaySettings?.panelTitleText || '',
     footerTickerText: config.value.mergeDisplaySettings?.footerTickerText || '',
     qrCodeImage: config.value.mergeDisplaySettings?.qrCodeImage || ''
   },
@@ -191,7 +241,10 @@ const form = ref({
     return {
       venueId: venue.id,
       venueName: venue.name,
-      displayType: matched?.displayType || 'single'
+      displayType: matched?.displayType || 'single',
+      mergeGroup: matched?.mergeGroup ?? '',
+      displayName: matched?.displayName ?? '',
+      arrowDirection: matched?.arrowDirection ?? 'right'
     }
   })
 })
@@ -250,6 +303,10 @@ const evPreviewLink = computed(() => ({
   url: `${baseUrl}/evBooking/Calendar?displayType=${form.value.evDisplayMode}`
 }))
 
+const teaServicePreviewLink = computed(() => ({
+  url: `${baseUrl}/VenueBooking/Display/TeaService`
+}))
+
 const handleSaveConfig = () => {
   const hasSingle = form.value.venueRules.some(item => item.displayType === 'single')
   const hasMerge = form.value.venueRules.some(item => item.displayType === 'merge')
@@ -259,13 +316,16 @@ const handleSaveConfig = () => {
     venueDisplayMode,
     evDisplayMode: form.value.evDisplayMode,
     mergeDisplaySettings: {
+      panelTitleText: form.value.mergeDisplaySettings.panelTitleText,
       footerTickerText: form.value.mergeDisplaySettings.footerTickerText,
       qrCodeImage: form.value.mergeDisplaySettings.qrCodeImage
     },
     venueRules: form.value.venueRules.map(item => ({
       venueId: item.venueId,
       displayType: item.displayType,
-      mergeGroup: ''
+      mergeGroup: item.mergeGroup ?? '',
+      displayName: (item.displayName ?? '').trim(),
+      arrowDirection: item.arrowDirection ?? 'right'
     }))
   }, 'Display Admin')
 
@@ -492,6 +552,12 @@ const handleClearQrImage = () => {
   font-size: 0.8125rem;
   font-weight: 700;
   color: #111827;
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.merge-preview-title {
+  white-space: pre-line;
 }
 
 .preview-qr {

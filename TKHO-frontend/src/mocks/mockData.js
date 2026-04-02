@@ -1,6 +1,13 @@
 /**
  * 集中 mock 数据（单文件管理）
  * 为兼顾加载速度：大数组采用惰性初始化；EV 预订数据按需生成（调用一次即可）。
+ *
+ * 关联字段约定（便于与真实 API / 表结构对齐）：
+ * - 会议审批：venueId → 场地；bookerEmployeeId → 员工 id；bookerCorpId → 预订人 corpId
+ * - 账号待审批：departmentId → 部门 id（与 department 名称对应）
+ * - 车牌：employeeId → 员工 id（与 corpId 对应同一人）
+ * - 展示配置 venueRules：venueId、displayType、mergeGroup、displayName（大屏行名，如 CR1）、arrowDirection（8方向）
+ * - 员工 ↔ 角色 / 部门：当前仅用字符串 role、department，若需 roleId、departmentId 可在员工记录上扩展
  */
 
 let _employeeListRaw = null
@@ -108,6 +115,8 @@ export function getMockPendingListRaw () {
       corpId: 'E003',
       name: 'Bob Wilson',
       department: 'Finance',
+      /** 关联 getMockDepartmentList 的 id，便于按部门筛选/统计 */
+      departmentId: 3,
       role: 'Staff',
       email: 'bob@tkoh.com',
       lastLoginTime: '2026-03-18 09:20',
@@ -131,9 +140,16 @@ export function getMockPendingListNormalized () {
   return cloneMockList(_pendingListNormalized)
 }
 
+/**
+ * 会议审批（pending / approved / rejected）约定字段：
+ * - venueId: 关联 getMockVenueList() 的 id（与 venueName 对应同一场地）
+ * - bookerEmployeeId: 预订人，关联员工表 id；无匹配员工时为 null
+ * - bookerCorpId: 预订人 corpId，便于与员工/账号按 corpId 关联（冗余展示字段）
+ */
 let _meetingPendingList = null
 let _meetingApprovedList = null
 let _meetingRejectedList = null
+let _teaServiceDoneByBookingId = null
 let _accessRoleList = null
 let _departmentList = null
 let _parkingList = null
@@ -150,27 +166,128 @@ export function getMockMeetingPendingList () {
     {
       id: 1,
       bookingId: 'BK20260320001',
-      venueName: 'Conference Room A',
+      venueId: 2,
+      venueName: 'Conference Room B',
+      bookerEmployeeId: 1,
+      bookerCorpId: 'E001',
       userName: 'John Doe',
       department: 'IT',
-      meetingTitle: 'Q1 Project Review Meeting',
-      date: '2026-03-25',
-      time: '14:00-16:00',
+      meetingTitle: 'Reserved',
+      date: '2026-03-16',
+      time: '14:30-15:30',
+      teaService: { attendees: 8, beverages: 'Chinese tea, Water', serveAs: 'pot', quantity: 1, notes: 'Serve at 14:20' },
       submittedAt: '2026-03-20 10:30'
     },
     {
       id: 2,
       bookingId: 'BK20260320002',
-      venueName: 'Conference Room B',
+      venueId: 1,
+      venueName: 'Conference Room A',
+      bookerEmployeeId: 2,
+      bookerCorpId: 'E002',
       userName: 'Jane Smith',
       department: 'HR',
       meetingTitle: 'Team Building Planning',
       date: '2026-03-26',
-      time: '10:00-12:00',
+      time: '09:30-10:30',
+      teaService: { attendees: 10, beverages: 'Coffee, Water', serveAs: 'perPersonCup', quantity: 10, notes: 'Paper cups needed' },
       submittedAt: '2026-03-20 11:15'
+    },
+    {
+      id: 3,
+      bookingId: 'BK20260320003',
+      venueId: 1,
+      venueName: 'Conference Room A',
+      bookerEmployeeId: 2,
+      bookerCorpId: 'E002',
+      userName: 'Jane Smith',
+      department: 'HR',
+      meetingTitle: 'Reflooring Discussion',
+      date: '2026-03-16',
+      time: '10:30-12:30',
+      teaService: { attendees: 12, beverages: 'Milk tea, Water', serveAs: 'pot', quantity: 2 },
+      submittedAt: '2026-03-16 11:15'
+    },
+    {
+      id: 4,
+      bookingId: 'BK20260320004',
+      venueId: 1,
+      venueName: 'Conference Room A',
+      bookerEmployeeId: 2,
+      bookerCorpId: 'E002',
+      userName: 'Jane Smith',
+      department: 'HR',
+      meetingTitle: 'Booking System Discussion with JW',
+      date: '2026-03-16',
+      time: '15:00-17:00',
+      teaService: { attendees: 6, beverages: 'Black coffee', serveAs: 'perPersonCup', quantity: 6, notes: 'No sugar' },
+      submittedAt: '2026-03-16 11:15'
+    },
+    {
+      id: 5,
+      bookingId: 'BK20260320005',
+      venueId: 2,
+      venueName: 'Conference Room B',
+      bookerEmployeeId: 2,
+      bookerCorpId: 'E002',
+      userName: 'Jane Smith',
+      department: 'HR',
+      meetingTitle: 'Labour Department OSH Inspection Meeting',
+      date: '2026-03-16',
+      time: '10:00-12:00',
+      teaService: { attendees: 18, beverages: 'Tea, Coffee, Water', serveAs: 'perPersonCup', quantity: 18 },
+      submittedAt: '2026-03-16 11:15'
+    },
+    {
+      id: 6,
+      bookingId: 'BK20260320006',
+      venueId: 3,
+      venueName: 'Conference Room C',
+      bookerEmployeeId: 2,
+      bookerCorpId: 'E002',
+      userName: 'Jane Smith',
+      department: 'HR',
+      meetingTitle: 'Fall Prevention Internal Meeting',
+      date: '2026-03-16',
+      time: '09:30-13:00',
+      teaService: { attendees: 14, beverages: 'Lemon tea, Water', serveAs: 'pot', quantity: 2, notes: 'Refill at 11:00' },
+      submittedAt: '2026-03-16 11:15'
     }
   ]
   return cloneMockList(_meetingPendingList)
+}
+
+export function getMockTeaServiceRequests () {
+  if (!_teaServiceDoneByBookingId) _teaServiceDoneByBookingId = {}
+  const meetings = getMockMeetingPendingList()
+  const venueMap = new Map(getMockVenueList().map(v => [v.id, v]))
+  return meetings
+    .filter(item => item.teaService)
+    .map(item => {
+      const venue = venueMap.get(item.venueId)
+      return {
+        id: item.bookingId || item.id,
+        bookingId: item.bookingId || String(item.id),
+        venueId: item.venueId,
+        venueName: item.venueName || venue?.name || '',
+        venueNameZh: venue?.nameZh || '',
+        meetingTitle: item.meetingTitle,
+        date: item.date,
+        time: item.time,
+        teaService: { ...item.teaService },
+        completed: Boolean(_teaServiceDoneByBookingId[item.bookingId || item.id])
+      }
+    })
+}
+
+export function setMockTeaServiceRequestCompleted (bookingId, completed) {
+  if (!_teaServiceDoneByBookingId) _teaServiceDoneByBookingId = {}
+  if (completed) {
+    _teaServiceDoneByBookingId[bookingId] = true
+  } else {
+    delete _teaServiceDoneByBookingId[bookingId]
+  }
+  return getMockTeaServiceRequests()
 }
 
 export function getMockMeetingApprovedList () {
@@ -179,8 +296,12 @@ export function getMockMeetingApprovedList () {
     {
       id: 101,
       bookingId: 'BK20260319001',
+      venueId: 1,
       venueName: 'Conference Room A',
+      bookerEmployeeId: null,
+      bookerCorpId: 'E099',
       userName: 'Bob Wilson',
+      department: 'Finance',
       meetingTitle: 'Budget Review',
       date: '2026-03-24',
       time: '09:00-11:00',
@@ -197,8 +318,12 @@ export function getMockMeetingRejectedList () {
     {
       id: 201,
       bookingId: 'BK20260318001',
+      venueId: 2,
       venueName: 'Conference Room B',
+      bookerEmployeeId: null,
+      bookerCorpId: 'E088',
       userName: 'Alice Brown',
+      department: 'Marketing',
       meetingTitle: 'Casual Discussion',
       date: '2026-03-23',
       time: '15:00-17:00',
@@ -445,10 +570,10 @@ export function getMockLicensePlateList () {
   if (_licensePlateList) return cloneMockList(_licensePlateList)
 
   _licensePlateList = [
-    { id: 1, corpId: 'E001', owner: 'John Doe', brand: 'Toyota', type: 'personal', plateNumber: 'SJA1234A', status: 'active' },
-    { id: 2, corpId: 'E002', owner: 'Jane Smith', brand: 'Tesla', type: 'company', plateNumber: 'SJB5678B', status: 'active' },
-    { id: 3, corpId: 'E006', owner: 'Olivia Chan', brand: 'Honda', type: 'personal', plateNumber: 'SKO9012C', status: 'inactive' },
-    { id: 4, corpId: 'E020', owner: 'Ivy Cheong', brand: 'BYD', type: 'company', plateNumber: 'SKP3456D', status: 'active' }
+    { id: 1, employeeId: 1, corpId: 'E001', owner: 'John Doe', brand: 'Toyota', type: 'personal', plateNumber: 'SJA1234A', status: 'active' },
+    { id: 2, employeeId: 2, corpId: 'E002', owner: 'Jane Smith', brand: 'Tesla', type: 'company', plateNumber: 'SJB5678B', status: 'active' },
+    { id: 3, employeeId: 6, corpId: 'E006', owner: 'Olivia Chan', brand: 'Honda', type: 'personal', plateNumber: 'SKO9012C', status: 'inactive' },
+    { id: 4, employeeId: 20, corpId: 'E020', owner: 'Ivy Cheong', brand: 'BYD', type: 'company', plateNumber: 'SKP3456D', status: 'active' }
   ]
 
   return cloneMockList(_licensePlateList)
@@ -573,17 +698,18 @@ function ensureDisplayConfig () {
     venueDisplayMode: 'mixed',
     evDisplayMode: 'single',
     venueRules: [
-      { venueId: 1, displayType: 'merge', mergeGroup: 'Group A' },
-      { venueId: 2, displayType: 'merge', mergeGroup: 'Group A' },
-      { venueId: 3, displayType: 'merge', mergeGroup: '' },
-      { venueId: 4, displayType: 'single', mergeGroup: '' },
-      { venueId: 5, displayType: 'single', mergeGroup: 'Group B' },
-      { venueId: 6, displayType: 'single', mergeGroup: 'Group B' },
-      { venueId: 7, displayType: 'single', mergeGroup: '' }
+      { venueId: 1, displayType: 'merge', mergeGroup: 'Group A', displayName: 'CR1', arrowDirection: 'up-left' },
+      { venueId: 2, displayType: 'merge', mergeGroup: 'Group A', displayName: 'CR2', arrowDirection: 'right' },
+      { venueId: 3, displayType: 'merge', mergeGroup: '', displayName: 'CR3', arrowDirection: 'right' },
+      { venueId: 4, displayType: 'single', mergeGroup: '', displayName: '', arrowDirection: '' },
+      { venueId: 5, displayType: 'single', mergeGroup: 'Group B', displayName: '', arrowDirection: '' },
+      { venueId: 6, displayType: 'single', mergeGroup: 'Group B', displayName: '', arrowDirection: '' },
+      { venueId: 7, displayType: 'single', mergeGroup: '', displayName: '', arrowDirection: '' }
     ],
     mergeDisplaySettings: {
-      footerTickerText: '請在會議期間佩戴外科口罩並保持安靜。For enquiries regarding Conference Rooms, please contact General Office.',
-      qrCodeImage: ''
+      panelTitleText: 'Conference Room | 8/F Ambulatory Care Block\n會議室 | 日間醫療大樓8樓',
+        footerTickerText: 'XXXXX，請在會議期間佩戴外科口罩並儘快就醫。For enquiries regarding Conference Rooms, please contact General Office.',
+        qrCodeImage: ''
     },
     updatedBy: 'System Admin',
     updatedAt: new Date().toISOString()
@@ -593,16 +719,25 @@ function ensureDisplayConfig () {
 export function getMockDisplayConfig () {
   ensureDisplayConfig()
   const mergeDisplaySettings = _displayConfig.mergeDisplaySettings || {
+    panelTitleText: '',
     footerTickerText: '',
     qrCodeImage: ''
   }
   const fallbackTicker = [mergeDisplaySettings.footerLine1, mergeDisplaySettings.footerLine2]
     .filter(Boolean)
     .join('  |  ')
+  const legacyPanelTitle = [mergeDisplaySettings.panelTitleLine1, mergeDisplaySettings.panelTitleLine2]
+    .filter(Boolean)
+    .join('\n')
   return {
     ..._displayConfig,
-    venueRules: _displayConfig.venueRules.map(item => ({ ...item })),
+    venueRules: _displayConfig.venueRules.map(item => ({
+      ...item,
+      displayName: item.displayName ?? '',
+      arrowDirection: item.arrowDirection ?? 'right'
+    })),
     mergeDisplaySettings: {
+      panelTitleText: mergeDisplaySettings.panelTitleText || legacyPanelTitle || '',
       footerTickerText: mergeDisplaySettings.footerTickerText || fallbackTicker || '',
       qrCodeImage: mergeDisplaySettings.qrCodeImage || ''
     }
@@ -614,8 +749,15 @@ export function saveMockDisplayConfig (nextConfig, updatedBy = 'Admin') {
   _displayConfig = {
     venueDisplayMode: nextConfig.venueDisplayMode,
     evDisplayMode: nextConfig.evDisplayMode,
-    venueRules: Array.isArray(nextConfig.venueRules) ? nextConfig.venueRules.map(item => ({ ...item })) : [],
+    venueRules: Array.isArray(nextConfig.venueRules)
+      ? nextConfig.venueRules.map(item => ({
+        ...item,
+        displayName: item.displayName ?? '',
+        arrowDirection: item.arrowDirection ?? 'right'
+      }))
+      : [],
     mergeDisplaySettings: {
+      panelTitleText: nextConfig.mergeDisplaySettings?.panelTitleText || '',
       footerTickerText: nextConfig.mergeDisplaySettings?.footerTickerText || '',
       qrCodeImage: nextConfig.mergeDisplaySettings?.qrCodeImage || ''
     },

@@ -99,16 +99,6 @@
               </div>
 
               <div class="table-card">
-                <div class="card-title">EV Display</div>
-                <div class="link-list">
-                  <div class="link-row">
-                    <span class="link-label">EV Display Preview</span>
-                    <a :href="evPreviewLink.url" target="_blank" rel="noopener noreferrer" class="link-url">{{ evPreviewLink.url }}</a>
-                  </div>
-                </div>
-              </div>
-
-              <div class="table-card">
                 <div class="card-title">Tea Service Display</div>
                 <div class="link-list">
                   <div class="link-row">
@@ -182,15 +172,18 @@
                     <div class="preview-top">
                       <div class="preview-header-text merge-preview-title">{{ form.mergeDisplaySettings.panelTitleText || 'Name & location preview' }}</div>
                       <img
-                        v-if="form.mergeDisplaySettings.qrCodeImage"
-                        :src="form.mergeDisplaySettings.qrCodeImage"
+                        :src="mergePreviewQrImage"
                         alt="QR Code Preview"
                         class="preview-qr"
                       />
-                      <div v-else class="preview-qr-placeholder">QR</div>
                     </div>
                     <div class="preview-footer">
-                      <div>{{ form.mergeDisplaySettings.footerTickerText || 'Footer ticker text preview' }}</div>
+                      <div class="preview-footer-ticker">
+                        <div class="preview-footer-track">
+                          <span class="preview-footer-text">{{ form.mergeDisplaySettings.footerTickerText || 'Footer ticker text preview' }}</span>
+                          <span class="preview-footer-text" aria-hidden="true">{{ form.mergeDisplaySettings.footerTickerText || 'Footer ticker text preview' }}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -212,6 +205,7 @@ import { getMockVenueList, getMockDisplayConfig, saveMockDisplayConfig } from '@
 const activeTab = ref('rules')
 const previewSubTab = ref('single')
 const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+const defaultMergeQrSrc = `${import.meta.env.BASE_URL}displayQRCode.png`
 const mergePanelTitlePlaceholder = 'Conference Room | 8/F Ambulatory Care Block\n會議室 | 日間醫療大樓8樓'
 const rulesCurrentPage = ref(1)
 const rulesPageSize = ref(10)
@@ -299,13 +293,14 @@ watch([rulesTotal, rulesPageSize], () => {
   }
 })
 
-const evPreviewLink = computed(() => ({
-  url: `${baseUrl}/evBooking/Calendar?displayType=${form.value.evDisplayMode}`
-}))
-
 const teaServicePreviewLink = computed(() => ({
   url: `${baseUrl}/VenueBooking/Display/TeaService`
 }))
+
+const mergePreviewQrImage = computed(() => {
+  const raw = form.value.mergeDisplaySettings.qrCodeImage
+  return raw && String(raw).trim() ? raw : defaultMergeQrSrc
+})
 
 const handleSaveConfig = () => {
   const hasSingle = form.value.venueRules.some(item => item.displayType === 'single')
@@ -501,7 +496,7 @@ const handleClearQrImage = () => {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
   gap: 0.9rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .merge-config-form {
@@ -528,6 +523,9 @@ const handleClearQrImage = () => {
   border-radius: 0.5rem;
   background: #fff;
   overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .preview-title {
@@ -540,7 +538,8 @@ const handleClearQrImage = () => {
 }
 
 .preview-top {
-  height: 130px;
+  min-height: 130px;
+  flex: 1;
   padding: 0.75rem;
   background: linear-gradient(180deg, #f7b75a 0%, #f29b3a 100%);
   display: flex;
@@ -561,17 +560,18 @@ const handleClearQrImage = () => {
 }
 
 .preview-qr {
-  width: 58px;
-  height: 58px;
+  width: 84px;
+  height: 84px;
   border-radius: 4px;
   background: #ffffff;
   object-fit: cover;
   border: 1px solid rgba(0, 0, 0, 0.16);
+  flex-shrink: 0;
 }
 
 .preview-qr-placeholder {
-  width: 58px;
-  height: 58px;
+  width: 84px;
+  height: 84px;
   border-radius: 4px;
   border: 1px dashed rgba(0, 0, 0, 0.3);
   display: flex;
@@ -588,6 +588,26 @@ const handleClearQrImage = () => {
   color: #111827;
   font-size: 0.8125rem;
   line-height: 1.35;
+  overflow: hidden;
+}
+
+.preview-footer-ticker {
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.preview-footer-track {
+  display: inline-flex;
+  width: max-content;
+  align-items: center;
+  animation: previewTickerScroll 18s linear infinite;
+}
+
+.preview-footer-text {
+  display: inline-block;
+  padding-right: 2.5rem;
+  white-space: nowrap;
 }
 
 @media (max-width: 1100px) {
@@ -790,6 +810,15 @@ const handleClearQrImage = () => {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes previewTickerScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 </style>

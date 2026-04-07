@@ -1,29 +1,29 @@
 <template>
   <div class="page-container">
-    <div class="page-content">
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <h3 class="toolbar-title">User Management</h3>
-        </div>
-        <div class="toolbar-right">
-          <el-input
-            v-model="currentSearch"
-            placeholder="Search current table data"
-            clearable
-            class="toolbar-search"
-          />
-          <el-button type="default" class="cancel-btn" @click="handleExport">
-            <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
-          </el-button>
-          <el-button type="default" class="submit-btn" @click="handleAdd">
-            <font-awesome-icon :icon="['fas', 'plus']" /> Add User
-          </el-button>
-          <el-button type="default" class="cancel-btn" @click="showQRCode = true">
-            <font-awesome-icon :icon="['fas', 'qrcode']" /> Registration QR Code
-          </el-button>
-        </div>
+    <div class="page-header">
+      <div class="toolbar-left">
+        <h3 class="toolbar-title">User Management</h3>
       </div>
+      <div class="toolbar-right">
+        <el-input
+          v-model="currentSearch"
+          placeholder="Search current table data"
+          clearable
+          class="toolbar-search"
+        />
+        <el-button type="default" class="cancel-btn" @click="handleExport">
+          <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
+        </el-button>
+        <el-button type="default" class="submit-btn" @click="handleAdd">
+          <font-awesome-icon :icon="['fas', 'plus']" /> Add User
+        </el-button>
+        <el-button type="default" class="cancel-btn" @click="showQRCode = true">
+          <font-awesome-icon :icon="['fas', 'qrcode']" /> Registration QR Code
+        </el-button>
+      </div>
+    </div>
 
+    <div class="page-content">
       <el-tabs v-model="activeTab">
         <el-tab-pane label="User List" name="list">
           <div class="table-card">
@@ -1318,18 +1318,18 @@ const confirmReject = () => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0.3rem 0.75rem;
+  padding: 0.3rem 0.75rem 0.75rem;
   display: flex;
   flex-direction: column;
 }
 
-.toolbar {
+.page-header {
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
-  margin-bottom: 0.3rem;
+  margin: 0.5rem 0.75rem 0.3rem;
   display: flex;
   align-items: center;
   justify-content: space-between;

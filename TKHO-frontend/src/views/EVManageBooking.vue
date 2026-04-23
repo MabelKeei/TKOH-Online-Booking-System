@@ -180,7 +180,7 @@
                   <span class="card-value">{{ booking.space }}</span>
                 </div>
                 <div class="card-row">
-                  <span class="card-label">Date</span>
+                  <span class="card-label">Booking Date</span>
                   <span class="card-value">{{ booking.date }}</span>
                 </div>
                 <div class="card-row">
@@ -188,7 +188,7 @@
                   <span class="card-value">{{ booking.time }}</span>
                 </div>
                 <div class="card-row">
-                  <span class="card-label">Booked on</span>
+                  <span class="card-label">Application Date</span>
                   <span class="card-value">{{ booking.bookedOn }}</span>
                 </div>
                 <div v-if="booking.reason" class="card-row reason-row">
@@ -212,10 +212,30 @@
               <thead>
                 <tr>
                   <th class="col-no">#</th>
-                  <th class="col-datetime">Date & Time</th>
-                  <th>License Plate</th>
-                  <th>Space</th>
-                  <th>Booked On</th>
+                  <th class="col-datetime">
+                    <button type="button" class="th-sort-btn" @click="toggleSort('bookingDateTime')">
+                      Booking Date & Time
+                      <span class="sort-indicator">{{ getSortIndicator('bookingDateTime') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" class="th-sort-btn" @click="toggleSort('licensePlate')">
+                      License Plate
+                      <span class="sort-indicator">{{ getSortIndicator('licensePlate') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" class="th-sort-btn" @click="toggleSort('space')">
+                      Space
+                      <span class="sort-indicator">{{ getSortIndicator('space') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" class="th-sort-btn" @click="toggleSort('applicationDate')">
+                      Application Date
+                      <span class="sort-indicator">{{ getSortIndicator('applicationDate') }}</span>
+                    </button>
+                  </th>
                   <th>Status</th>
                   <th>Reason</th>
                   <th class="col-actions">Actions</th>
@@ -295,32 +315,23 @@
       </div>
     </main>
 
-    <!-- Cancel Reason Dialog -->
+    <!-- Cancel booking confirmation -->
     <BookingStyleModal
       v-model="showCancelDialog"
       title="Cancel Booking"
       max-width="500px"
     >
-      <el-form label-width="120px">
-        <el-form-item label="Reason">
-          <el-input
-            v-model="cancelReason"
-            type="textarea"
-            :rows="4"
-            placeholder="e.g., Changed to another vehicle"
-            maxlength="200"
-            show-word-limit
-          />
-        </el-form-item>
-      </el-form>
+      <p class="cancel-confirm-message">
+        Are you sure you want to cancel this EV booking? This action cannot be undone.
+      </p>
       <template #footer>
-        <el-button type="default" class="cancel-btn" @click="showCancelDialog = false">Cancel</el-button>
+        <el-button type="default" class="cancel-btn" @click="showCancelDialog = false">No</el-button>
         <el-button
           type="default"
-          class="action-btn action-delete"
+          class="action-btn action-confirm"
           @click="confirmCancel"
         >
-          Confirm Cancel
+          Confirm
         </el-button>
       </template>
     </BookingStyleModal>
@@ -333,6 +344,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
+import { getMockEVManageBookingList } from '@/mocks/mockData'
 import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
 
@@ -346,186 +358,23 @@ const showStatusFilter = ref(false)
 const showDateFilter = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
+const sortState = ref([
+  { key: 'bookingDateTime', order: 'asc' }
+])
 const showCancelDialog = ref(false)
-const cancelReason = ref('')
 const cancelBookingId = ref(null)
 const currentView = ref('card')
 const dateRange = ref(null)
 
-// Status filters (multi-select)
+// Status filters (multi-select)；默认仅显示即将开始的预订
 const statusFilters = ref({
   upcoming: true,
-  past: true,
-  cancelled: true
+  past: false,
+  cancelled: false
 })
 
-// Mock booking data
-const bookings = ref([
-  {
-    id: 1,
-    licensePlate: 'YZ4567',
-    space: 'B2',
-    date: '28 Mar 2026',
-    time: 'AM (08:30 - 13:00)',
-    bookedOn: '17 Mar 2026',
-    status: 'upcoming'
-  },
-  {
-    id: 2,
-    licensePlate: 'YZ4567',
-    space: 'B3',
-    date: '3 Mar 2026',
-    time: 'AM (08:30 - 13:00)',
-    bookedOn: '25 Feb 2026',
-    status: 'upcoming'
-  },
-  {
-    id: 3,
-    licensePlate: 'AB1234',
-    space: 'B2',
-    date: '12 Feb 2026',
-    time: 'PM (13:45 - 18:15)',
-    bookedOn: '3 Feb 2026',
-    status: 'upcoming'
-  },
-  {
-    id: 4,
-    licensePlate: 'HK7890',
-    space: 'B1',
-    date: '7 Feb 2026',
-    time: 'Night (19:00 - 23:30)',
-    bookedOn: '4 Feb 2026',
-    status: 'upcoming'
-  },
-  {
-    id: 5,
-    licensePlate: 'YZ4567',
-    space: 'B3',
-    date: '3 Feb 2026',
-    time: 'AM (08:30 - 13:00)',
-    bookedOn: '25 Jan 2026',
-    status: 'past'
-  },
-  {
-    id: 6,
-    licensePlate: 'AB1234',
-    space: 'B2',
-    date: '28 Jan 2026',
-    time: 'PM (13:45 - 18:15)',
-    bookedOn: '20 Jan 2026',
-    status: 'cancelled',
-    reason: 'Changed to another vehicle'
-  },
-  {
-    id: 7,
-    licensePlate: 'CD5678',
-    space: 'B1',
-    date: '15 Mar 2026',
-    time: 'AM (08:30 - 13:00)',
-    bookedOn: '10 Mar 2026',
-    status: 'upcoming'
-  },
-  {
-    id: 8,
-    licensePlate: 'EF9012',
-    space: 'B3',
-    date: '18 Mar 2026',
-    time: 'PM (13:45 - 18:15)',
-    bookedOn: '12 Mar 2026',
-    status: 'upcoming'
-  },
-  {
-    id: 9,
-    licensePlate: 'GH3456',
-    space: 'B2',
-    date: '22 Mar 2026',
-    time: 'Night (19:00 - 23:30)',
-    bookedOn: '15 Mar 2026',
-    status: 'upcoming'
-  },
-  {
-    id: 10,
-    licensePlate: 'AB1234',
-    space: 'B1',
-    date: '25 Mar 2026',
-    time: 'AM (08:30 - 13:00)',
-    bookedOn: '18 Mar 2026',
-    status: 'upcoming'
-  },
-  {
-    id: 11,
-    licensePlate: 'YZ4567',
-    space: 'B2',
-    date: '5 Feb 2026',
-    time: 'PM (13:45 - 18:15)',
-    bookedOn: '28 Jan 2026',
-    status: 'past'
-  },
-  {
-    id: 12,
-    licensePlate: 'HK7890',
-    space: 'B3',
-    date: '8 Feb 2026',
-    time: 'AM (08:30 - 13:00)',
-    bookedOn: '1 Feb 2026',
-    status: 'past'
-  },
-  {
-    id: 13,
-    licensePlate: 'CD5678',
-    space: 'B1',
-    date: '10 Feb 2026',
-    time: 'Night (19:00 - 23:30)',
-    bookedOn: '3 Feb 2026',
-    status: 'past'
-  },
-  {
-    id: 14,
-    licensePlate: 'EF9012',
-    space: 'B2',
-    date: '14 Feb 2026',
-    time: 'PM (13:45 - 18:15)',
-    bookedOn: '7 Feb 2026',
-    status: 'past'
-  },
-  {
-    id: 15,
-    licensePlate: 'GH3456',
-    space: 'B3',
-    date: '20 Feb 2026',
-    time: 'AM (08:30 - 13:00)',
-    bookedOn: '13 Feb 2026',
-    status: 'cancelled',
-    reason: 'Changed to another vehicle'
-  },
-  {
-    id: 16,
-    licensePlate: 'AB1234',
-    space: 'B1',
-    date: '30 Mar 2026',
-    time: 'PM (13:45 - 18:15)',
-    bookedOn: '23 Mar 2026',
-    status: 'upcoming'
-  },
-  {
-    id: 17,
-    licensePlate: 'YZ4567',
-    space: 'B3',
-    date: '2 Apr 2026',
-    time: 'AM (08:30 - 13:00)',
-    bookedOn: '25 Mar 2026',
-    status: 'upcoming'
-  },
-  {
-    id: 18,
-    licensePlate: 'HK7890',
-    space: 'B2',
-    date: '5 Apr 2026',
-    time: 'Night (19:00 - 23:30)',
-    bookedOn: '28 Mar 2026',
-    status: 'upcoming'
-  }
-])
+// Mock booking data（统一从 mockData 管理）
+const bookings = ref(getMockEVManageBookingList())
 
 const filteredBookings = computed(() => {
   let result = bookings.value
@@ -583,6 +432,69 @@ const parseDate = (dateStr) => {
   return new Date(year, month, day)
 }
 
+const sortPeriodOrder = {
+  AM: 1,
+  PM: 2,
+  Night: 3
+}
+
+const getSortValue = (booking, key) => {
+  switch (key) {
+    case 'bookingDateTime': {
+      const dateTime = parseDate(booking.date).getTime()
+      const period = booking.time?.split(' ')?.[0] || ''
+      const periodOrder = sortPeriodOrder[period] ?? 99
+      return dateTime * 100 + periodOrder
+    }
+    case 'licensePlate':
+      return booking.licensePlate || ''
+    case 'space':
+      return booking.space || ''
+    case 'applicationDate':
+      return parseDate(booking.bookedOn).getTime()
+    default:
+      return ''
+  }
+}
+
+const sortedBookings = computed(() => {
+  if (!sortState.value.length) return filteredBookings.value.slice()
+  return filteredBookings.value.slice().sort((a, b) => {
+    for (const criterion of sortState.value) {
+      const aValue = getSortValue(a, criterion.key)
+      const bValue = getSortValue(b, criterion.key)
+      const direction = criterion.order === 'asc' ? 1 : -1
+      let cmp = 0
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        cmp = aValue - bValue
+      } else {
+        cmp = String(aValue).localeCompare(String(bValue), undefined, { sensitivity: 'base' })
+      }
+      if (cmp !== 0) return cmp * direction
+    }
+    return 0
+  })
+})
+
+const toggleSort = (key) => {
+  const idx = sortState.value.findIndex(item => item.key === key)
+  if (idx === -1) {
+    sortState.value.push({ key, order: 'asc' })
+  } else if (sortState.value[idx].order === 'asc') {
+    sortState.value[idx].order = 'desc'
+  } else {
+    sortState.value.splice(idx, 1)
+  }
+  currentPage.value = 1
+}
+
+const getSortIndicator = (key) => {
+  const idx = sortState.value.findIndex(item => item.key === key)
+  if (idx === -1) return '↕'
+  const arrow = sortState.value[idx].order === 'asc' ? '▲' : '▼'
+  return `${arrow}${idx + 1}`
+}
+
 // Status filter label
 const statusFilterLabel = computed(() => {
   const activeStatuses = Object.keys(statusFilters.value).filter(key => statusFilters.value[key])
@@ -625,13 +537,13 @@ const dateFilterLabel = computed(() => {
 })
 
 // Pagination
-const totalPages = computed(() => Math.ceil(filteredBookings.value.length / pageSize.value))
+const totalPages = computed(() => Math.ceil(sortedBookings.value.length / pageSize.value))
 
 const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
-const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, filteredBookings.value.length))
+const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, sortedBookings.value.length))
 
 const paginatedBookings = computed(() => {
-  return filteredBookings.value.slice(startIndex.value, endIndex.value)
+  return sortedBookings.value.slice(startIndex.value, endIndex.value)
 })
 
 const visiblePages = computed(() => {
@@ -806,7 +718,6 @@ const isQuickDateActive = (option) => {
 
 const cancelBooking = (id) => {
   cancelBookingId.value = id
-  cancelReason.value = ''
   showCancelDialog.value = true
 }
 
@@ -814,9 +725,10 @@ const confirmCancel = () => {
   const booking = bookings.value.find(b => b.id === cancelBookingId.value)
   if (booking) {
     booking.status = 'cancelled'
-    booking.reason = cancelReason.value.trim()
+    delete booking.reason
   }
   showCancelDialog.value = false
+  cancelBookingId.value = null
   ElMessage.success('EV booking cancelled successfully!')
 }
 
@@ -826,6 +738,25 @@ const onLogout = () => {
 </script>
 
 <style scoped>
+.cancel-confirm-message {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #374151;
+}
+
+.action-confirm {
+  background-color: #00723a;
+  border-color: #00723a;
+  color: #ffffff;
+}
+
+.action-confirm:hover {
+  background-color: #005a2e;
+  border-color: #005a2e;
+  color: #ffffff;
+}
+
 .page {
   height: var(--zoom-vh);
   background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
@@ -1179,8 +1110,6 @@ const onLogout = () => {
 .badge-upcoming {
   background-color: #d1fae5;
   color: #065f46;
-  padding: 0.25rem 0.625rem;
-  font-size: 0.75rem;
 }
 
 .badge-past {
@@ -1559,6 +1488,27 @@ const onLogout = () => {
   font-weight: 600;
   white-space: nowrap;
   font-size: 0.8125rem;
+}
+
+.th-sort-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  color: inherit;
+  font-weight: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.sort-indicator {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1;
 }
 
 .bookings-table th.col-datetime {

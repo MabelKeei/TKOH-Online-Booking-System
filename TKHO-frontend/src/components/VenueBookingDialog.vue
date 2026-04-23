@@ -26,7 +26,7 @@
         >
           <!-- Room, Date, Time Section -->
           <div class="form-section">
-            <el-form-item label="Room" prop="room" :rules="[{ required: true, message: 'Please select a room' }]">
+            <el-form-item label="Room / Venue" prop="room" :rules="[{ required: true, message: 'Please select a room' }]">
               <el-select v-model="form.room" placeholder="Select a room" style="width: 100%;" popper-class="room-select-popper">
                 <el-option
                   v-for="room in availableRooms"
@@ -102,7 +102,7 @@
           <!-- Event + Additional Services -->
           <div class="form-section paired-layout">
             <div class="paired-left">
-              <el-form-item label="Topic / Event Name" prop="topic" :rules="[{ required: true, message: 'Please enter topic' }]" class="topic-item no-wrap-label">
+              <el-form-item label="Meeting / Event Title" prop="topic" :rules="[{ required: true, message: 'Please enter topic' }]" class="topic-item no-wrap-label">
                 <el-input
                   v-model="form.topic"
                   type="textarea"
@@ -113,18 +113,18 @@
                 ></el-input>
               </el-form-item>
 
-              <el-form-item label="Remark" prop="remark" class="no-wrap-label">
+              <el-form-item label="My Note" prop="remark" class="no-wrap-label">
                 <el-input
                   v-model="form.remark"
                   type="textarea"
                   :autosize="{ minRows: 1, maxRows: 2 }"
                   resize="none"
                   class="two-line-input"
-                  placeholder="Enter any remarks"
+                  placeholder="Enter any notes"
                 ></el-input>
               </el-form-item>
 
-              <el-form-item label="Number of Attendees" prop="attendeeCount" class="no-wrap-label">
+              <el-form-item label="No. of participants" prop="attendeeCount" class="no-wrap-label">
                 <el-input-number
                   v-model="form.attendeeCount"
                   :min="1"
@@ -140,8 +140,26 @@
                   <el-radio :label="false">No</el-radio>
                 </el-radio-group>
               </el-form-item>
+              <p v-if="form.teaServiceRequired && isTeaServiceUnavailable" class="tea-service-note">
+                Tea service is unavailable for bookings on today or earlier. Please select a future date.
+              </p>
+              <template v-if="form.teaServiceRequired && !isTeaServiceUnavailable">
+                <div class="tea-service-options">
+                  <el-form-item label="Tea or Water" prop="teaOrWater" class="tea-service-line no-wrap-label">
+                    <el-radio-group v-model="form.teaOrWater" class="tea-service-radios">
+                      <el-radio label="tea">Tea</el-radio>
+                      <el-radio label="water">Water</el-radio>
+                    </el-radio-group>
+                  </el-form-item>
 
-              
+                  <el-form-item label=" " prop="serviceType" class="tea-service-line tea-service-followup no-wrap-label">
+                    <el-radio-group v-model="form.serviceType" class="tea-service-radios">
+                      <el-radio label="pot">One Pot</el-radio>
+                      <el-radio label="bottle">One Bottle Per Person</el-radio>
+                    </el-radio-group>
+                  </el-form-item>
+                </div>
+              </template>
             </div>
 
             <div class="paired-right">
@@ -202,48 +220,27 @@
             </div>
           </div>
 
-          <!-- Tea Service -->
-          <template v-if="form.teaServiceRequired && !isSameDay">
-            <div class="tea-service-options">
-              <div class="form-row">
-                <el-form-item label="Tea or Water" prop="teaOrWater" class="form-item-half">
-                  <el-radio-group v-model="form.teaOrWater">
-                    <el-radio label="tea">Tea</el-radio>
-                    <el-radio label="water">Water</el-radio>
-                  </el-radio-group>
-                </el-form-item>
-
-                <el-form-item label="Service Type" prop="serviceType" class="form-item-half no-label-desktop">
-                  <el-radio-group v-model="form.serviceType">
-                    <el-radio label="pot">One Pot</el-radio>
-                    <el-radio label="bottle">One Bottle Per Person</el-radio>
-                  </el-radio-group>
-                </el-form-item>
-              </div>
-            </div>
-          </template>
-
           <el-divider class="section-divider" />
 
           <!-- User Info -->
           <div class="form-section user-info-section">
             <div class="form-row">
               <el-form-item label="Full Name" prop="fullName" class="form-item-half">
-                <el-input v-model="form.fullName"></el-input>
+                <el-input v-model="form.fullName" disabled></el-input>
               </el-form-item>
 
-              <el-form-item label="Department / Unit" prop="department" class="form-item-half no-label">
-                <el-input v-model="form.department"></el-input>
+              <el-form-item label="Department" prop="department" class="form-item-half no-label">
+                <el-input v-model="form.department" disabled></el-input>
               </el-form-item>
             </div>
 
             <div class="form-row">
-              <el-form-item label="Contact Telephone No" prop="contactPhone" class="form-item-half">
-                <el-input v-model="form.contactPhone"></el-input>
+              <el-form-item label="Contact No." prop="contactPhone" class="form-item-half">
+                <el-input v-model="form.contactPhone" disabled></el-input>
               </el-form-item>
 
-              <el-form-item label="Contact Email" prop="contactEmail" class="form-item-half no-label">
-                <el-input v-model="form.contactEmail"></el-input>
+              <el-form-item label="Email" prop="contactEmail" class="form-item-half no-label">
+                <el-input v-model="form.contactEmail" disabled></el-input>
               </el-form-item>
             </div>
           </div>
@@ -398,14 +395,13 @@ function buildHalfHourTimeOptions(start = '07:00', end = '21:00', stepMinutes = 
 }
 const timeSlotOptions = buildHalfHourTimeOptions()
 
-const isSameDay = computed(() => {
+const isTeaServiceUnavailable = computed(() => {
   if (!form.value.date) return false
   const selectedDate = new Date(form.value.date)
+  selectedDate.setHours(0, 0, 0, 0)
   const today = new Date()
-  // 确保日期比较的准确性，只比较年月日
-  return selectedDate.getFullYear() === today.getFullYear() &&
-         selectedDate.getMonth() === today.getMonth() &&
-         selectedDate.getDate() === today.getDate()
+  today.setHours(0, 0, 0, 0)
+  return selectedDate <= today
 })
 
 // 禁用过去的日期（只能选择今天及以后的日期）
@@ -457,6 +453,7 @@ function initializeForm() {
     if (props.selectedTime) {
       form.value.date = props.selectedTime.date
       form.value.startTime = props.selectedTime.time
+      form.value.room = props.selectedTime.room || ''
     }
   }
 }
@@ -766,9 +763,47 @@ watch(() => props.visible, (val) => {
 
 .tea-service-options {
   background-color: #f9fafb;
-  padding: 0.75rem;
+  padding: 0.75rem 0.75rem 0.75rem 0;
   border-radius: 0.375rem;
   margin-top: 0.375rem;
+}
+
+.tea-service-line {
+  margin-bottom: 0.25rem;
+}
+
+.tea-service-followup {
+  margin-bottom: 0;
+}
+
+.tea-service-line :deep(.el-form-item__label) {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.tea-service-line :deep(.el-form-item__content) {
+  display: flex;
+  align-items: center;
+}
+
+.tea-service-radios {
+  display: grid;
+  grid-template-columns: 130px 220px;
+  column-gap: 1rem;
+  row-gap: 0;
+  justify-content: start;
+}
+
+.tea-service-radios :deep(.el-radio) {
+  margin-right: 0;
+  white-space: nowrap;
+}
+
+.tea-service-note {
+  margin: -0.375rem 0 0.625rem;
+  color: #b45309;
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 
 .tea-service-options .form-row {

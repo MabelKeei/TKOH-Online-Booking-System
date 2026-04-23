@@ -14,8 +14,9 @@
 
     <!-- 日期网格 -->
     <div
+      ref="monthGridRef"
       class="month-grid flex-1"
-      :style="{ gridTemplateRows: `repeat(${gridRows}, 1fr)` }"
+      :style="{ gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))` }"
       :key="`grid-${currentDate.getFullYear()}-${currentDate.getMonth()}`"
     >
       <!-- 上个月的日期 -->
@@ -42,16 +43,31 @@
         @click="selectDate(day)"
       >
         <span class="date-number">{{ day }}</span>
-        <div v-if="hasBookings(day)" class="booking-indicators">
+        <div v-if="hasBookings(day)" :class="['month-booking-list', { expanded: isDayExpanded(day) }]">
+          <CalendarBookingPopover
+            v-for="(booking, idx) in getVisibleBookings(day)"
+            :key="booking.id ?? `b-${day}-${idx}`"
+            :booking="booking"
+            :current-date="currentDate"
+            :fallback-day="day"
+            default-color="#f97316"
+          >
+            <template #reference>
+              <div
+                class="month-event-bar"
+                :style="{ '--booking-accent': booking.color || '#f97316' }"
+              >
+                <span class="month-event-text">{{ formatMonthEventLabel(booking) }}</span>
+              </div>
+            </template>
+          </CalendarBookingPopover>
           <div
-            v-for="(booking, idx) in getBookingsForDay(day).slice(0, 8)"
-            :key="idx"
-            class="booking-dot"
-            :style="{ backgroundColor: booking.color || '#f97316' }"
-          />
-          <span v-if="getBookingsForDay(day).length > 8" class="more-count">
-            +{{ getBookingsForDay(day).length - 8 }}
-          </span>
+            v-if="getHiddenBookingCount(day) > 0"
+            class="month-more-footer"
+            @click.stop="toggleDayExpanded(day)"
+          >
+            +{{ getHiddenBookingCount(day) }}
+          </div>
         </div>
       </div>
 
@@ -72,7 +88,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import CalendarBookingPopover from './CalendarBookingPopover.vue'
 
 const props = defineProps({
   currentDate: {
@@ -92,6 +109,37 @@ const props = defineProps({
 const emit = defineEmits(['day-click'])
 
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+const monthGridRef = ref(null)
+const monthCellHeight = ref(0)
+const expandedDaySet = ref(new Set())
+let gridResizeObserver = null
+
+function formatMonthEventTime(startTime) {
+  if (!startTime) return ''
+  const parts = String(startTime).split(':')
+  const h = parseInt(parts[0], 10)
+  const m = parts[1] ?? '00'
+  if (Number.isNaN(h)) return startTime
+  return `${h}:${m}`
+}
+
+function formatMonthEventLabel(booking) {
+  const time = formatMonthEventTime(booking.startTime)
+  const title = (booking.topic || booking.notes || 'Booking').trim()
+  return title ? `${time}：${title}` : time
+}
+
+function getMonthCellAvailableHeight() {
+  // date number + vertical gaps/paddings 预留
+  return Math.max(40, monthCellHeight.value - 36)
+}
+
+function getBaseVisibleCount() {
+  // 事件条高度 + 行间距（按当前样式估算）
+  const perLine = 26
+  return Math.max(1, Math.floor((getMonthCellAvailableHeight() + 4) / perLine))
+}
 
 // 当前月份的天数
 const daysInMonth = computed(() => {
@@ -158,14 +206,57 @@ function getBookingsForDay(day) {
     return bookingDate.toDateString() === targetDate.toDateString()
   })
 
-  // 如果没有选中任何房间，返回所有预订
+  // 与 Day/Week 一致：未选中任何房间（如 Clear All）时不显示预订
   if (!props.selectedRooms || props.selectedRooms.length === 0) {
-    return dayBookings
+    return []
   }
 
-  // 根据选中的房间过滤
   const selectedRoomNames = props.selectedRooms.map(room => room.name)
-  return dayBookings.filter(booking => selectedRoomNames.includes(booking.roomName))
+  return dayBookings
+    .filter(booking => selectedRoomNames.includes(booking.roomName))
+    .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
+}
+
+function isDayExpanded(day) {
+  return expandedDaySet.value.has(day)
+}
+
+function getCollapsedVisibleCount(day) {
+  const total = getBookingsForDay(day).length
+  const baseVisible = getBaseVisibleCount()
+  if (total <= baseVisible) return total
+  // 预留一行给 +num
+  return Math.max(1, baseVisible - 1)
+}
+
+function getVisibleBookings(day) {
+  const all = getBookingsForDay(day)
+  if (isDayExpanded(day)) return all
+  return all.slice(0, getCollapsedVisibleCount(day))
+}
+
+function getHiddenBookingCount(day) {
+  const allCount = getBookingsForDay(day).length
+  const shownCount = getVisibleBookings(day).length
+  return Math.max(0, allCount - shownCount)
+}
+
+function toggleDayExpanded(day) {
+  const next = new Set(expandedDaySet.value)
+  if (next.has(day)) {
+    next.delete(day)
+  } else {
+    next.add(day)
+  }
+  expandedDaySet.value = next
+}
+
+function updateMonthCellHeight() {
+  const grid = monthGridRef.value
+  if (!grid) return
+  const rows = gridRows.value || 5
+  const gap = Math.max(0, rows - 1) // month-grid gap: 1px
+  monthCellHeight.value = Math.max(0, (grid.clientHeight - gap) / rows)
 }
 
 // 判断某一天是否有预订
@@ -179,6 +270,33 @@ function selectDate(day) {
   date.setDate(day)
   emit('day-click', date)
 }
+
+onMounted(() => {
+  nextTick(() => {
+    updateMonthCellHeight()
+    if (!monthGridRef.value) return
+    gridResizeObserver = new ResizeObserver(() => {
+      updateMonthCellHeight()
+    })
+    gridResizeObserver.observe(monthGridRef.value)
+  })
+})
+
+onUnmounted(() => {
+  if (gridResizeObserver) {
+    gridResizeObserver.disconnect()
+    gridResizeObserver = null
+  }
+})
+
+watch(
+  () => [props.currentDate.getFullYear(), props.currentDate.getMonth(), gridRows.value],
+  async () => {
+    expandedDaySet.value = new Set()
+    await nextTick()
+    updateMonthCellHeight()
+  }
+)
 </script>
 
 <style scoped>
@@ -187,6 +305,7 @@ function selectDate(day) {
   height: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .weekday-header {
@@ -227,6 +346,7 @@ function selectDate(day) {
   border-radius: 0 0 0.5rem 0.5rem;
   overflow: hidden;
   flex: 1;
+  height: 100%;
   min-height: 0;
   border: 1px solid #e5e7eb;
   border-top: none;
@@ -234,15 +354,18 @@ function selectDate(day) {
 }
 
 .date-cell {
+  --cell-pad: 0.5rem;
   background-color: white;
-  padding: 0.5rem;
+  padding: var(--cell-pad);
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   overflow: hidden;
+  height: 100%;
   min-height: 0;
+  position: relative;
 }
 
 .date-cell:hover {
@@ -274,6 +397,8 @@ function selectDate(day) {
 }
 
 .date-number {
+  position: relative;
+  z-index: 1;
   font-weight: 600;
   color: #111827;
   font-size: 1rem;
@@ -283,60 +408,103 @@ function selectDate(day) {
   color: #d1d5db;
 }
 
-.booking-indicators {
+.month-booking-list {
+  position: absolute;
+  left: var(--cell-pad);
+  right: var(--cell-pad);
+  top: calc(var(--cell-pad) + 1.35rem);
+  bottom: var(--cell-pad);
+  z-index: 1;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.month-booking-list.expanded {
+  max-height: 100%;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.month-event-bar {
+  flex-shrink: 0;
+  width: 100%;
+  border-radius: 3px;
+  border-left: 4px solid var(--booking-accent, #f97316);
+  background-color: color-mix(in srgb, var(--booking-accent, #f97316) 42%, white);
+  padding: 3px 6px 3px 7px;
+  box-sizing: border-box;
+  min-height: 1.35rem;
+  display: flex;
   align-items: center;
+  cursor: default;
 }
 
-.booking-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.month-event-text {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #111827;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
-.more-count {
-  font-size: 0.75rem;
-  color: #6b7280;
-  margin-left: 0.25rem;
+.month-more-footer {
+  flex-shrink: 0;
+  width: 100%;
+  margin-top: 1px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background-color: #e5e7eb;
+  color: #4b5563;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  cursor: pointer;
 }
 
 @media (max-width: 389px) {
   .date-cell {
-    padding: 0.5rem;
+    --cell-pad: 0.5rem;
+    padding: var(--cell-pad);
   }
 
   .date-number {
     font-size: 0.875rem;
   }
 
-  .booking-dot {
-    width: 6px;
-    height: 6px;
+  .month-event-text {
+    font-size: 0.625rem;
   }
 
-  .more-count {
-    font-size: 0.625rem;
+  .month-more-footer {
+    font-size: 0.6rem;
+    padding: 2px 4px;
   }
 }
 
 @media (min-width: 390px) and (max-width: 767px) {
   .date-cell {
-    padding: 0.5rem;
+    --cell-pad: 0.5rem;
+    padding: var(--cell-pad);
   }
 
   .date-number {
     font-size: 0.875rem;
   }
 
-  .booking-dot {
-    width: 6px;
-    height: 6px;
+  .month-event-text {
+    font-size: 0.625rem;
   }
 
-  .more-count {
-    font-size: 0.625rem;
+  .month-more-footer {
+    font-size: 0.6rem;
+    padding: 2px 4px;
   }
 }
 

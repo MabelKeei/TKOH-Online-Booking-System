@@ -12,6 +12,7 @@
 
     <!-- 系统选择按钮区：在不同屏幕下自适应宽度和间距 -->
     <div class="system-buttons-container w-full max-w-md md:max-w-lg mx-auto mt-6 mb-3 px-4">
+      <p class="system-caption">Please select a system</p>
       <el-form-item prop="system" class="system-buttons-item">
         <div class="system-buttons">
           <button
@@ -28,7 +29,6 @@
           </button>
         </div>
       </el-form-item>
-      <p class="system-caption">Please select a system</p>
     </div>
 
     <!-- 登录卡片：自适应宽度，居中显示 -->
@@ -78,82 +78,51 @@
       </el-form>
     </div>
 
-    <!-- 底部说明区域：绿色背景全宽，内容区随屏幕宽度自适应 -->
-    <section class="login-notes w-full mt-6 py-3 px-0">
+    <!-- 底部说明区域：仅在选中有说明的系统后显示 -->
+    <section v-if="currentPointsToNoteContent" class="login-notes w-full mt-6 py-3 px-0">
       <div class="w-full">
-      <h2 class="notes-title">Points to Note:</h2>
-      <ol class="notes-list">
-        <li>
-          1.For reservation of other venues (e.g. Courtyard or Glasshouse), please contact General Office at
-          <strong>2208 1951</strong> directly.
-        </li>
-        <li>
-          2.General Office reserves the right to cancel any booking or reassign another venue under necessary
-          circumstances.
-        </li>
-        <li>
-          3.Should user require the following service for the meeting, please directly contact the respective
-          department in advance for arrangement.
-        </li>
-      </ol>
-
-      <div class="notes-table">
-        <div class="notes-row notes-header-row">
-          <div class="notes-cell notes-cell-service">Service/Equipment</div>
-          <div class="notes-cell notes-cell-dept">Subject Department</div>
-        </div>
-        <div class="notes-row">
-          <div class="notes-cell notes-cell-service">Zoom/Video Conferencing</div>
-          <div class="notes-cell notes-cell-dept">
-            Information Technology Dept (Tel: 2208 1830)
-          </div>
-        </div>
-        <div class="notes-row">
-          <div class="notes-cell notes-cell-service">Venue Setting / Furniture on-loan</div>
-          <div class="notes-cell notes-cell-dept">
-            Facility Management Dept (Tel: 2208 1845)
-          </div>
-        </div>
-        <div class="notes-row">
-          <div class="notes-cell notes-cell-service">Equipment on-loan</div>
-          <div class="notes-cell notes-cell-dept">
-            General Office (Tel: 2208 1951)
-          </div>
-        </div>
-        <div class="notes-row">
-          <div class="notes-cell notes-cell-service">
-            Tea Service for Conference Rooms (ad-hoc)
-          </div>
-          <div class="notes-cell notes-cell-dept">
-            General Office (Tel: 2208 1951)
-          </div>
-        </div>
-        <div class="notes-row">
-          <div class="notes-cell notes-cell-service">
-            Tea Service for Other Venue and Rooms
-          </div>
-          <div class="notes-cell notes-cell-dept">
-            Via ADS
-          </div>
-        </div>
-      </div>
+        <div class="notes-content" v-html="currentPointsToNoteContent"></div>
       </div>
     </section>
+
+    <div v-if="statusDialog.visible" class="status-modal-overlay" @click.self="statusDialog.visible = false">
+      <div class="status-modal-wrapper">
+        <div class="status-modal-header">
+          <span class="status-modal-title">Reminder</span>
+          <button type="button" class="status-modal-close" @click="statusDialog.visible = false">
+            <svg viewBox="0 0 24 24" class="status-close-icon">
+              <path d="M18 6L6 18M6 6l12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="status-modal-body">
+          <p :class="['status-dialog-message', statusDialog.type]">{{ statusDialog.message }}</p>
+        </div>
+        <div class="status-modal-footer">
+          <el-button class="status-confirm-btn" type="default" @click="statusDialog.visible = false">OK</el-button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { computed, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { login as loginApi } from '../api/auth'
 import { ElMessage } from 'element-plus'
-import { createMockToken, createMockUser } from '@/mocks/mockData'
+import { createMockToken, createMockUser, getMockPromptList } from '@/mocks/mockData'
 
 const router = useRouter()
 const userStore = useUserStore()
 const loginFormRef = ref(null)
 const loading = ref(false)
+const statusDialog = reactive({
+  visible: false,
+  message: '',
+  type: 'warning'
+})
 
 // 默认账号密码：corpId=test，password=123456
 const loginForm = reactive({
@@ -163,10 +132,21 @@ const loginForm = reactive({
 })
 
 const systemOptions = [
-  { label: 'Admin Management', value: 'admin', icon: 'user-gear' },
   { label: 'EV Booking', value: 'parking', icon: 'car' },
-  { label: 'Venue Booking', value: 'room', icon: 'building' }
+  { label: 'Venue Booking', value: 'room', icon: 'building' },
+  { label: 'Admin Management', value: 'admin', icon: 'user-gear' }
 ]
+
+const promptList = getMockPromptList()
+const pointsToNoteKeyBySystem = {
+  parking: 'ev_booking_points_to_note',
+  room: 'venue_booking_points_to_note'
+}
+const currentPointsToNoteContent = computed(() => {
+  const targetKey = pointsToNoteKeyBySystem[loginForm.system]
+  if (!targetKey) return ''
+  return promptList.find(item => item.key === targetKey)?.content || ''
+})
 
 const loginRules = {
   corpId: [
@@ -180,47 +160,58 @@ const loginRules = {
   ]
 }
 
+const showStatusDialog = (message, type = 'warning') => {
+  statusDialog.message = message
+  statusDialog.type = type
+  statusDialog.visible = true
+}
+
 const handleLogin = async () => {
-  if (!loginFormRef.value) return
-  
-  await loginFormRef.value.validate(async (valid) => {
-    if (valid) {
-      loading.value = true
-      try {
-        // 这里应该调用实际的登录 API
-        // const res = await loginApi(loginForm)
-        // 暂时固定为本地模拟账号：test / 123456
-        if (loginForm.corpId !== 'test' || loginForm.password !== '123456') {
-          ElMessage.error('Invalid CORP ID or password (use test / 123456)')
-          loading.value = false
-          return
-        }
+  const corpId = loginForm.corpId?.trim()
+  const password = loginForm.password?.trim()
 
-        const mockUser = createMockUser({
-          corpId: loginForm.corpId,
-          system: loginForm.system
-        })
-        const mockToken = createMockToken()
+  if (!loginForm.system) {
+    showStatusDialog('Select a system before click to login', 'warning')
+    return
+  }
 
-        userStore.login(mockUser, mockToken)
-        ElMessage.success('Login successful')
-        // 根据选择的系统跳转到对应页面
-        if (loginForm.system === 'parking') {
-          router.push('/evBooking/Calendar')
-        } else if (loginForm.system === 'room') {
-          router.push('/VenueBooking')
-        } else if (loginForm.system === 'admin') {
-          router.push('/admin')
-        } else {
-          router.push('/login')
-        }
-      } catch (error) {
-        ElMessage.error(error.message || 'Login failed')
-      } finally {
-        loading.value = false
-      }
+  if (!corpId || !password) {
+    showStatusDialog('Missing corp id / password', 'error')
+    return
+  }
+
+  loading.value = true
+  try {
+    // 这里应该调用实际的登录 API
+    // const res = await loginApi(loginForm)
+    // 暂时固定为本地模拟账号：test / 123456
+    if (corpId !== 'test' || password !== '123456') {
+      showStatusDialog('Incorrect corp id / password', 'error')
+      return
     }
-  })
+
+    const mockUser = createMockUser({
+      corpId,
+      system: loginForm.system
+    })
+    const mockToken = createMockToken()
+
+    userStore.login(mockUser, mockToken)
+    // 根据选择的系统跳转到对应页面
+    if (loginForm.system === 'parking') {
+      router.push('/evBooking/Calendar')
+    } else if (loginForm.system === 'room') {
+      router.push('/VenueBooking')
+    } else if (loginForm.system === 'admin') {
+      router.push('/admin')
+    } else {
+      router.push('/login')
+    }
+  } catch (error) {
+    ElMessage.error(error.message || 'Login failed')
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -592,67 +583,159 @@ const handleLogin = async () => {
   box-shadow: 0 -2px 12px rgba(0, 114, 58, 0.08);
 }
 
-.notes-title {
-  margin: 0 0 12px;
+.notes-content :deep(p) {
+  margin: 0 0 8px;
+}
+
+.notes-content :deep(p:first-child strong) {
+  display: inline-block;
+  margin: 0 0 4px;
   font-size: 15px;
   font-weight: 700;
-  text-align: left;
   color: #0A3D1F;
   letter-spacing: 0.3px;
 }
 
-.notes-list {
-  margin: 0 0 16px;
-  padding: 0;
-  text-align: left;
+.notes-content :deep(ol) {
+  margin: 0;
+  padding-left: 1.25rem;
 }
 
-.notes-list li + li {
+.notes-content :deep(li + li) {
   margin-top: 6px;
 }
 
-.notes-table {
+.notes-content :deep(table) {
   width: min(100vw - 2rem, 900px);
   border-collapse: collapse;
-  margin: 8px 0 0;
-  display: block;
+  margin: 10px 0 0;
   text-align: left;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
-.notes-row {
-  display: flex;
-  column-gap: 6px;
-}
-
-.notes-cell {
+.notes-content :deep(th),
+.notes-content :deep(td) {
   padding: 6px 10px;
   font-size: 12px;
   text-align: left;
+  border: 1px solid #d1d5db;
 }
 
-.notes-header-row {
+.notes-content :deep(thead tr) {
   font-weight: 700;
   background: linear-gradient(135deg, #d0e8d6 0%, #c8e6d0 100%);
   color: #0A3D1F;
 }
 
-.notes-cell-service {
-  flex: 0 0 50%;
-}
-
-.notes-cell-dept {
-  flex: 0 0 50%;
-}
-
-.notes-row:not(.notes-header-row):nth-child(odd) .notes-cell {
+.notes-content :deep(tbody tr:nth-child(odd)) td {
   background-color: #f8fcf9;
 }
 
-.notes-row:not(.notes-header-row):nth-child(even) .notes-cell {
+.notes-content :deep(tbody tr:nth-child(even)) td {
   background-color: #ffffff;
+}
+
+.status-modal-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.status-modal-wrapper {
+  width: min(92vw, 420px);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.status-modal-header {
+  background: #00723a;
+  color: #ffffff;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-modal-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.status-modal-close {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.status-close-icon {
+  width: 20px;
+  height: 20px;
+  stroke: #ffffff;
+  fill: none;
+}
+
+.status-modal-close:hover .status-close-icon {
+  stroke: #d1fae5;
+}
+
+.status-modal-body {
+  padding: 1.25rem 1.5rem 1rem;
+}
+
+.status-modal-footer {
+  padding: 0.9rem 1.25rem 1.1rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.status-confirm-btn {
+  background-color: #00723a;
+  border-color: #00723a;
+  color: #ffffff;
+  font-weight: 600;
+  min-width: 88px;
+}
+
+.status-confirm-btn:hover {
+  background-color: #005a2e;
+  border-color: #005a2e;
+  color: #ffffff;
+}
+
+.status-dialog-message {
+  margin: 0;
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.5;
+  color: #333333;
+}
+
+.status-dialog-message.warning {
+  color: #e6a23c;
+}
+
+.status-dialog-message.error {
+  color: #f56c6c;
 }
 
 /* 响应式设置 */
@@ -724,12 +807,8 @@ const handleLogin = async () => {
     padding: 24px 20px 28px;
   }
 
-  .notes-table {
+  .notes-content :deep(table) {
     width: min(100vw - 1.5rem, 900px);
-  }
-
-  .notes-cell-service {
-    flex: 0 0 50%;
   }
 }
 </style>

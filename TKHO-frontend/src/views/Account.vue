@@ -12,37 +12,54 @@
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
-              <h2 class="section-title">Profile Information</h2>
+              <h2 class="section-title">User Profile</h2>
             </div>
 
             <div class="form-grid">
               <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Full Name <span class="required">*</span></label>
-                  <input type="text" v-model="profile.fullName" class="form-input" placeholder="Enter your full name" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Email Address</label>
-                  <input type="email" v-model="profile.email" class="form-input" disabled />
-                  <p class="form-hint">Email cannot be changed</p>
+                <div class="form-group full-width">
+                  <label class="form-label">First Name + Last Name <span class="required">*</span></label>
+                  <input type="text" v-model="profile.fullName" class="form-input" placeholder="Enter your first name + last name" />
                 </div>
               </div>
 
               <div class="form-row">
                 <div class="form-group">
-                  <label class="form-label">Contact Telephone <span class="required">*</span></label>
+                  <label class="form-label">Username (Corp ID)</label>
+                  <input type="text" v-model="profile.corpId" class="form-input" disabled />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email</label>
+                  <input type="email" v-model="profile.email" class="form-input" disabled />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Contact No. <span class="required">*</span></label>
                   <input type="text" v-model="profile.phone" class="form-input" placeholder="12345678" />
                 </div>
                 <div class="form-group">
-                  <label class="form-label">User No. <span class="required">*</span></label>
+                  <label class="form-label">Employee No. <span class="required">*</span></label>
                   <input type="text" v-model="profile.employeeNo" class="form-input" placeholder="123456" />
                 </div>
               </div>
 
               <div class="form-row">
-                <div class="form-group full-width">
+                <div class="form-group">
                   <label class="form-label">Department <span class="required">*</span></label>
                   <input type="text" v-model="profile.department" class="form-input" placeholder="Enter your department" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Assign Roles / Access Level</label>
+                  <input type="text" v-model="profile.accessLevel" class="form-input" disabled />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group full-width">
+                  <label class="form-label">Booking rule e.g. booking quotas</label>
+                  <input type="text" v-model="profile.bookingRule" class="form-input" disabled />
                 </div>
               </div>
             </div>
@@ -132,29 +149,9 @@
                     />
                     <div v-else class="vehicle-plate">{{ vehicle.plate }}</div>
                     <div class="vehicle-badge-group">
-                      <select
-                        v-if="editingVehicleIndex === vehicle.originalIndex"
-                        v-model="vehicle.type"
-                        class="vehicle-type-select"
-                        :class="`vehicle-type-${vehicle.type.toLowerCase()}`"
-                        @click.stop
-                      >
-                        <option value="Personal">Personal</option>
-                        <option value="Company">Company</option>
-                      </select>
-                      <div v-else class="vehicle-type" :class="`vehicle-type-${vehicle.type.toLowerCase()}`">{{ vehicle.type }}</div>
                       <div v-if="vehicle.isDefault" class="vehicle-default-badge">Default</div>
                     </div>
                   </div>
-                  <input
-                    v-if="editingVehicleIndex === vehicle.originalIndex"
-                    type="text"
-                    v-model="vehicle.brand"
-                    class="vehicle-brand-input"
-                    placeholder="Brand"
-                    @click.stop
-                  />
-                  <div v-else class="vehicle-brand">{{ vehicle.brand }}</div>
                 </div>
                 <div class="vehicle-actions">
                   <button
@@ -232,17 +229,6 @@
                     placeholder="License Plate"
                     @keyup.enter="addVehicle"
                   />
-                  <input
-                    type="text"
-                    v-model="newVehicle.brand"
-                    class="form-input"
-                    placeholder="Brand"
-                    @keyup.enter="addVehicle"
-                  />
-                  <select v-model="newVehicle.type" class="form-input">
-                    <option value="Personal">Personal</option>
-                    <option value="Company">Company</option>
-                  </select>
                 </div>
                 <div class="form-actions-row">
                   <button class="btn-confirm" @click="addVehicle">
@@ -265,23 +251,45 @@
         </div>
       </div>
     </main>
+
+    <div v-if="statusDialog.visible" class="status-modal-overlay" @click.self="statusDialog.visible = false">
+      <div class="status-modal-wrapper">
+        <div class="status-modal-header">
+          <span class="status-modal-title">Reminder</span>
+          <button type="button" class="status-modal-close" @click="statusDialog.visible = false">
+            <svg viewBox="0 0 24 24" class="status-close-icon">
+              <path d="M18 6L6 18M6 6l12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="status-modal-body">
+          <p :class="['status-dialog-message', statusDialog.type]">{{ statusDialog.message }}</p>
+        </div>
+        <div class="status-modal-footer">
+          <el-button class="status-confirm-btn" type="default" @click="statusDialog.visible = false">OK</el-button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import AppHeader from '../components/AppHeader.vue'
+import { getMockAccountVehicleList } from '@/mocks/mockData'
 
 const router = useRouter()
 
 const profile = ref({
   fullName: 'Karen SHEN',
+  corpId: 'E001',
   email: 'karenshen@ha.org.hk',
   phone: '12345678',
   employeeNo: '123456',
-  department: 'Administration'
+  department: 'Administration',
+  accessLevel: 'Staff',
+  bookingRule: 'EV: 1 session/week; Venue: 30 bookings/year'
 })
 
 const password = ref({
@@ -290,20 +298,20 @@ const password = ref({
   confirm: ''
 })
 
-const vehicles = ref([
-  { plate: 'AB1234', type: 'Personal', brand: 'Toyota', isDefault: true },
-  { plate: 'CD5678', type: 'Company', brand: 'Honda', isDefault: false }
-])
+const vehicles = ref(getMockAccountVehicleList())
 
 const newVehicle = ref({
-  plate: '',
-  type: 'Personal',
-  brand: ''
+  plate: ''
 })
 
 const showAddForm = ref(false)
 const editingVehicleIndex = ref(null)
 const vehicleBackup = ref(null)
+const statusDialog = reactive({
+  visible: false,
+  message: '',
+  type: 'warning'
+})
 
 const sortedVehicles = computed(() => {
   return vehicles.value
@@ -319,60 +327,76 @@ const onLogout = () => {
   router.push('/login')
 }
 
+const showStatusDialog = (message, type = 'warning') => {
+  statusDialog.message = message
+  statusDialog.type = type
+  statusDialog.visible = true
+}
+
+const notifyError = (message) => showStatusDialog(message, 'error')
+const notifySuccess = (message) => showStatusDialog(message, 'success')
+
 const saveProfile = () => {
   if (!profile.value.fullName || !profile.value.phone || !profile.value.employeeNo || !profile.value.department) {
-    ElMessage.error('Please fill in all required fields')
+    notifyError('Please fill in all required fields')
     return
   }
-  ElMessage.success('Profile saved successfully!')
+  notifySuccess('Profile saved successfully!')
 }
 
 const updatePassword = () => {
   if (!password.value.current || !password.value.new || !password.value.confirm) {
-    ElMessage.error('Please fill in all password fields')
+    notifyError('Please fill in all password fields')
     return
   }
 
   if (password.value.new !== password.value.confirm) {
-    ElMessage.error('New passwords do not match')
+    notifyError('New passwords do not match')
     return
   }
 
-  ElMessage.success('Password updated successfully!')
+  if (password.value.new.length < 6) {
+    notifyError('New password must be at least 6 characters')
+    return
+  }
+
+  notifySuccess('Password updated successfully!')
   password.value = { current: '', new: '', confirm: '' }
 }
 
 const addVehicle = () => {
-  if (!newVehicle.value.plate.trim()) {
-    ElMessage.error('Please enter a license plate')
+  const rawPlate = newVehicle.value.plate ?? ''
+  const trimmedPlate = rawPlate.trim().toUpperCase()
+  const platePattern = /^[A-Z0-9]+$/
+
+  if (!trimmedPlate) {
+    notifyError('Please enter a license plate')
     return
   }
 
-  if (!newVehicle.value.brand.trim()) {
-    ElMessage.error('Please enter a brand')
+  if (!platePattern.test(trimmedPlate)) {
+    notifyError('License plate can only contain letters and numbers (no spaces or symbols)')
     return
   }
 
-  const plateExists = vehicles.value.some(v => v.plate.toUpperCase() === newVehicle.value.plate.trim().toUpperCase())
+  const plateExists = vehicles.value.some(v => v.plate.toUpperCase() === trimmedPlate)
   if (plateExists) {
-    ElMessage.error('This license plate already exists')
+    notifyError('This license plate already exists')
     return
   }
 
   vehicles.value.push({
-    plate: newVehicle.value.plate.trim().toUpperCase(),
-    type: newVehicle.value.type,
-    brand: newVehicle.value.brand.trim(),
+    plate: trimmedPlate,
     isDefault: vehicles.value.length === 0
   })
 
-  newVehicle.value = { plate: '', type: 'Personal', brand: '' }
+  newVehicle.value = { plate: '' }
   showAddForm.value = false
-  ElMessage.success('Vehicle added successfully!')
+  notifySuccess('Vehicle added successfully!')
 }
 
 const cancelAddVehicle = () => {
-  newVehicle.value = { plate: '', type: 'Personal', brand: '' }
+  newVehicle.value = { plate: '' }
   showAddForm.value = false
 }
 
@@ -384,7 +408,7 @@ const removeVehicle = (index) => {
     vehicles.value[0].isDefault = true
   }
 
-  ElMessage.success('Vehicle removed successfully!')
+  notifySuccess('Vehicle removed successfully!')
 }
 
 const setDefaultVehicle = (index) => {
@@ -393,15 +417,13 @@ const setDefaultVehicle = (index) => {
   vehicles.value.forEach((v, i) => {
     v.isDefault = i === index
   })
-  ElMessage.success('Default vehicle updated!')
+  notifySuccess('Default vehicle updated!')
 }
 
 const startEditVehicle = (index) => {
   const vehicle = vehicles.value[index]
   vehicleBackup.value = {
-    plate: vehicle.plate,
-    brand: vehicle.brand,
-    type: vehicle.type
+    plate: vehicle.plate
   }
   editingVehicleIndex.value = index
 }
@@ -409,37 +431,34 @@ const startEditVehicle = (index) => {
 const saveVehicle = (index) => {
   const vehicle = vehicles.value[index]
   const trimmedPlate = vehicle.plate.trim().toUpperCase()
-  const trimmedBrand = vehicle.brand.trim()
+  const platePattern = /^[A-Z0-9]+$/
 
   if (!trimmedPlate) {
-    ElMessage.error('License plate cannot be empty')
+    notifyError('License plate cannot be empty')
     return
   }
 
-  if (!trimmedBrand) {
-    ElMessage.error('Brand cannot be empty')
+  if (!platePattern.test(trimmedPlate)) {
+    notifyError('License plate can only contain letters and numbers (no spaces or symbols)')
     return
   }
 
   const plateExists = vehicles.value.some((v, i) => i !== index && v.plate.toUpperCase() === trimmedPlate)
   if (plateExists) {
-    ElMessage.error('This license plate already exists')
+    notifyError('This license plate already exists')
     return
   }
 
   vehicle.plate = trimmedPlate
-  vehicle.brand = trimmedBrand
   editingVehicleIndex.value = null
   vehicleBackup.value = null
-  ElMessage.success('Vehicle updated!')
+  notifySuccess('Vehicle updated!')
 }
 
 const cancelEdit = (index) => {
   if (vehicleBackup.value) {
     const vehicle = vehicles.value[index]
     vehicle.plate = vehicleBackup.value.plate
-    vehicle.brand = vehicleBackup.value.brand
-    vehicle.type = vehicleBackup.value.type
   }
   editingVehicleIndex.value = null
   vehicleBackup.value = null
@@ -610,7 +629,7 @@ onUnmounted(() => {
 
 .form-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: stretch;
   margin-top: 0.75rem;
   flex-shrink: 0;
 }
@@ -623,6 +642,7 @@ onUnmounted(() => {
 .btn-save,
 .btn-update,
 .btn-add {
+  width: 100%;
   background-color: #00723a;
   color: white;
   padding: 0.4375rem 1.25rem;
@@ -634,7 +654,9 @@ onUnmounted(() => {
   transition: all 0.2s;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
+  text-align: center;
 }
 
 .btn-save:hover,
@@ -1015,7 +1037,7 @@ onUnmounted(() => {
 
 .form-row-compact {
   display: grid;
-  grid-template-columns: 1.5fr 1.5fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0.5rem;
   align-items: center;
 }
@@ -1038,6 +1060,107 @@ onUnmounted(() => {
   background-color: #005a2e;
   transform: translateY(-1px);
   box-shadow: 0 4px 6px rgba(0, 114, 58, 0.2);
+}
+
+.status-modal-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.status-modal-wrapper {
+  width: min(92vw, 420px);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.status-modal-header {
+  background: #00723a;
+  color: #ffffff;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-modal-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.status-modal-close {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.status-close-icon {
+  width: 20px;
+  height: 20px;
+  stroke: #ffffff;
+  fill: none;
+}
+
+.status-modal-close:hover .status-close-icon {
+  stroke: #d1fae5;
+}
+
+.status-modal-body {
+  padding: 1.25rem 1.5rem 1rem;
+}
+
+.status-modal-footer {
+  padding: 0.9rem 1.25rem 1.1rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.status-confirm-btn {
+  background-color: #00723a;
+  border-color: #00723a;
+  color: #ffffff;
+  font-weight: 600;
+  min-width: 88px;
+}
+
+.status-confirm-btn:hover {
+  background-color: #005a2e;
+  border-color: #005a2e;
+  color: #ffffff;
+}
+
+.status-dialog-message {
+  margin: 0;
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.5;
+  color: #333333;
+}
+
+.status-dialog-message.error {
+  color: #f56c6c;
+}
+
+.status-dialog-message.success {
+  color: #00723a;
 }
 
 /* Landscape: 3-column layout with fixed height */

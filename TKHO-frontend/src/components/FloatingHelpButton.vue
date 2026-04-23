@@ -13,50 +13,10 @@
     </div>
 
     <!-- 帮助信息弹窗 -->
-    <BookingStyleModal v-model="dialogVisible" title="Points to Note" max-width="700px">
+    <BookingStyleModal v-model="dialogVisible" title="Points to Note" max-width="900px">
       <div class="help-content">
-        <ol>
-          <li>
-            1. For reservation of other venues (e.g. Courtyard or Glasshouse), please contact General Office at <strong>22081951</strong> directly
-          </li>
-          <li>
-            2. General Office reserves the right to cancel any booking or reassign another venue under necessary circumstances.
-          </li>
-          <li>
-            3. Should user require the following service for the meeting, please directly contact the respective department in advance for arrangement
-          </li>
-        </ol>
-
-        <table class="service-table">
-          <thead>
-            <tr>
-              <th>Service/Equipment</th>
-              <th>Subject Department</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Zoom/Video Conferencing</td>
-              <td>Information Technology Dept (Tel: 22081830)</td>
-            </tr>
-            <tr>
-              <td>Venue Setting / Furniture on-loan</td>
-              <td>Facility Management Dept (Tel: 22081845)</td>
-            </tr>
-            <tr>
-              <td>Equipment on-loan</td>
-              <td>General Office (Tel: 22081951)</td>
-            </tr>
-            <tr>
-              <td>Tea Service for Conference Rooms (ad-hoc)</td>
-              <td>General Office (Tel: 22081951)</td>
-            </tr>
-            <tr>
-              <td>Tea Service for Other Venue and Rooms</td>
-              <td>Via ADS</td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-if="currentPointsToNoteContent" class="help-rich-content" v-html="currentPointsToNoteContent"></div>
+        <p v-else class="empty-note">No points to note for current system.</p>
       </div>
     </BookingStyleModal>
   </div>
@@ -65,9 +25,12 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { getMockPromptList } from '@/mocks/mockData'
 import BookingStyleModal from './BookingStyleModal.vue'
 
 const route = useRoute()
+const userStore = useUserStore()
 const dialogVisible = ref(false)
 const position = ref({ x: 0, y: 0 })
 const isDragging = ref(false)
@@ -75,6 +38,27 @@ const dragStart = ref({ x: 0, y: 0 })
 const hasMoved = ref(false)
 const BUTTON_SIZE = 50
 const EDGE_GAP = 10
+const promptList = getMockPromptList()
+const pointsToNoteKeyBySystem = {
+  parking: 'ev_booking_points_to_note',
+  room: 'venue_booking_points_to_note'
+}
+
+const activeSystem = computed(() => {
+  if (route.path.startsWith('/evBooking')) return 'parking'
+  if (route.path.startsWith('/VenueBooking')) return 'room'
+  const systemFromStore = userStore.userInfo?.system
+  if (systemFromStore) return systemFromStore
+  return ''
+})
+
+const currentPointsToNoteContent = computed(() => {
+  const targetKey = pointsToNoteKeyBySystem[activeSystem.value]
+  if (!targetKey) return ''
+  const rawContent = promptList.find(item => item.key === targetKey)?.content || ''
+  // Modal title already shows "Points to Note", strip duplicated heading in body.
+  return rawContent.replace(/^\s*<p>\s*<strong>\s*Points?\s+to\s+Note\s*:\s*<\/strong>\s*<\/p>\s*/i, '')
+})
 
 const getZoomScale = () => {
   const zoomRaw = window.getComputedStyle(document.documentElement).zoom
@@ -115,13 +99,17 @@ const recalibrateAfterRouteChange = async () => {
   })
 }
 
-// 检查是否在登录页面或 display 页面（含 merge 独立页，不显示悬浮帮助）
+// 登录、展示页、EV 管理预订等不显示悬浮帮助
 const isLoginPage = computed(() =>
   route.path === '/login' ||
   route.path === '/' ||
+  route.path === '/Account' ||
   route.path === '/VenueBooking/Display' ||
   route.path === '/VenueBooking/Display/Merge' ||
-  route.path === '/VenueBooking/Display/TeaService'
+  route.path === '/VenueBooking/Display/TeaService' ||
+  route.path === '/evBooking/ManageBooking' ||
+  route.path === '/VenueBooking/ManageBooking' ||
+  route.name === 'VenueManageBooking'
 )
 
 // 初始化位置（右下角）
@@ -171,7 +159,7 @@ const stopDrag = () => {
 
 const handleClick = () => {
   // 只有在没有拖拽时才打开弹窗
-  if (!hasMoved.value) {
+  if (!hasMoved.value && currentPointsToNoteContent.value) {
     dialogVisible.value = true
   }
 }
@@ -217,41 +205,59 @@ onUnmounted(() => {
 }
 
 .help-content {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
   color: #374151;
 }
 
-.help-content ol {
-  padding-left: 20px;
-  margin-bottom: 20px;
+.help-rich-content :deep(p) {
+  margin: 0 0 8px;
 }
 
-.help-content li {
-  margin-bottom: 12px;
+.help-rich-content :deep(ol) {
+  margin: 0;
+  padding-left: 1.25rem;
 }
 
-.service-table {
+.help-rich-content :deep(li + li) {
+  margin-top: 6px;
+}
+
+.help-rich-content :deep(table) {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 16px;
-}
-
-.service-table th,
-.service-table td {
-  border: 1px solid #e5e7eb;
-  padding: 12px;
+  margin: 10px 0 0;
   text-align: left;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
-.service-table th {
-  background-color: #f9fafb;
-  font-weight: 600;
-  color: #111827;
+.help-rich-content :deep(th),
+.help-rich-content :deep(td) {
+  padding: 6px 10px;
+  font-size: 16px;
+  text-align: left;
+  border: 1px solid #d1d5db;
 }
 
-.service-table tr:hover {
-  background-color: #f9fafb;
+.help-rich-content :deep(thead tr) {
+  font-weight: 700;
+  background: linear-gradient(135deg, #d0e8d6 0%, #c8e6d0 100%);
+  color: #0A3D1F;
+}
+
+.help-rich-content :deep(tbody tr:nth-child(odd)) td {
+  background-color: #f8fcf9;
+}
+
+.help-rich-content :deep(tbody tr:nth-child(even)) td {
+  background-color: #ffffff;
+}
+
+.empty-note {
+  margin: 0;
+  color: #6b7280;
 }
 
 @media (max-width: 389px) {}

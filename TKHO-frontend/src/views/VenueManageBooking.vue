@@ -207,7 +207,7 @@
                   <span class="card-value">{{ booking.room }}</span>
                 </div>
                 <div class="card-row">
-                  <span class="card-label">Date</span>
+                  <span class="card-label">Booking Date</span>
                   <span class="card-value">{{ booking.date }}</span>
                 </div>
                 <div class="card-row">
@@ -215,8 +215,12 @@
                   <span class="card-value">{{ booking.time }}</span>
                 </div>
                 <div class="card-row">
-                  <span class="card-label">Booked on</span>
-                  <span class="card-value">{{ booking.bookedOn }}</span>
+                  <span class="card-label application-date-label">Application Date</span>
+                  <span class="card-value">{{ formatApplicationDateForCard(booking.bookedOn) }}</span>
+                </div>
+                <div class="card-row tea-service-row">
+                  <span class="card-label tea-service-label">Tea Service</span>
+                  <span class="card-value tea-service-value">{{ formatTeaServiceStatus(booking) }}</span>
                 </div>
               </div>
               <div class="card-footer">
@@ -251,16 +255,57 @@
               <thead>
                 <tr>
                   <th class="col-no">#</th>
-                  <th v-if="availableColumns[0].visible" class="col-datetime">Date & Time</th>
-                  <th v-if="availableColumns[1].visible">Type</th>
-                  <th v-if="availableColumns[2].visible">Room</th>
-                  <th v-if="availableColumns[3].visible">Topic</th>
-                  <th v-if="availableColumns[4].visible">Reserved By</th>
-                  <th v-if="availableColumns[5].visible">Contact</th>
-                  <th v-if="availableColumns[6].visible">Email</th>
-                  <th v-if="availableColumns[7].visible">Status</th>
-                  <th v-if="availableColumns[8].visible">Booked On</th>
-                  <th v-if="availableColumns[9].visible">Reason</th>
+                  <th v-if="availableColumns[0].visible" class="col-datetime">
+                    <button type="button" class="th-sort-btn" @click="toggleSort('dateTime')">
+                      Booking Date & Time
+                      <span class="sort-indicator">{{ getSortIndicator('dateTime') }}</span>
+                    </button>
+                  </th>
+                  <th v-if="availableColumns[1].visible">
+                    <button type="button" class="th-sort-btn" @click="toggleSort('room')">
+                      Venue
+                      <span class="sort-indicator">{{ getSortIndicator('room') }}</span>
+                    </button>
+                  </th>
+                  <th v-if="availableColumns[2].visible">
+                    <button type="button" class="th-sort-btn" @click="toggleSort('topic')">
+                      Meeting / Event
+                      <span class="sort-indicator">{{ getSortIndicator('topic') }}</span>
+                    </button>
+                  </th>
+                  <th v-if="availableColumns[3].visible">
+                    <button type="button" class="th-sort-btn" @click="toggleSort('reservedBy')">
+                      Reserved By
+                      <span class="sort-indicator">{{ getSortIndicator('reservedBy') }}</span>
+                    </button>
+                  </th>
+                  <th v-if="availableColumns[4].visible">
+                    <button type="button" class="th-sort-btn" @click="toggleSort('contact')">
+                      Contact No.
+                      <span class="sort-indicator">{{ getSortIndicator('contact') }}</span>
+                    </button>
+                  </th>
+                  <th v-if="availableColumns[5].visible">
+                    <button type="button" class="th-sort-btn" @click="toggleSort('email')">
+                      Email
+                      <span class="sort-indicator">{{ getSortIndicator('email') }}</span>
+                    </button>
+                  </th>
+                  <th v-if="availableColumns[6].visible">Status</th>
+                  <th v-if="availableColumns[7].visible">
+                    <button type="button" class="th-sort-btn" @click="toggleSort('approvalStatus')">
+                      Approval
+                      <span class="sort-indicator">{{ getSortIndicator('approvalStatus') }}</span>
+                    </button>
+                  </th>
+                  <th v-if="availableColumns[8].visible">
+                    <button type="button" class="th-sort-btn" @click="toggleSort('bookedOn')">
+                      Application Date
+                      <span class="sort-indicator">{{ getSortIndicator('bookedOn') }}</span>
+                    </button>
+                  </th>
+                  <th v-if="availableColumns[9].visible">My Note</th>
+                  <th v-if="availableColumns[10].visible">Cancelled Reason</th>
                   <th class="col-actions">Actions</th>
                 </tr>
               </thead>
@@ -271,19 +316,24 @@
                     <div class="date">{{ booking.date }}</div>
                     <div class="time">{{ booking.time }}</div>
                   </td>
-                  <td v-if="availableColumns[1].visible">{{ booking.type }}</td>
-                  <td v-if="availableColumns[2].visible">{{ booking.room }}</td>
-                  <td v-if="availableColumns[3].visible">{{ booking.topic }}</td>
-                  <td v-if="availableColumns[4].visible">{{ booking.reservedBy }}</td>
-                  <td v-if="availableColumns[5].visible">{{ booking.contact }}</td>
-                  <td v-if="availableColumns[6].visible">{{ booking.email }}</td>
-                  <td v-if="availableColumns[7].visible">
+                  <td v-if="availableColumns[1].visible">{{ booking.room }}</td>
+                  <td v-if="availableColumns[2].visible">{{ booking.topic }}</td>
+                  <td v-if="availableColumns[3].visible">{{ booking.reservedBy }}</td>
+                  <td v-if="availableColumns[4].visible">{{ booking.contact }}</td>
+                  <td v-if="availableColumns[5].visible">{{ booking.email }}</td>
+                  <td v-if="availableColumns[6].visible">
                     <span :class="['status-badge', 'badge-' + booking.status]">
                       {{ formatStatus(booking.status) }}
                     </span>
                   </td>
+                  <td v-if="availableColumns[7].visible">
+                    <span :class="['status-badge', 'badge-approval-' + (booking.approvalStatus || 'pending')]">
+                      {{ formatStatus(booking.approvalStatus || 'pending') }}
+                    </span>
+                  </td>
                   <td v-if="availableColumns[8].visible">{{ booking.bookedOn }}</td>
-                  <td v-if="availableColumns[9].visible">{{ booking.reason || '-' }}</td>
+                  <td v-if="availableColumns[9].visible">{{ booking.myNote || '-' }}</td>
+                  <td v-if="availableColumns[10].visible">{{ booking.reason || '-' }}</td>
                   <td class="actions-td">
                     <div class="actions-cell">
                       <template v-if="isAdminAllBookingsView">
@@ -353,22 +403,122 @@
     </main>
 
     <!-- Cancel Booking Dialog -->
-    <BookingStyleModal v-model="showCancelDialog" title="Cancel Booking" max-width="500px">
-      <el-form label-width="120px">
-        <el-form-item label="Reason">
+    <BookingStyleModal v-model="showCancelDialog" title="Cancel Booking" max-width="540px">
+      <p class="cancel-confirm-message">
+        Are you sure you want to cancel this venue booking? This action cannot be undone.
+      </p>
+      <template #footer>
+        <el-button type="default" class="cancel-btn" @click="showCancelDialog = false">No</el-button>
+        <el-button type="default" class="action-btn action-delete" @click="confirmCancel">Confirm</el-button>
+      </template>
+    </BookingStyleModal>
+
+    <!-- Edit Booking Info Dialog -->
+    <BookingStyleModal
+      v-model="showEditDialog"
+      title="Edit Booking"
+      max-width="560px"
+      :max-height="editBookingModalMaxHeight"
+      custom-class="edit-booking-modal"
+    >
+      <el-form :model="editForm" label-width="130px">
+        <el-form-item label="Venue">
+          <el-select
+            v-model="editForm.room"
+            placeholder="Select venue"
+            style="width: 100%"
+            :teleported="false"
+            :popper-options="editPickerPopperOptions"
+          >
+            <el-option v-for="room in editableVenueOptions" :key="`edit-room-${room}`" :label="room" :value="room" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Meeting / Event">
           <el-input
-            v-model="cancelReason"
+            v-model="editForm.topic"
             type="textarea"
-            :rows="4"
-            placeholder="e.g., Meeting rescheduled, Room no longer needed"
-            maxlength="200"
-            show-word-limit
+            :rows="2"
+            placeholder="Enter meeting or event name"
+            :disabled="isEditTopicLocked"
           />
+        </el-form-item>
+        <el-form-item label="Booking Date">
+          <el-date-picker
+            v-model="editForm.date"
+            type="date"
+            value-format="YYYY-MM-DD"
+            format="DD/MM/YYYY"
+            placeholder="Select booking date"
+            :teleported="false"
+            :popper-options="editPickerPopperOptions"
+            style="width: 100%;"
+          />
+        </el-form-item>
+        <el-form-item label="Start Time">
+          <el-select
+            v-model="editForm.startTime"
+            placeholder="Select start time"
+            style="width: 100%"
+            :teleported="false"
+            :popper-options="editPickerPopperOptions"
+          >
+            <el-option v-for="t in timeSlotOptions" :key="`edit-start-${t}`" :label="t" :value="t" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="End Time">
+          <el-select
+            v-model="editForm.endTime"
+            placeholder="Select end time"
+            style="width: 100%"
+            :teleported="false"
+            :popper-options="editPickerPopperOptions"
+          >
+            <el-option v-for="t in timeSlotOptions" :key="`edit-end-${t}`" :label="t" :value="t" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Tea Service Required?" class="edit-tea-line no-wrap-label">
+          <el-radio-group v-model="editForm.teaServiceRequired">
+            <el-radio :label="true">Yes</el-radio>
+            <el-radio :label="false">No</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <p v-if="editForm.teaServiceRequired && isEditTeaServiceUnavailable" class="edit-tea-service-note">
+          Tea service is locked for near-date bookings. You can turn off Tea Service, but cannot change Tea/Water options.
+        </p>
+        <template v-if="editForm.teaServiceRequired">
+          <div class="edit-tea-service-options">
+            <el-form-item label="Tea or Water" class="edit-tea-line no-wrap-label">
+              <el-radio-group
+                v-model="editForm.teaOrWater"
+                class="edit-tea-service-radios"
+                :disabled="isEditTeaServiceUnavailable"
+              >
+                <el-radio label="tea">Tea</el-radio>
+                <el-radio label="water">Water</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label=" " class="edit-tea-line edit-tea-followup no-wrap-label">
+              <el-radio-group
+                v-model="editForm.serviceType"
+                class="edit-tea-service-radios"
+                :disabled="isEditTeaServiceUnavailable"
+              >
+                <el-radio label="pot">One Pot</el-radio>
+                <el-radio label="bottle">One Bottle Per Person</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </div>
+        </template>
+        <el-form-item label="No. of participants" class="edit-tea-line no-wrap-label">
+          <el-input-number v-model="editForm.teaServiceParticipants" :min="1" :max="200" controls-position="right" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="My Note">
+          <el-input v-model="editForm.myNote" type="textarea" :rows="2" placeholder="Enter your note" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button type="default" class="cancel-btn" @click="showCancelDialog = false">Cancel</el-button>
-        <el-button type="default" class="action-btn action-delete" @click="confirmCancel">Confirm Cancel</el-button>
+        <el-button type="default" class="cancel-btn" @click="showEditDialog = false">Cancel</el-button>
+        <el-button type="default" class="action-btn action-confirm" @click="confirmEditBooking">Save</el-button>
       </template>
     </BookingStyleModal>
 
@@ -386,7 +536,7 @@
         <el-form-item label="Topic / Event Name">
           <el-input v-model="handleForm.topic" type="textarea" :rows="2" />
         </el-form-item>
-        <el-form-item label="Date">
+        <el-form-item label="Booking Date">
           <el-input v-model="handleForm.date" disabled />
         </el-form-item>
         <el-form-item label="Time">
@@ -446,7 +596,7 @@ import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
-import { getMockEmployeeListNormalized, getMockPromptList } from '@/mocks/mockData'
+import { getMockEmployeeListNormalized, getMockPromptList, getMockVenueManageBookingList } from '@/mocks/mockData'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -465,9 +615,15 @@ const showStatusFilter = ref(false)
 const showDateFilter = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
+const sortState = ref([
+  { key: 'dateTime', order: 'asc' }
+])
 const showCancelDialog = ref(false)
-const cancelReason = ref('')
+const showEditDialog = ref(false)
 const cancelBookingId = ref(null)
+const currentEditBookingId = ref(null)
+const currentEditBookingApprovalStatus = ref('')
+const editTeaSelectionSnapshot = ref({ teaOrWater: 'tea', serviceType: 'pot' })
 const dateRange = ref(null)
 
 const employeeList = ref([])
@@ -485,19 +641,93 @@ const handleForm = ref({
   rejectTemplateKey: 'meeting_approval_reject_template',
   reason: ''
 })
+const editForm = ref({
+  room: '',
+  topic: '',
+  myNote: '',
+  date: '',
+  startTime: '',
+  endTime: '',
+  teaServiceRequired: false,
+  teaOrWater: 'tea',
+  serviceType: 'pot',
+  teaServiceParticipants: 1
+})
+
+/** 与 VenueBookingDialog / mock `teaServiceSummary` 一致：Tea|Water + One Pot|One Bottle Per Person */
+function buildTeaServiceSummary (teaOrWater, serviceType) {
+  const tw = teaOrWater === 'water' ? 'Water' : 'Tea'
+  const svc = serviceType === 'bottle' ? 'One Bottle Per Person' : 'One Pot'
+  return `${tw} / ${svc}`
+}
+
+function parseTeaServiceSummary (summary) {
+  const def = { teaOrWater: 'tea', serviceType: 'pot' }
+  if (!summary || typeof summary !== 'string') return def
+  const idx = summary.indexOf('/')
+  if (idx === -1) return def
+  const left = summary.slice(0, idx).trim().toLowerCase()
+  const right = summary.slice(idx + 1).trim().toLowerCase()
+  const teaOrWater = left.includes('water') ? 'water' : 'tea'
+  const serviceType = right.includes('bottle') ? 'bottle' : 'pot'
+  return { teaOrWater, serviceType }
+}
+
+const isEditTeaServiceUnavailable = computed(() => {
+  const iso = editForm.value.date
+  if (!iso || typeof iso !== 'string') return false
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return false
+  const selectedDate = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  selectedDate.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return selectedDate <= today
+})
+
+const isEditTopicLocked = computed(() =>
+  String(currentEditBookingApprovalStatus.value || '').toLowerCase() === 'approved'
+)
 const meetingRejectTemplateOptions = computed(() =>
   getMockPromptList().filter(
     item => item.category === 'reject_template' && item.templateType === 'meeting_approval'
   )
 )
 
+const editableVenueOptions = [
+  'Conference Room 1',
+  'Conference Room 2',
+  'Conference Room 3',
+  'Discussion Room',
+  'Discussion Room 2',
+  'Function Room',
+  'Lecture Theatre',
+  'Auditorium'
+]
+
 /** 14" ????100??599??Handle Booking ?????? MeetingApproval ???*/
 const HANDLE_BOOKING_MODAL_MQ = '(min-width: 1100px) and (max-width: 1599px)'
 const handleBookingModalMaxHeight = ref('94vh')
+const editBookingModalMaxHeight = ref('98vh')
+const editPickerOffsetY = ref(0)
+const editPickerPopperOptions = computed(() => ({
+  modifiers: [
+    {
+      name: 'offset',
+      options: {
+        offset: [0, editPickerOffsetY.value]
+      }
+    }
+  ]
+}))
 
 function updateHandleBookingModalMaxHeight () {
   if (typeof window === 'undefined') return
-  handleBookingModalMaxHeight.value = window.matchMedia(HANDLE_BOOKING_MODAL_MQ).matches ? '120vh' : '94vh'
+  const isLaptop14 = window.matchMedia(HANDLE_BOOKING_MODAL_MQ).matches
+  handleBookingModalMaxHeight.value = isLaptop14 ? '120vh' : '94vh'
+  // 14寸（zoom:0.8）时避免内容溢出，交给 modal body 自身滚动
+  editBookingModalMaxHeight.value = isLaptop14 ? '96vh' : '98vh'
+  editPickerOffsetY.value = 0
 }
 
 let handleBookingModalMq = null
@@ -505,196 +735,26 @@ let handleBookingModalMq = null
 // Status filters (multi-select)
 const statusFilters = ref({
   upcoming: true,
-  past: true,
-  canceled: true
+  past: false,
+  canceled: false
 })
 
 // Available columns for table view
 const availableColumns = ref([
   { key: 'datetime', label: 'Date & Time', visible: true, required: true },
-  { key: 'type', label: 'Type', visible: true, required: false },
-  { key: 'room', label: 'Room', visible: true, required: false },
-  { key: 'topic', label: 'Topic', visible: true, required: false },
+  { key: 'room', label: 'Venue', visible: true, required: false },
+  { key: 'topic', label: 'Meeting / Event', visible: true, required: false },
   { key: 'reservedBy', label: 'Reserved By', visible: true, required: false },
-  { key: 'contact', label: 'Contact', visible: true, required: false },
+  { key: 'contact', label: 'Contact No.', visible: true, required: false },
   { key: 'email', label: 'Email', visible: true, required: false },
   { key: 'status', label: 'Status', visible: true, required: false },
-  { key: 'bookedOn', label: 'Booked On', visible: true, required: false },
-  { key: 'reason', label: 'Reason', visible: true, required: false }
+  { key: 'approvalStatus', label: 'Approval', visible: true, required: false },
+  { key: 'bookedOn', label: 'Application Date', visible: true, required: false },
+  { key: 'myNote', label: 'My Note', visible: true, required: false },
+  { key: 'reason', label: 'Cancelled Reason', visible: true, required: false }
 ])
 
-// Mock booking data
-const bookings = ref([
-  {
-    id: 1,
-    topic: 'Department Monthly Review',
-    room: 'Conference Room 1',
-    date: '10 Feb 2026',
-    time: '10:00 - 11:30',
-    bookedOn: '28 Jan 2026 14:30',
-    status: 'upcoming',
-    type: 'venue',
-    reservedBy: 'Chan Tai Man',
-    contact: '12345678',
-    email: 'abc@xyz.com'
-  },
-  {
-    id: 2,
-    topic: 'Project Kick-off Meeting',
-    room: 'Discussion Room',
-    date: '5 Feb 2026',
-    time: '14:00 - 15:30',
-    bookedOn: '30 Jan 2026 09:15',
-    status: 'upcoming',
-    type: 'venue',
-    reservedBy: 'Karen Shen',
-    contact: '12345678',
-    email: 'karen.shen@ha.org.hk'
-  },
-  {
-    id: 3,
-    topic: 'Training Session - New Staff',
-    room: 'Lecture Theatre',
-    date: '20 Jan 2026',
-    time: '09:00 - 10:45',
-    bookedOn: '10 Jan 2026 16:20',
-    status: 'past',
-    type: 'venue',
-    reservedBy: 'John Doe',
-    contact: '87654321',
-    email: 'john.doe@ha.org.hk'
-  },
-  {
-    id: 4,
-    topic: 'Budget Planning Meeting',
-    room: 'Conference Room 2',
-    date: '12 Feb 2026',
-    time: '13:00 - 14:30',
-    bookedOn: '29 Jan 2026 11:45',
-    status: 'upcoming',
-    type: 'venue',
-    reservedBy: 'Mary Wong',
-    contact: '23456789',
-    email: 'mary.wong@ha.org.hk'
-  },
-  {
-    id: 5,
-    topic: 'Team Building Workshop',
-    room: 'Function Room',
-    date: '15 Feb 2026',
-    time: '09:00 - 17:00',
-    bookedOn: '01 Feb 2026 08:30',
-    status: 'upcoming',
-    type: 'venue',
-    reservedBy: 'Peter Lee',
-    contact: '34567890',
-    email: 'peter.lee@ha.org.hk'
-  },
-  {
-    id: 6,
-    topic: 'Client Presentation',
-    room: 'Conference Room 3',
-    date: '18 Jan 2026',
-    time: '15:00 - 16:30',
-    bookedOn: '08 Jan 2026 13:10',
-    status: 'past',
-    type: 'venue',
-    reservedBy: 'Sarah Chen',
-    contact: '45678901',
-    email: 'sarah.chen@ha.org.hk'
-  },
-  {
-    id: 7,
-    topic: 'IT Security Briefing',
-    room: 'Discussion Room 2',
-    date: '08 Feb 2026',
-    time: '10:30 - 12:00',
-    bookedOn: '25 Jan 2026 15:40',
-    status: 'upcoming',
-    type: 'venue',
-    reservedBy: 'David Lam',
-    contact: '56789012',
-    email: 'david.lam@ha.org.hk'
-  },
-  {
-    id: 8,
-    topic: 'Annual Performance Review',
-    room: 'Conference Room 1',
-    date: '22 Jan 2026',
-    time: '14:00 - 16:00',
-    bookedOn: '12 Jan 2026 10:25',
-    status: 'past',
-    type: 'venue',
-    reservedBy: 'Emily Ng',
-    contact: '67890123',
-    email: 'emily.ng@ha.org.hk'
-  },
-  {
-    id: 9,
-    topic: 'Product Launch Planning',
-    room: 'Auditorium',
-    date: '20 Feb 2026',
-    time: '09:30 - 11:00',
-    bookedOn: '03 Feb 2026 12:50',
-    status: 'upcoming',
-    type: 'venue',
-    reservedBy: 'Michael Chow',
-    contact: '78901234',
-    email: 'michael.chow@ha.org.hk'
-  },
-  {
-    id: 10,
-    topic: 'HR Policy Update Session',
-    room: 'Lecture Theatre',
-    date: '25 Feb 2026',
-    time: '13:30 - 15:00',
-    bookedOn: '05 Feb 2026 09:05',
-    status: 'upcoming',
-    type: 'venue',
-    reservedBy: 'Linda Tsang',
-    contact: '89012345',
-    email: 'linda.tsang@ha.org.hk'
-  },
-  {
-    id: 11,
-    topic: 'Quarterly Business Review',
-    room: 'Conference Room 2',
-    date: '28 Feb 2026',
-    time: '10:00 - 12:00',
-    bookedOn: '06 Feb 2026 14:15',
-    status: 'upcoming',
-    type: 'venue',
-    reservedBy: 'Robert Chan',
-    contact: '90123456',
-    email: 'robert.chan@ha.org.hk'
-  },
-  {
-    id: 12,
-    topic: 'Marketing Strategy Meeting',
-    room: 'Discussion Room',
-    date: '15 Jan 2026',
-    time: '11:00 - 12:30',
-    bookedOn: '05 Jan 2026 16:55',
-    status: 'canceled',
-    type: 'venue',
-    reservedBy: 'Jessica Liu',
-    contact: '01234567',
-    email: 'jessica.liu@ha.org.hk'
-  },
-  {
-    id: 13,
-    topic: 'Vendor Negotiation',
-    room: 'Conference Room 3',
-    date: '03 Mar 2026',
-    time: '14:30 - 16:00',
-    bookedOn: '07 Feb 2026 11:20',
-    status: 'upcoming',
-    type: 'venue',
-    reservedBy: 'Thomas Yip',
-    contact: '11223344',
-    email: 'thomas.yip@ha.org.hk'
-  }
-])
+const bookings = ref(getMockVenueManageBookingList())
 
 const filteredBookings = computed(() => {
   let result = bookings.value
@@ -753,6 +813,116 @@ const parseDate = (dateStr) => {
   return new Date(year, month, day)
 }
 
+const parseBookedOnDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return new Date(0)
+  const parts = dateTimeStr.split(' ')
+  if (parts.length < 4) return parseDate(dateTimeStr)
+  const datePart = `${parts[0]} ${parts[1]} ${parts[2]}`
+  const [h = '0', m = '0'] = (parts[3] || '').split(':')
+  const date = parseDate(datePart)
+  date.setHours(Number.parseInt(h, 10) || 0, Number.parseInt(m, 10) || 0, 0, 0)
+  return date
+}
+
+const parseStartMinutes = (timeRange) => {
+  const start = (timeRange || '').split(' - ')[0] || ''
+  const [h = '0', m = '0'] = start.split(':')
+  return (Number.parseInt(h, 10) || 0) * 60 + (Number.parseInt(m, 10) || 0)
+}
+
+const parseDisplayDateToIso = (dateStr) => {
+  if (!dateStr) return ''
+  const date = parseDate(dateStr)
+  return Number.isNaN(date.getTime()) ? '' : formatDateToString(date)
+}
+
+const formatIsoDateToDisplay = (isoDate) => {
+  if (!isoDate) return ''
+  const date = new Date(isoDate)
+  if (Number.isNaN(date.getTime())) return ''
+  const day = date.getDate()
+  const month = date.toLocaleDateString('en-US', { month: 'short' })
+  const year = date.getFullYear()
+  return `${day} ${month} ${year}`
+}
+
+const buildHalfHourTimeOptions = (start = '07:00', end = '21:00', stepMinutes = 30) => {
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  const startM = sh * 60 + sm
+  const endM = eh * 60 + em
+  const list = []
+  for (let m = startM; m <= endM; m += stepMinutes) {
+    const h = Math.floor(m / 60)
+    const mi = m % 60
+    list.push(`${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`)
+  }
+  return list
+}
+
+const timeSlotOptions = buildHalfHourTimeOptions()
+
+const getSortValue = (booking, key) => {
+  switch (key) {
+    case 'dateTime':
+      return parseDate(booking.date).getTime() * 10000 + parseStartMinutes(booking.time)
+    case 'room':
+      return booking.room || ''
+    case 'topic':
+      return booking.topic || ''
+    case 'reservedBy':
+      return booking.reservedBy || ''
+    case 'contact':
+      return booking.contact || ''
+    case 'email':
+      return booking.email || ''
+    case 'approvalStatus':
+      return booking.approvalStatus || 'pending'
+    case 'bookedOn':
+      return parseBookedOnDateTime(booking.bookedOn).getTime()
+    default:
+      return ''
+  }
+}
+
+const sortedBookings = computed(() => {
+  if (!sortState.value.length) return filteredBookings.value.slice()
+  return filteredBookings.value.slice().sort((a, b) => {
+    for (const criterion of sortState.value) {
+      const aValue = getSortValue(a, criterion.key)
+      const bValue = getSortValue(b, criterion.key)
+      const direction = criterion.order === 'asc' ? 1 : -1
+      let cmp = 0
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        cmp = aValue - bValue
+      } else {
+        cmp = String(aValue).localeCompare(String(bValue), undefined, { sensitivity: 'base' })
+      }
+      if (cmp !== 0) return cmp * direction
+    }
+    return 0
+  })
+})
+
+const toggleSort = (key) => {
+  const idx = sortState.value.findIndex(item => item.key === key)
+  if (idx === -1) {
+    sortState.value.push({ key, order: 'asc' })
+  } else if (sortState.value[idx].order === 'asc') {
+    sortState.value[idx].order = 'desc'
+  } else {
+    sortState.value.splice(idx, 1)
+  }
+  currentPage.value = 1
+}
+
+const getSortIndicator = (key) => {
+  const idx = sortState.value.findIndex(item => item.key === key)
+  if (idx === -1) return '↕'
+  const arrow = sortState.value[idx].order === 'asc' ? '▲' : '▼'
+  return `${arrow}${idx + 1}`
+}
+
 // Status filter label
 const statusFilterLabel = computed(() => {
   const activeStatuses = Object.keys(statusFilters.value).filter(key => statusFilters.value[key])
@@ -804,13 +974,13 @@ const dateFilterLabel = computed(() => {
 })
 
 // Pagination
-const totalPages = computed(() => Math.ceil(filteredBookings.value.length / pageSize.value))
+const totalPages = computed(() => Math.ceil(sortedBookings.value.length / pageSize.value))
 
 const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
-const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, filteredBookings.value.length))
+const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, sortedBookings.value.length))
 
 const paginatedBookings = computed(() => {
-  return filteredBookings.value.slice(startIndex.value, endIndex.value)
+  return sortedBookings.value.slice(startIndex.value, endIndex.value)
 })
 
 const visiblePages = computed(() => {
@@ -842,6 +1012,24 @@ const onLogout = () => {
 // Format status to capitalize first letter
 const formatStatus = (status) => {
   return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
+const formatTeaServiceStatus = (booking) => {
+  const count = booking.teaServiceParticipants ?? booking.attendeeCount ?? booking.participants
+  const countSuffix = Number.isFinite(Number(count)) ? ` (${count})` : ''
+  if (booking.teaServiceSummary) return `${booking.teaServiceSummary}${countSuffix}`
+  if (booking.teaServiceRequired === true) return `Required${countSuffix}`
+  return 'No'
+}
+
+const formatApplicationDateForCard = (bookedOn) => {
+  if (!bookedOn) return ''
+  const text = String(bookedOn).trim()
+  const parts = text.split(/\s+/)
+  if (parts.length >= 3) {
+    return `${parts[0]} ${parts[1]} ${parts[2]}`
+  }
+  return text
 }
 
 // Toggle status filter
@@ -1013,20 +1201,13 @@ const isQuickDateActive = (option) => {
 
 const cancelBooking = (id) => {
   cancelBookingId.value = id
-  cancelReason.value = ''
   showCancelDialog.value = true
 }
 
 const confirmCancel = () => {
-  if (!cancelReason.value.trim()) {
-    ElMessage.warning('Please provide a reason for cancellation')
-    return
-  }
-
   const booking = bookings.value.find(b => b.id === cancelBookingId.value)
   if (booking) {
     booking.status = 'canceled'
-    booking.reason = cancelReason.value.trim()
   }
 
   showCancelDialog.value = false
@@ -1034,7 +1215,85 @@ const confirmCancel = () => {
 }
 
 const editBooking = (id) => {
-  ElMessage.info('Edit booking: ' + id)
+  const booking = bookings.value.find(b => b.id === id)
+  if (!booking) return
+  const [startTime = '', endTime = ''] = String(booking.time || '').split(' - ')
+  currentEditBookingId.value = id
+  currentEditBookingApprovalStatus.value = booking.approvalStatus || ''
+  const teaParsed = parseTeaServiceSummary(booking.teaServiceSummary || '')
+  editTeaSelectionSnapshot.value = {
+    teaOrWater: teaParsed.teaOrWater,
+    serviceType: teaParsed.serviceType
+  }
+  editForm.value = {
+    room: booking.room || '',
+    topic: booking.topic || '',
+    myNote: booking.myNote || booking.note || booking.remark || '',
+    date: parseDisplayDateToIso(booking.date),
+    startTime: startTime.trim(),
+    endTime: endTime.trim(),
+    teaServiceRequired: Boolean(booking.teaServiceRequired || booking.teaServiceSummary),
+    teaOrWater: teaParsed.teaOrWater,
+    serviceType: teaParsed.serviceType,
+    teaServiceParticipants: booking.teaServiceParticipants || 1
+  }
+  showEditDialog.value = true
+}
+
+const confirmEditBooking = () => {
+  const id = currentEditBookingId.value
+  if (id == null) return
+  if (!editForm.value.topic.trim()) {
+    ElMessage.warning('Please enter Meeting / Event')
+    return
+  }
+  if (!editForm.value.date) {
+    ElMessage.warning('Please select Booking Date')
+    return
+  }
+  if (!editForm.value.startTime || !editForm.value.endTime) {
+    ElMessage.warning('Please select Start Time and End Time')
+    return
+  }
+  if (editForm.value.startTime >= editForm.value.endTime) {
+    ElMessage.warning('End Time must be later than Start Time')
+    return
+  }
+  if (
+    editForm.value.teaServiceRequired &&
+    isEditTeaServiceUnavailable.value &&
+    (
+      editForm.value.teaOrWater !== editTeaSelectionSnapshot.value.teaOrWater ||
+      editForm.value.serviceType !== editTeaSelectionSnapshot.value.serviceType
+    )
+  ) {
+    ElMessage.warning('Near-date bookings cannot change Tea/Water options. You can only cancel Tea Service.')
+    return
+  }
+  const booking = bookings.value.find(b => b.id === id)
+  if (!booking) return
+
+  const isApproved = String(booking.approvalStatus || '').toLowerCase() === 'approved'
+  if (!isApproved) {
+    booking.topic = editForm.value.topic.trim()
+  }
+  booking.room = editForm.value.room
+  booking.myNote = editForm.value.myNote?.trim() || ''
+  booking.date = formatIsoDateToDisplay(editForm.value.date)
+  booking.time = `${editForm.value.startTime} - ${editForm.value.endTime}`
+  booking.teaServiceRequired = Boolean(editForm.value.teaServiceRequired)
+  booking.teaServiceParticipants = editForm.value.teaServiceParticipants || 1
+  if (booking.teaServiceRequired) {
+    booking.teaServiceSummary = buildTeaServiceSummary(editForm.value.teaOrWater, editForm.value.serviceType)
+  } else {
+    delete booking.teaServiceSummary
+  }
+
+  showEditDialog.value = false
+  currentEditBookingId.value = null
+  currentEditBookingApprovalStatus.value = ''
+  editTeaSelectionSnapshot.value = { teaOrWater: 'tea', serviceType: 'pot' }
+  ElMessage.success('Booking updated successfully')
 }
 
 function openHandleBooking (booking) {
@@ -1072,6 +1331,10 @@ function confirmHandleApprove () {
   const booking = bookings.value.find((b) => b.id === id)
   if (booking) {
     booking.topic = handleForm.value.topic.trim() || booking.topic
+    booking.approvalStatus = 'approved'
+    booking.approvedBy = userInfo.value?.name || userInfo.value?.corpId || 'Admin'
+    booking.approvedAt = new Date().toISOString()
+    booking.rejectReason = ''
   }
   showHandleDialog.value = false
   currentHandleBookingId.value = null
@@ -1090,6 +1353,10 @@ function confirmHandleReject () {
     booking.topic = handleForm.value.topic.trim() || booking.topic
     booking.status = 'canceled'
     booking.reason = handleForm.value.reason.trim()
+    booking.approvalStatus = 'rejected'
+    booking.rejectReason = handleForm.value.reason.trim()
+    booking.approvedBy = userInfo.value?.name || userInfo.value?.corpId || 'Admin'
+    booking.approvedAt = new Date().toISOString()
   }
   showHandleDialog.value = false
   currentHandleBookingId.value = null
@@ -1502,8 +1769,6 @@ onUnmounted(() => {
 .badge-upcoming {
   background-color: #d1fae5;
   color: #065f46;
-  padding: 0.25rem 0.625rem;
-  font-size: 0.75rem;
 }
 
 .badge-past {
@@ -1514,6 +1779,21 @@ onUnmounted(() => {
 .badge-canceled {
   background-color: #fee2e2;
   color: #991b1b;
+}
+
+.badge-approval-approved {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.badge-approval-rejected {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.badge-approval-pending {
+  background-color: #fef3c7;
+  color: #92400e;
 }
 
 .card-body {
@@ -1539,6 +1819,54 @@ onUnmounted(() => {
   color: #111827;
   font-weight: 400;
   text-align: right;
+}
+
+.tea-service-label {
+  white-space: nowrap;
+}
+
+.application-date-label {
+  white-space: nowrap;
+}
+
+.tea-service-value {
+  white-space: normal;
+  word-break: break-word;
+  margin-left: 0.5rem;
+}
+
+/* Edit dialog — tea options aligned with VenueBookingDialog.vue */
+.edit-tea-service-note {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.8125rem;
+  color: #b45309;
+  line-height: 1.4;
+}
+
+.edit-tea-service-options {
+  margin-bottom: 0.25rem;
+}
+
+.edit-tea-line :deep(.el-form-item__label) {
+  white-space: nowrap;
+}
+
+.edit-tea-line :deep(.el-form-item__content) {
+  flex-wrap: wrap;
+}
+
+.edit-tea-followup :deep(.el-form-item__label) {
+  width: 130px !important;
+}
+
+.edit-tea-service-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.edit-tea-service-radios :deep(.el-radio) {
+  margin-right: 0;
 }
 
 .card-footer {
@@ -1636,6 +1964,27 @@ onUnmounted(() => {
   font-weight: 600;
   white-space: nowrap;
   font-size: 0.8125rem;
+}
+
+.th-sort-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  color: inherit;
+  font-weight: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.sort-indicator {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1;
 }
 
 .bookings-table th.col-datetime {
@@ -1993,6 +2342,13 @@ onUnmounted(() => {
   font-size: 0.875rem;
 }
 
+.edit-info-message {
+  margin: 0;
+  color: #374151;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
 .pagination-size {
   display: flex;
   align-items: center;
@@ -2086,6 +2442,32 @@ onUnmounted(() => {
 
 .action-delete:hover {
   background-color: #dc2626 !important;
+}
+
+.action-confirm {
+  background-color: #00723a !important;
+}
+
+.action-confirm:hover {
+  background-color: #005a2e !important;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.form-item-half {
+  margin-bottom: 0;
+}
+
+.form-item-half.no-label-desktop :deep(.el-form-item__label) {
+  display: none;
+}
+
+.form-item-half.no-label-desktop :deep(.el-form-item__content) {
+  margin-left: 0 !important;
 }
 
 .handle-contact-section {

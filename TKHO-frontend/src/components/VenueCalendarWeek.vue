@@ -1,7 +1,7 @@
 <template>
   <div class="calendar-week">
     <!-- 日期和房间类型表头 - 固定 -->
-    <div class="week-header">
+    <div class="week-header" :style="{ gridTemplateColumns: weekGridTemplateColumns, minWidth: weekGridMinWidth }">
       <div class="time-header" />
       <div v-for="(day, index) in weekDays" :key="index" class="day-header">
         <div class="day-label">{{ day.name }} / {{ day.date }}</div>
@@ -9,7 +9,7 @@
     </div>
 
     <!-- 时间槽网格 -->
-    <div class="week-grid">
+    <div class="week-grid" :style="{ gridTemplateColumns: weekGridTemplateColumns, minWidth: weekGridMinWidth }">
       <!-- 时间列 -->
       <div class="time-column">
         <div v-for="hour in timeSlots" :key="hour" class="time-slot">
@@ -28,17 +28,28 @@
         />
 
         <!-- 预订卡片（绝对定位） -->
-        <div
+        <CalendarBookingPopover
           v-for="booking in getDayBookings(day.fullDate)"
           :key="booking.id"
-          class="booking-block"
-          :style="getBookingStyle(booking)"
-          @click="selectBooking(day.fullDate)"
+          :booking="booking"
+          :current-date="currentDate"
+          default-color="#f97316"
+          :teleported="false"
         >
-          <div class="booking-title">{{ booking.roomName }}</div>
-          <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-          <div v-if="booking.reservedBy" class="booking-reserved">Reserved By: {{ booking.reservedBy }}</div>
-        </div>
+          <template #reference>
+            <div
+              class="booking-block"
+              :style="getBookingStyle(booking)"
+              @click="selectBooking(day.fullDate)"
+            >
+              <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
+              <div v-if="booking.roomName" class="booking-room">{{ booking.roomName }}</div>
+              <div class="booking-topic">{{ booking.topic || booking.notes }}</div>
+              <div v-if="booking.reservedBy" class="booking-reserved">Reserved By: {{ booking.reservedBy }}</div>
+              <div class="booking-contact">Contact: {{ getBookingContact(booking) }}</div>
+            </div>
+          </template>
+        </CalendarBookingPopover>
       </div>
     </div>
   </div>
@@ -46,6 +57,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import CalendarBookingPopover from './CalendarBookingPopover.vue'
 
 const props = defineProps({
   currentDate: {
@@ -99,6 +111,14 @@ const weekDays = computed(() => {
   return days
 })
 
+const weekGridTemplateColumns = computed(() => {
+  return `80px repeat(${weekDays.value.length}, minmax(120px, 1fr))`
+})
+
+const weekGridMinWidth = computed(() => {
+  return `calc(80px + ${weekDays.value.length} * 120px)`
+})
+
 // 获取某一天的所有预订（根据选中的房间过滤）
 function getDayBookings(dayDate) {
   const dayBookings = props.bookings.filter(booking => {
@@ -106,12 +126,11 @@ function getDayBookings(dayDate) {
     return bookingDate.toDateString() === dayDate.toDateString()
   })
 
-  // 如果没有选中任何房间，返回所有预订
+  // 与 Day/Month 一致：未选中任何房间（如 Clear All）时不显示预订
   if (!props.selectedRooms || props.selectedRooms.length === 0) {
-    return dayBookings
+    return []
   }
 
-  // 根据选中的房间过滤
   const selectedRoomNames = props.selectedRooms.map(room => room.name)
   return dayBookings.filter(booking => selectedRoomNames.includes(booking.roomName))
 }
@@ -120,6 +139,10 @@ function getDayBookings(dayDate) {
 function isToday(date) {
   const today = new Date()
   return date.toDateString() === today.toDateString()
+}
+
+function getBookingContact(booking) {
+  return booking.contact ?? booking.contactNumber ?? booking.phone ?? booking.tel ?? 'N/A'
 }
 
 // 计算预订卡片的样式（位置和高度）
@@ -172,10 +195,9 @@ function selectBooking(dayDate) {
 
 .week-header {
   display: grid;
-  grid-template-columns: 80px repeat(7, 1fr);
   background-color: #e5e7eb;
   border-radius: 0.5rem 0.5rem 0 0;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid #e5e7eb;
   border-bottom: none;
   position: sticky;
@@ -187,6 +209,10 @@ function selectBooking(dayDate) {
   background-color: #f3f4f6;
   padding: 0.5rem;
   border-right: 1px solid #e5e7eb;
+  position: sticky;
+  left: 0;
+  z-index: 12;
+  box-shadow: 1px 0 0 #e5e7eb;
 }
 
 .day-header {
@@ -209,10 +235,9 @@ function selectBooking(dayDate) {
 
 .week-grid {
   display: grid;
-  grid-template-columns: 80px repeat(7, 1fr);
   background-color: #e5e7eb;
   border-radius: 0 0 0.5rem 0.5rem;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid #e5e7eb;
   border-top: none;
 }
@@ -221,6 +246,10 @@ function selectBooking(dayDate) {
   background-color: #f9fafb;
   display: flex;
   flex-direction: column;
+  position: sticky;
+  left: 0;
+  z-index: 8;
+  box-shadow: 1px 0 0 #e5e7eb;
 }
 
 .time-slot {
@@ -277,29 +306,45 @@ function selectBooking(dayDate) {
   padding: 0.25rem 0.375rem;
   border-radius: 0.25rem;
   color: white;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   overflow: hidden;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   z-index: 1;
 }
 
-.booking-title {
+.booking-time {
   font-weight: 600;
+  font-size: 0.8125rem;
+  margin-bottom: 0.125rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.booking-time {
-  font-size: 0.6rem;
+.booking-room {
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.95;
+  margin-bottom: 0.125rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.booking-topic {
+  font-size: 0.75rem;
+  opacity: 0.95;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .booking-reserved {
-  font-size: 0.55rem;
+  font-size: 0.7rem;
   opacity: 0.9;
   margin-top: 0.125rem;
   overflow: hidden;
@@ -307,11 +352,15 @@ function selectBooking(dayDate) {
   white-space: nowrap;
 }
 
-@media (max-width: 389px) {
-  .week-grid {
-    grid-template-columns: 60px repeat(7, 1fr);
-  }
+.booking-contact {
+  font-size: 0.7rem;
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
+@media (max-width: 389px) {
   .time-slot {
     min-height: 50px;
     padding: 0.5rem;
@@ -320,14 +369,30 @@ function selectBooking(dayDate) {
 
   .time-cell {
     min-height: 50px;
+  }
+
+  .booking-topic {
+    font-size: 0.65rem;
+  }
+
+  .booking-room {
+    font-size: 0.6rem;
+  }
+
+  .booking-time {
+    font-size: 0.7rem;
+  }
+
+  .booking-reserved {
+    font-size: 0.6rem;
+  }
+
+  .booking-contact {
+    font-size: 0.6rem;
   }
 }
 
 @media (min-width: 390px) and (max-width: 767px) {
-  .week-grid {
-    grid-template-columns: 60px repeat(7, 1fr);
-  }
-
   .time-slot {
     min-height: 50px;
     padding: 0.5rem;
@@ -337,13 +402,29 @@ function selectBooking(dayDate) {
   .time-cell {
     min-height: 50px;
   }
+
+  .booking-topic {
+    font-size: 0.65rem;
+  }
+
+  .booking-room {
+    font-size: 0.6rem;
+  }
+
+  .booking-time {
+    font-size: 0.7rem;
+  }
+
+  .booking-reserved {
+    font-size: 0.6rem;
+  }
+
+  .booking-contact {
+    font-size: 0.6rem;
+  }
 }
 
 @media (min-width: 768px) and (max-width: 1099px) {
-  .week-grid {
-    grid-template-columns: 60px repeat(7, 1fr);
-  }
-
   .time-slot {
     min-height: 50px;
     padding: 0.5rem;

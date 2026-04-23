@@ -1,6 +1,12 @@
 <template>
   <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
     <AppHeader @logout="onLogout" />
+    <div class="top-tip-wrapper px-2 md:px-3 lg:px-4 pt-2 pb-0">
+      <div class="booking-window-tip">
+        <span>Important Note: Lecture Theatre is temporarily closed.</span>
+        <button type="button" class="read-more-link" @click="noticeDialogVisible = true">Read more...</button>
+      </div>
+    </div>
 
     <!-- Progress steps (temporarily hidden) -->
     <!-- <BookingSteps
@@ -9,18 +15,21 @@
     /> -->
 
     <!-- Main content -->
-    <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 overflow-hidden">
+    <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 pt-0 pb-1 md:pb-2 overflow-hidden">
       <!-- Top toolbar -->
-      <div class="toolbar mb-1 flex items-center justify-between gap-3">
-        <div class="toolbar-left flex items-center gap-2">
+      <div class="toolbar toolbar-layout mb-1 flex items-center justify-between gap-3">
+        <div class="toolbar-left toolbar-left-group flex items-center gap-2">
           <!-- Previous period -->
           <button class="nav-btn" @click="goToPreviousPeriod">
-            <span class="nav-arrow">&larr;</span> Prev {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }}
+            <span class="nav-arrow">&larr;</span>
+            <span class="label-long">Prev {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }}</span>
+            <span class="label-short">Prev</span>
           </button>
 
           <!-- Add booking -->
           <button class="add-booking-btn" @click="showBookingDialog">
-            Add Booking
+            <span class="label-long">Add Booking</span>
+            <span class="label-short">Add</span>
           </button>
           <button v-if="isAdmin" class="add-booking-btn" @click="showBlockDialog = true">
             Block Time
@@ -32,7 +41,8 @@
               :class="['room-filter-btn', { active: showRoomFilter }]"
               @click="toggleRoomFilter"
             >
-              Room Filter
+              <span class="label-long">Room Filter</span>
+              <span class="label-short">Filter</span>
             </button>
 
             <!-- Room filter dropdown -->
@@ -49,7 +59,7 @@
 
               <div class="filter-body">
                 <div class="filter-section">
-                  <h4 class="section-title">Conference & Discussion</h4>
+                  <h4 class="section-title">Conference Rooms &<br>Discussion Rooms</h4>
                   <div class="room-list">
                     <label v-for="room in conferenceRooms" :key="room.id" class="room-checkbox">
                       <input type="checkbox" v-model="room.selected" />
@@ -79,7 +89,7 @@
         </div>
 
         <!-- Center date display + today -->
-        <div class="flex items-center gap-2 relative">
+        <div class="toolbar-center flex items-center gap-2 relative">
           <div class="date-display-wrapper">
             <h3
               class="text-lg font-semibold text-gray-800 cursor-pointer hover:text-[#00723a] transition-colors"
@@ -132,7 +142,7 @@
           </button>
         </div>
 
-        <div class="toolbar-right flex items-center gap-2">
+        <div class="toolbar-right toolbar-right-group flex items-center gap-2">
           <!-- View switch -->
           <div class="view-switcher flex gap-2">
             <button
@@ -157,28 +167,29 @@
 
           <!-- Next period -->
           <button class="nav-btn" @click="goToNextPeriod">
-            Next {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }} <span class="nav-arrow">&rarr;</span>
+            <span class="label-long">Next {{ currentView === 'month' ? 'Month' : currentView === 'week' ? 'Week' : 'Day' }}</span>
+            <span class="label-short">Next</span>
+            <span class="nav-arrow">&rarr;</span>
           </button>
         </div>
       </div>
-      <div v-if="currentView === 'month'" class="booking-window-tip">
-        Current venue booking date range: {{ venueBookingWindow.currentStartDate }} to {{ venueBookingWindow.currentEndDate }}
-      </div>
-
       <!-- Calendar content area -->
       <div class="calendar-container flex-1 overflow-hidden">
         <!-- Month view -->
-        <div v-if="currentView === 'month'" class="month-view h-full">
+        <div v-if="currentView === 'month'" class="month-view h-full relative">
           <VenueCalendarMonth
             :current-date="currentDate"
             :bookings="calendarBookings"
             :selected-rooms="selectedRoomsList"
             @day-click="selectDay"
           />
+          <div v-if="selectedRoomsList.length === 0" class="empty-state-fixed">
+            <p class="empty-text">Please select at least one room from Room Filter</p>
+          </div>
         </div>
 
         <!-- Week view -->
-        <div v-else-if="currentView === 'week'" class="week-view h-full overflow-y-auto">
+        <div v-else-if="currentView === 'week'" class="week-view h-full overflow-y-auto relative">
           <VenueCalendarWeek
             :current-date="currentDate"
             :bookings="calendarBookings"
@@ -186,10 +197,13 @@
             @time-slot-click="openBookingDialog"
             @booking-click="handleBookingClick"
           />
+          <div v-if="selectedRoomsList.length === 0" class="empty-state-fixed">
+            <p class="empty-text">Please select at least one room from Room Filter</p>
+          </div>
         </div>
 
         <!-- Day view -->
-        <div v-else-if="currentView === 'day'" class="day-view h-full overflow-y-auto relative">
+        <div v-else-if="currentView === 'day'" class="day-view h-full overflow-auto relative">
           <VenueCalendarDay
             :current-date="currentDate"
             :bookings="filteredDayBookings"
@@ -267,6 +281,14 @@
         <el-button type="default" class="submit-btn" @click="handleCreateBlock">Save Block</el-button>
       </template>
     </BookingStyleModal>
+    <BookingStyleModal
+      v-model="noticeDialogVisible"
+      title="Important Note"
+      max-width="720px"
+      custom-class="important-note-modal"
+    >
+      <div class="venue-rule-notice-content" v-html="venueRuleNoticeContent"></div>
+    </BookingStyleModal>
   </div>
 </template>
 
@@ -282,7 +304,7 @@ import VenueCalendarDay from '../components/VenueCalendarDay.vue'
 import VenueBookingDialog from '../components/VenueBookingDialog.vue'
 import VenueBookingDetailDialog from '../components/VenueBookingDetailDialog.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
-import { getMockVenueList, getMockBookingWindow } from '../mocks/mockData'
+import { getMockVenueList, getMockBookingWindow, getMockPromptList, getMockVenueCalendarBookingList } from '../mocks/mockData'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 // import { getBookingsByMonth, getBookingsByWeek, getBookingsByDate } from '../api/calendar'
@@ -315,6 +337,11 @@ const showDatePicker = ref(false)
 const pickerDate = ref(new Date()) // Month/year shown in the date picker
 const showRoomFilter = ref(false)
 const showBlockDialog = ref(false)
+const noticeDialogVisible = ref(false)
+const promptList = getMockPromptList()
+const venueRuleNoticeContent = computed(() => {
+  return promptList.find(item => item.key === 'venue_booking_lecture_theatre_notice')?.content || ''
+})
 const blockForm = ref({
   roomName: '',
   startAt: '',
@@ -880,208 +907,10 @@ onMounted(() => {
   // TODO: fetch bookings from API
   // fetchBookings()
 
-  // Demo dates
-  const today = new Date()
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const nextWeek = new Date(today)
-  nextWeek.setDate(nextWeek.getDate() + 7)
-
-  // Demo data
-  bookings.value = [
-    {
-      id: 1,
-      roomName: 'Conference Room 1',
-      date: today.toISOString(),
-      startTime: '08:00',
-      endTime: '09:00',
-      attendees: 5,
-      topic: 'Morning Briefing',
-      notes: 'Weekly team meeting',
-      reservedBy: 'John Smith',
-      color: getRoomColor('Conference Room 1')
-    },
-    {
-      id: 2,
-      roomName: 'Conference Room 2',
-      date: today.toISOString(),
-      startTime: '09:00',
-      endTime: '11:00',
-      attendees: 8,
-      topic: 'Technical Review',
-      notes: 'Client presentation',
-      reservedBy: 'Mary Johnson',
-      color: getRoomColor('Conference Room 2')
-    },
-    {
-      id: 3,
-      roomName: 'Conference Room 3',
-      date: today.toISOString(),
-      startTime: '11:00',
-      endTime: '12:00',
-      attendees: 6,
-      topic: 'Testing Session',
-      notes: 'QA meeting',
-      reservedBy: 'David Lee',
-      color: getRoomColor('Conference Room 3')
-    },
-    {
-      id: 4,
-      roomName: 'Conference Room 1',
-      date: today.toISOString(),
-      startTime: '13:30',
-      endTime: '15:00',
-      attendees: 10,
-      topic: 'Strategy Planning',
-      notes: 'Quarterly review',
-      reservedBy: 'Sarah Wilson',
-      color: getRoomColor('Conference Room 1')
-    },
-    {
-      id: 5,
-      roomName: 'Discussion Room',
-      date: today.toISOString(),
-      startTime: '10:00',
-      endTime: '11:30',
-      attendees: 4,
-      topic: 'Project Discussion',
-      notes: 'Sprint planning',
-      reservedBy: 'Michael Chen',
-      color: getRoomColor('Discussion Room')
-    },
-    {
-      id: 6,
-      roomName: 'Conference Room 2',
-      date: today.toISOString(),
-      startTime: '14:00',
-      endTime: '16:00',
-      attendees: 12,
-      topic: 'Training Workshop',
-      notes: 'New employee orientation',
-      reservedBy: 'Lisa Brown',
-      color: getRoomColor('Conference Room 2')
-    },
-    {
-      id: 7,
-      roomName: 'Function Room',
-      date: today.toISOString(),
-      startTime: '09:30',
-      endTime: '12:00',
-      attendees: 20,
-      topic: 'Department Meeting',
-      notes: 'Monthly all-hands',
-      reservedBy: 'Robert Taylor',
-      color: getRoomColor('Function Room')
-    },
-    {
-      id: 8,
-      roomName: 'Conference Room 3',
-      date: today.toISOString(),
-      startTime: '15:00',
-      endTime: '17:00',
-      attendees: 8,
-      topic: 'Client Presentation',
-      notes: 'Product demo',
-      reservedBy: 'Jennifer White',
-      color: getRoomColor('Conference Room 3')
-    },
-    {
-      id: 9,
-      roomName: 'Lecture Theatre',
-      date: today.toISOString(),
-      startTime: '13:00',
-      endTime: '15:30',
-      attendees: 50,
-      topic: 'Annual Conference',
-      notes: 'Company-wide event',
-      reservedBy: 'James Anderson',
-      color: getRoomColor('Lecture Theatre')
-    },
-    {
-      id: 10,
-      roomName: 'Discussion Room',
-      date: today.toISOString(),
-      startTime: '16:00',
-      endTime: '17:30',
-      attendees: 5,
-      topic: 'Code Review',
-      notes: 'Development team sync',
-      reservedBy: 'Emily Davis',
-      color: getRoomColor('Discussion Room')
-    },
-    {
-      id: 11,
-      roomName: 'Conference Room 1',
-      date: tomorrow.toISOString(),
-      startTime: '10:00',
-      endTime: '11:30',
-      attendees: 3,
-      topic: 'Project discussion',
-      notes: 'Project discussion',
-      reservedBy: 'Tom Harris',
-      color: getRoomColor('Conference Room 1')
-    },
-    {
-      id: 12,
-      roomName: 'Conference Room 2',
-      date: tomorrow.toISOString(),
-      startTime: '14:00',
-      endTime: '15:30',
-      attendees: 6,
-      topic: 'Budget Review',
-      notes: 'Finance meeting',
-      reservedBy: 'Patricia Moore',
-      color: getRoomColor('Conference Room 2')
-    },
-    {
-      id: 13,
-      roomName: 'Conference Room 3',
-      date: new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-      startTime: '09:00',
-      endTime: '10:30',
-      attendees: 8,
-      topic: 'Design Review',
-      notes: 'UI/UX discussion',
-      reservedBy: 'Kevin Garcia',
-      color: getRoomColor('Conference Room 3')
-    },
-    {
-      id: 14,
-      roomName: 'Conference Room 1',
-      date: new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-      startTime: '11:00',
-      endTime: '12:00',
-      attendees: 5,
-      topic: 'Sprint Planning',
-      notes: 'Agile team meeting',
-      reservedBy: 'Amanda Martinez',
-      color: getRoomColor('Conference Room 1')
-    },
-    {
-      id: 15,
-      roomName: 'Discussion Room',
-      date: new Date(today.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-      startTime: '15:00',
-      endTime: '16:30',
-      attendees: 4,
-      topic: 'Team Sync',
-      notes: 'Weekly standup',
-      reservedBy: 'Christopher Lee',
-      color: getRoomColor('Discussion Room')
-    },
-    {
-      id: 16,
-      roomName: 'Conference Room A',
-      date: nextWeek.toISOString(),
-      startTime: '13:00',
-      endTime: '14:00',
-      attendees: 4,
-      topic: 'Training session',
-      notes: 'Training session',
-      reservedBy: 'Nancy Martin',
-      color: '#f43f5e'
-    }
-  ]
+  bookings.value = getMockVenueCalendarBookingList().map(booking => ({
+    ...booking,
+    color: booking.color || getRoomColor(booking.roomName)
+  }))
 
   console.log('Calendar view initialized with roomType:', roomType.value)
 })
@@ -1135,6 +964,20 @@ onUnmounted(() => {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
+.toolbar-layout {
+  flex-wrap: wrap;
+}
+
+.toolbar-left-group,
+.toolbar-center,
+.toolbar-right-group {
+  min-width: 0;
+}
+
+.label-short {
+  display: none;
+}
+
 .booking-window-tip {
   margin-bottom: 0.25rem;
   background: #ecfdf3;
@@ -1144,6 +987,43 @@ onUnmounted(() => {
   padding: 0.45rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.read-more-link {
+  border: none;
+  background: transparent;
+  color: #0f766e;
+  font-size: inherit;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.read-more-link:hover {
+  color: #115e59;
+}
+
+.venue-rule-notice-content {
+  color: #1f2937;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.venue-rule-notice-content :deep(.venue-notice-line) {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.venue-rule-notice-content :deep(.venue-notice-line.zh) {
+  color: #111827;
 }
 
 .calendar-container {
@@ -1647,6 +1527,33 @@ onUnmounted(() => {
 
 .room-checkbox:hover {
   color: #00723a;
+}
+
+@media (max-width: 1099px) {
+  .toolbar-left-group,
+  .toolbar-right-group {
+    flex-wrap: wrap;
+    row-gap: 0.375rem;
+  }
+
+  .toolbar-center {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.25rem;
+  }
+
+  .toolbar-right-group {
+    justify-content: flex-end;
+  }
+
+  .label-long {
+    display: none;
+  }
+
+  .label-short {
+    display: inline;
+  }
 }
 
 </style>

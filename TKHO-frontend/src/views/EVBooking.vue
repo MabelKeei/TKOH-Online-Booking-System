@@ -5,7 +5,8 @@
     <!-- 主体内容 -->
     <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 overflow-hidden">
       <div class="booking-window-tip">
-        Current EV booking date range: {{ evBookingWindow.currentStartDate }} to {{ evBookingWindow.currentEndDate }}
+        <span>Important Note: Updates on Booking Rules of EV Charging Facilities.</span>
+        <button type="button" class="read-more-link" @click="noticeDialogVisible = true">Read more...</button>
       </div>
       <!-- 日历内容区域 -->
       <div class="calendar-container flex-1 overflow-auto">
@@ -34,7 +35,7 @@
                   :class="getAvailabilityClass(day.date, period.id)"
                   @click="selectTimeSlot(day.date, period.id)"
                 >
-                  <div class="availability">{{ getAvailabilityText(day.date, period.id) }}</div>
+                  <div class="availability">{{ getAvailabilityText(day.date, period.id, period.label) }}</div>
                 </div>
               </div>
             </div>
@@ -52,24 +53,81 @@
       @close="closeDialog"
       @confirm="handleBookingConfirm"
     />
+    <BookingStyleModal
+      v-model="noticeDialogVisible"
+      title="Important Note"
+      max-width="720px"
+      custom-class="important-note-modal"
+    >
+      <div class="ev-rule-notice-content" v-html="evRuleNoticeContent"></div>
+    </BookingStyleModal>
+
+    <div v-if="statusDialog.visible" class="status-modal-overlay" @click.self="statusDialog.visible = false">
+      <div class="status-modal-wrapper">
+        <div class="status-modal-header">
+          <span class="status-modal-title">Reminder</span>
+          <button type="button" class="status-modal-close" @click="statusDialog.visible = false">
+            <svg viewBox="0 0 24 24" class="status-close-icon">
+              <path d="M18 6L6 18M6 6l12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="status-modal-body">
+          <p class="status-dialog-message">{{ statusDialog.message }}</p>
+        </div>
+        <div class="status-modal-footer">
+          <el-button class="status-confirm-btn" type="default" @click="statusDialog.visible = false">OK</el-button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import AppHeader from '../components/AppHeader.vue'
 import EVBookingDialog from '../components/EVBookingDialog.vue'
-import { generateEVBookingsMock, getMockBookingWindow } from '@/mocks/mockData'
+import BookingStyleModal from '../components/BookingStyleModal.vue'
+import { generateEVBookingsMock, getMockPromptList } from '@/mocks/mockData'
 
 const router = useRouter()
 
 // 对话框状态
 const dialogVisible = ref(false)
+const noticeDialogVisible = ref(false)
 const selectedDate = ref('')
 const selectedPeriod = ref('')
-const evBookingWindow = ref(getMockBookingWindow('ev'))
+const statusDialog = ref({
+  visible: false,
+  message: ''
+})
+const DAY_MS = 24 * 60 * 60 * 1000
+const createDateAtMidnight = (baseDate = new Date()) => {
+  const date = new Date(baseDate)
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+const formatDateToYmd = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+const getDynamicEvBookingWindow = () => {
+  const today = createDateAtMidnight()
+  const start = new Date(today.getTime() + DAY_MS)
+  const end = new Date(today.getTime() + 14 * DAY_MS)
+  return {
+    currentStartDate: formatDateToYmd(start),
+    currentEndDate: formatDateToYmd(end)
+  }
+}
+const evBookingWindow = ref(getDynamicEvBookingWindow())
+const promptList = getMockPromptList()
+const evRuleNoticeContent = computed(() => {
+  return promptList.find(item => item.key === 'ev_booking_rule_update_notice')?.content || ''
+})
 const evWindowRange = computed(() => ({
   start: new Date(`${evBookingWindow.value.currentStartDate}T00:00:00`),
   end: new Date(`${evBookingWindow.value.currentEndDate}T23:59:59`)
@@ -85,16 +143,6 @@ const timePeriods = [
 // 预订数据（示例）
 const bookings = ref({})
 
-// 获取周开始日期（周日）
-function getWeekStart(date) {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = d.getDate() - day
-  d.setDate(diff)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
 function isDateInEvWindow(dateLike) {
   const date = new Date(dateLike)
   if (Number.isNaN(date.getTime())) return false
@@ -102,38 +150,31 @@ function isDateInEvWindow(dateLike) {
   return date >= start && date <= end
 }
 
-// 生成两周的数据（固定显示未来14天）
+// 生成两周的数据（动态显示：明天到第14天）
 const weeks = computed(() => {
+  const { start, end } = evWindowRange.value
   const result = []
-  const today = new Date()
-  const startDate = getWeekStart(today)
+  const today = createDateAtMidnight()
+  const allDays = []
 
-  for (let weekIndex = 0; weekIndex < 2; weekIndex++) {
-    const weekStart = new Date(startDate)
-    weekStart.setDate(weekStart.getDate() + weekIndex * 7)
+  for (let dateMs = start.getTime(); dateMs <= end.getTime(); dateMs += DAY_MS) {
+    const date = new Date(dateMs)
+    allDays.push({
+      date: formatDateToYmd(date),
+      dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      dayNumber: String(date.getDate()).padStart(2, '0'),
+      isToday: date.toDateString() === today.toDateString()
+    })
+  }
 
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekEnd.getDate() + 6)
-
-    const days = []
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(weekStart)
-      date.setDate(date.getDate() + i)
-
-      const isToday = date.toDateString() === today.toDateString()
-
-      days.push({
-        date: date.toISOString().split('T')[0],
-        dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
-        dayNumber: String(date.getDate()).padStart(2, '0'),
-        isToday
-      })
-    }
-
+  for (let weekIndex = 0; weekIndex < allDays.length; weekIndex += 7) {
+    const weekDays = allDays.slice(weekIndex, weekIndex + 7)
+    const weekStart = new Date(`${weekDays[0].date}T00:00:00`)
+    const weekEnd = new Date(`${weekDays[weekDays.length - 1].date}T00:00:00`)
     result.push({
-      id: weekIndex,
+      id: weekIndex / 7,
       dateRange: `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-      days
+      days: weekDays
     })
   }
 
@@ -150,13 +191,13 @@ function getAvailabilityData(date, period) {
 }
 
 // 获取可用性文本
-function getAvailabilityText(date, period) {
+function getAvailabilityText(date, period, periodLabel) {
   const data = getAvailabilityData(date, period)
   if (data.outOfWindow) return 'Closed'
   if (data.available === 0) {
     return 'Full'
   }
-  return `${data.available}/${data.total}`
+  return periodLabel
 }
 
 // 获取可用性样式类
@@ -168,21 +209,24 @@ function getAvailabilityClass(date, period) {
   if (data.available === 0) {
     return 'is-full'
   }
-  if (data.available === 1) {
-    return 'is-limited'
-  }
   return ''
 }
 
 // 选择时间段
 function selectTimeSlot(date, period) {
   if (!isDateInEvWindow(`${date}T12:00:00`)) {
-    ElMessage.warning('This date is outside the EV booking date range')
+    statusDialog.value = {
+      visible: true,
+      message: 'This date is outside the EV booking date range'
+    }
     return
   }
   const data = getAvailabilityData(date, period)
   if (data.available === 0) {
-    ElMessage.warning('This time slot is fully booked')
+    statusDialog.value = {
+      visible: true,
+      message: 'This time slot is fully booked'
+    }
     return
   }
   selectedDate.value = date
@@ -210,7 +254,10 @@ function handleBookingConfirm(bookingData) {
   }
 
   closeDialog()
-  ElMessage.success('Booking created successfully!')
+  statusDialog.value = {
+    visible: true,
+    message: 'Booking created successfully!'
+  }
 }
 
 // 退出登录
@@ -278,6 +325,74 @@ onMounted(() => {
   padding: 0.45rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 600;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.read-more-link {
+  border: none;
+  background: transparent;
+  color: #0f766e;
+  font-size: inherit;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.read-more-link:hover {
+  color: #115e59;
+}
+
+.ev-rule-notice-content {
+  color: #1f2937;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.ev-rule-notice-content :deep(p) {
+  margin: 0 0 8px;
+}
+
+.ev-rule-notice-content :deep(strong) {
+  color: #111827;
+}
+
+.ev-rule-notice-content :deep(.attention-line),
+.ev-rule-notice-content :deep(.main-title) {
+  color: #ef4444;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ev-rule-notice-content :deep(.attention-line) {
+  margin-bottom: 2px;
+  font-size: 14px;
+}
+
+.ev-rule-notice-content :deep(.main-title) {
+  margin-bottom: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ev-rule-notice-content :deep(.section-title) {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  text-decoration: underline;
+}
+
+.ev-rule-notice-content :deep(.line-item) {
+  margin-bottom: 2px;
+  font-size: 14px;
+  color: #111827;
+}
+
+.ev-rule-notice-content :deep(.line-item .change-highlight) {
+  color: #ef4444;
 }
 
 .calendar-wrapper {
@@ -398,51 +513,109 @@ onMounted(() => {
   background-color: #fca5a5;
 }
 
-.time-cell.is-limited {
-  background-color: #fef3c7;
-}
-
-.time-cell.is-limited:hover {
-  background-color: #fde68a;
-}
-
-.time-cell::before {
-  content: attr(data-period);
-  position: absolute;
-  top: 0.25rem;
-  left: 0.25rem;
-  font-size: clamp(0.625rem, 1.5vw, 0.75rem);
-  font-weight: 600;
-  color: #6b7280;
-}
-
-.time-row:nth-child(2) .time-cell::before {
-  content: 'AM';
-}
-
-.time-row:nth-child(3) .time-cell::before {
-  content: 'PM';
-}
-
-.time-row:nth-child(4) .time-cell::before {
-  content: 'Night';
-}
-
 .availability {
   font-size: clamp(1rem, 2.5vw, 1.25rem);
-  font-weight: 600;
+  font-weight: 700;
   color: #374151;
+}
+
+.status-modal-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.status-modal-wrapper {
+  width: min(92vw, 420px);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.status-modal-header {
+  background: #00723a;
+  color: #ffffff;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-modal-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.status-modal-close {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.status-close-icon {
+  width: 20px;
+  height: 20px;
+  stroke: #ffffff;
+  fill: none;
+}
+
+.status-modal-close:hover .status-close-icon {
+  stroke: #d1fae5;
+}
+
+.status-modal-body {
+  padding: 1.25rem 1.5rem 1rem;
+}
+
+.status-dialog-message {
+  margin: 0;
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.5;
+  color: #333333;
+}
+
+.status-modal-footer {
+  padding: 0.9rem 1.25rem 1.1rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.status-confirm-btn {
+  background-color: #00723a;
+  border-color: #00723a;
+  color: #ffffff;
+  font-weight: 600;
+  min-width: 88px;
+}
+
+.status-confirm-btn:hover {
+  background-color: #005a2e;
+  border-color: #005a2e;
+  color: #ffffff;
 }
 
 .time-cell.is-full .availability {
   color: #dc2626;
   font-weight: 700;
   font-style: italic;
-}
-
-.time-cell.is-limited .availability {
-  color: #d97706;
-  font-weight: 700;
 }
 
 /* Responsive adjustments */
@@ -464,10 +637,6 @@ onMounted(() => {
     min-height: 2.5rem;
   }
 
-  .time-cell::before {
-    top: 0.125rem;
-    left: 0.125rem;
-  }
 }
 
 @media (max-width: 389px) {

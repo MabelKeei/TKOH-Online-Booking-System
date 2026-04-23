@@ -27,7 +27,7 @@
             class="header-link dropdown-trigger"
             :class="{ 'is-active': isCalendarNavActive }"
           >
-            Calendar
+            {{ calendarNavLabel }}
           </button>
           <div class="dropdown-panel">
             <div class="dropdown-panel-inner">
@@ -55,7 +55,7 @@
             class="header-link dropdown-trigger"
             :class="{ 'is-active': isManageNavActive }"
           >
-            Manage Booking
+            {{ manageNavLabel }}
           </button>
           <div class="dropdown-panel">
             <div class="dropdown-panel-inner">
@@ -85,14 +85,14 @@
           class="header-link"
           :class="{ 'is-active': isCalendarNavActive }"
         >
-          Calendar
+          {{ calendarNavLabel }}
         </RouterLink>
         <RouterLink
           :to="manageBookingPath"
           class="header-link"
           :class="{ 'is-active': isActive(manageBookingPath) }"
         >
-          Manage Booking
+          {{ manageNavLabel }}
         </RouterLink>
       </template>
 
@@ -102,7 +102,7 @@
         :class="{ 'is-active': isActive('/Account') }"
         @click="saveCurrentPath"
       >
-        Account
+        {{ accountNavLabel }}
       </RouterLink>
 
       <div class="logout-wrapper">
@@ -183,6 +183,18 @@ const isVenuePage = computed(() => {
   return route.path.includes('VenueBooking')
 })
 
+const navSection = computed(() => {
+  if (route.path === '/Account') {
+    const fromPath = sessionStorage.getItem('accountFromPath')
+    if (fromPath?.includes('/admin')) return 'admin'
+    if (fromPath?.includes('VenueBooking')) return 'venue'
+    return 'ev'
+  }
+  if (route.path.includes('/admin')) return 'admin'
+  if (route.path.includes('VenueBooking')) return 'venue'
+  return 'ev'
+})
+
 const calendarPath = computed(() =>
   isVenuePage.value ? '/VenueBooking/Calendar' : '/evBooking/Calendar'
 )
@@ -221,6 +233,21 @@ const switchButtonText = computed(() => {
 
 const manageBookingPath = computed(() => {
   return isVenuePage.value ? '/VenueBooking/ManageBooking' : '/evBooking/ManageBooking'
+})
+
+const calendarNavLabel = computed(() => {
+  if (navSection.value === 'ev' || navSection.value === 'venue') return 'Book Now'
+  return 'Calendar'
+})
+
+const manageNavLabel = computed(() => {
+  if (navSection.value === 'ev' || navSection.value === 'venue') return 'My Bookings'
+  return 'Manage Booking'
+})
+
+const accountNavLabel = computed(() => {
+  if (navSection.value === 'ev' || navSection.value === 'venue') return 'My Account'
+  return 'Account'
 })
 
 const handleSwitch = () => {
@@ -478,6 +505,25 @@ const saveCurrentPath = () => {
 .switch-btn:active {
   transform: translateY(0);
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {
+  .app-header {
+    padding-inline: 0.75rem;
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  .app-header h1 {
+    font-size: 1rem;
+  }
+
+  nav {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 0.625rem;
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 389px) {

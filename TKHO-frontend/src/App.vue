@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <router-view />
-    <FloatingHelpButton v-if="!isAdminRoute" />
+    <FloatingHelpButton v-if="showFloatingHelpButton" />
   </div>
 </template>
 
@@ -14,6 +14,7 @@ import FloatingHelpButton from './components/FloatingHelpButton.vue'
 const userStore = useUserStore()
 const route = useRoute()
 const isAdminRoute = computed(() => route.path.startsWith('/admin'))
+const showFloatingHelpButton = computed(() => !isAdminRoute.value)
 
 onMounted(() => {
   // 初始化用户信息

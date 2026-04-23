@@ -60,31 +60,31 @@ export function getMockEmployeeListRaw () {
   if (_employeeListRaw) return cloneMockList(_employeeListRaw)
 
   const baseList = [
-    { id: 1, corpId: 'E001', name: 'John Doe', department: 'IT', position: 'Manager', email: 'john@tkoh.com', annualQuota: 50, usedQuota: 12, status: 'active' },
-    { id: 2, corpId: 'E002', name: 'Jane Smith', department: 'HR', position: 'Staff', email: 'jane@tkoh.com', annualQuota: 30, usedQuota: 5, status: 'active' },
-    { id: 3, corpId: 'E003', name: 'Michael Tan', department: 'Finance', position: 'Senior Staff', email: 'michael.tan@tkoh.com', annualQuota: 40, usedQuota: 9, status: 'active' },
-    { id: 4, corpId: 'E004', name: 'Emily Wong', department: 'Operations', position: 'Staff', email: 'emily.wong@tkoh.com', annualQuota: 30, usedQuota: 3, status: 'active' },
-    { id: 5, corpId: 'E005', name: 'Daniel Lee', department: 'IT', position: 'Engineer', email: 'daniel.lee@tkoh.com', annualQuota: 35, usedQuota: 14, status: 'active' },
-    { id: 6, corpId: 'E006', name: 'Olivia Chan', department: 'Admin', position: 'Assistant', email: 'olivia.chan@tkoh.com', annualQuota: 25, usedQuota: 2, status: 'active' },
-    { id: 7, corpId: 'E007', name: 'Ryan Lim', department: 'Logistics', position: 'Coordinator', email: 'ryan.lim@tkoh.com', annualQuota: 30, usedQuota: 7, status: 'active' },
-    { id: 8, corpId: 'E008', name: 'Sophia Ng', department: 'HR', position: 'Executive', email: 'sophia.ng@tkoh.com', annualQuota: 30, usedQuota: 11, status: 'active' },
-    { id: 9, corpId: 'E009', name: 'Kevin Ho', department: 'Sales', position: 'Staff', email: 'kevin.ho@tkoh.com', annualQuota: 30, usedQuota: 6, status: 'active' },
-    { id: 10, corpId: 'E010', name: 'Grace Low', department: 'Marketing', position: 'Executive', email: 'grace.low@tkoh.com', annualQuota: 35, usedQuota: 15, status: 'active' },
-    { id: 11, corpId: 'E011', name: 'Jason Chua', department: 'IT', position: 'Analyst', email: 'jason.chua@tkoh.com', annualQuota: 35, usedQuota: 8, status: 'active' },
-    { id: 12, corpId: 'E012', name: 'Alicia Koh', department: 'Legal', position: 'Officer', email: 'alicia.koh@tkoh.com', annualQuota: 25, usedQuota: 4, status: 'active' },
-    { id: 13, corpId: 'E013', name: 'Marcus Teo', department: 'Operations', position: 'Supervisor', email: 'marcus.teo@tkoh.com', annualQuota: 40, usedQuota: 18, status: 'active' },
-    { id: 14, corpId: 'E014', name: 'Hannah Goh', department: 'Finance', position: 'Staff', email: 'hannah.goh@tkoh.com', annualQuota: 30, usedQuota: 10, status: 'active' },
-    { id: 15, corpId: 'E015', name: 'Brandon Yap', department: 'Procurement', position: 'Officer', email: 'brandon.yap@tkoh.com', annualQuota: 30, usedQuota: 5, status: 'active' },
-    { id: 16, corpId: 'E016', name: 'Natalie Sim', department: 'Admin', position: 'Manager', email: 'natalie.sim@tkoh.com', annualQuota: 45, usedQuota: 13, status: 'active' },
-    { id: 17, corpId: 'E017', name: 'Darren Ang', department: 'Security', position: 'Lead', email: 'darren.ang@tkoh.com', annualQuota: 25, usedQuota: 1, status: 'active' },
-    { id: 18, corpId: 'E018', name: 'Chloe Tan', department: 'Customer Service', position: 'Staff', email: 'chloe.tan@tkoh.com', annualQuota: 30, usedQuota: 12, status: 'active' },
-    { id: 19, corpId: 'E019', name: 'Samuel Neo', department: 'Warehouse', position: 'Coordinator', email: 'samuel.neo@tkoh.com', annualQuota: 30, usedQuota: 7, status: 'inactive' },
-    { id: 20, corpId: 'E020', name: 'Ivy Cheong', department: 'Marketing', position: 'Staff', email: 'ivy.cheong@tkoh.com', annualQuota: 30, usedQuota: 9, status: 'active' },
-    { id: 21, corpId: 'E021', name: 'Leonard Fong', department: 'Sales', position: 'Manager', email: 'leonard.fong@tkoh.com', annualQuota: 50, usedQuota: 20, status: 'active' },
-    { id: 22, corpId: 'E022', name: 'Vanessa Liew', department: 'IT', position: 'Support', email: 'vanessa.liew@tkoh.com', annualQuota: 30, usedQuota: 6, status: 'inactive' },
-    { id: 23, corpId: 'E023', name: 'Tommy Tan', department: 'EV', role: 'EV Booking', email: 'tommy.tan@tkoh.com', annualQuotaEV: 40, usedQuotaEV: 22, annualQuotaVenue: 20, usedQuotaVenue: 12, status: 'expired' },
-    { id: 24, corpId: 'E024', name: 'Lily Wong', department: 'Venue', role: 'Venue Booking', email: 'lily.wong@tkoh.com', annualQuotaEV: 25, usedQuotaEV: 15, annualQuotaVenue: 55, usedQuotaVenue: 28, status: 'expired' },
-    { id: 25, corpId: 'E025', name: 'Ethan Lim', department: 'Admin', role: 'Admin', email: 'ethan.lim@tkoh.com', annualQuotaEV: 60, usedQuotaEV: 40, annualQuotaVenue: 60, usedQuotaVenue: 35, status: 'expired' }
+    { id: 1, corpId: 'E001', name: 'John Doe', department: 'IT', position: 'Manager', email: 'john@tkoh.com', contact: '91000000', annualQuota: 50, usedQuota: 12, status: 'active' },
+    { id: 2, corpId: 'E002', name: 'Jane Smith', department: 'HR', position: 'Staff', email: 'jane@tkoh.com', contact: '91000001', annualQuota: 30, usedQuota: 5, status: 'active' },
+    { id: 3, corpId: 'E003', name: 'Michael Tan', department: 'Finance', position: 'Senior Staff', email: 'michael.tan@tkoh.com', contact: '91000002', annualQuota: 40, usedQuota: 9, status: 'active' },
+    { id: 4, corpId: 'E004', name: 'Emily Wong', department: 'Operations', position: 'Staff', email: 'emily.wong@tkoh.com', contact: '91000003', annualQuota: 30, usedQuota: 3, status: 'active' },
+    { id: 5, corpId: 'E005', name: 'Daniel Lee', department: 'IT', position: 'Engineer', email: 'daniel.lee@tkoh.com', contact: '91000004', annualQuota: 35, usedQuota: 14, status: 'active' },
+    { id: 6, corpId: 'E006', name: 'Olivia Chan', department: 'Admin', position: 'Assistant', email: 'olivia.chan@tkoh.com', contact: '91000005', annualQuota: 25, usedQuota: 2, status: 'active' },
+    { id: 7, corpId: 'E007', name: 'Ryan Lim', department: 'Logistics', position: 'Coordinator', email: 'ryan.lim@tkoh.com', contact: '91000006', annualQuota: 30, usedQuota: 7, status: 'active' },
+    { id: 8, corpId: 'E008', name: 'Sophia Ng', department: 'HR', position: 'Executive', email: 'sophia.ng@tkoh.com', contact: '91000007', annualQuota: 30, usedQuota: 11, status: 'active' },
+    { id: 9, corpId: 'E009', name: 'Kevin Ho', department: 'Sales', position: 'Staff', email: 'kevin.ho@tkoh.com', contact: '91000008', annualQuota: 30, usedQuota: 6, status: 'active' },
+    { id: 10, corpId: 'E010', name: 'Grace Low', department: 'Marketing', position: 'Executive', email: 'grace.low@tkoh.com', contact: '91000009', annualQuota: 35, usedQuota: 15, status: 'active' },
+    { id: 11, corpId: 'E011', name: 'Jason Chua', department: 'IT', position: 'Analyst', email: 'jason.chua@tkoh.com', contact: '91000010', annualQuota: 35, usedQuota: 8, status: 'active' },
+    { id: 12, corpId: 'E012', name: 'Alicia Koh', department: 'Legal', position: 'Officer', email: 'alicia.koh@tkoh.com', contact: '91000011', annualQuota: 25, usedQuota: 4, status: 'active' },
+    { id: 13, corpId: 'E013', name: 'Marcus Teo', department: 'Operations', position: 'Supervisor', email: 'marcus.teo@tkoh.com', contact: '91000012', annualQuota: 40, usedQuota: 18, status: 'active' },
+    { id: 14, corpId: 'E014', name: 'Hannah Goh', department: 'Finance', position: 'Staff', email: 'hannah.goh@tkoh.com', contact: '91000013', annualQuota: 30, usedQuota: 10, status: 'active' },
+    { id: 15, corpId: 'E015', name: 'Brandon Yap', department: 'Procurement', position: 'Officer', email: 'brandon.yap@tkoh.com', contact: '91000014', annualQuota: 30, usedQuota: 5, status: 'active' },
+    { id: 16, corpId: 'E016', name: 'Natalie Sim', department: 'Admin', position: 'Manager', email: 'natalie.sim@tkoh.com', contact: '91000015', annualQuota: 45, usedQuota: 13, status: 'active' },
+    { id: 17, corpId: 'E017', name: 'Darren Ang', department: 'Security', position: 'Lead', email: 'darren.ang@tkoh.com', contact: '91000016', annualQuota: 25, usedQuota: 1, status: 'active' },
+    { id: 18, corpId: 'E018', name: 'Chloe Tan', department: 'Customer Service', position: 'Staff', email: 'chloe.tan@tkoh.com', contact: '91000017', annualQuota: 30, usedQuota: 12, status: 'active' },
+    { id: 19, corpId: 'E019', name: 'Samuel Neo', department: 'Warehouse', position: 'Coordinator', email: 'samuel.neo@tkoh.com', contact: '91000018', annualQuota: 30, usedQuota: 7, status: 'inactive' },
+    { id: 20, corpId: 'E020', name: 'Ivy Cheong', department: 'Marketing', position: 'Staff', email: 'ivy.cheong@tkoh.com', contact: '91000019', annualQuota: 30, usedQuota: 9, status: 'active' },
+    { id: 21, corpId: 'E021', name: 'Leonard Fong', department: 'Sales', position: 'Manager', email: 'leonard.fong@tkoh.com', contact: '91000020', annualQuota: 50, usedQuota: 20, status: 'active' },
+    { id: 22, corpId: 'E022', name: 'Vanessa Liew', department: 'IT', position: 'Support', email: 'vanessa.liew@tkoh.com', contact: '91000021', annualQuota: 30, usedQuota: 6, status: 'inactive' },
+    { id: 23, corpId: 'E023', name: 'Tommy Tan', department: 'EV', role: 'EV Booking', email: 'tommy.tan@tkoh.com', contact: '91000022', annualQuotaEV: 40, usedQuotaEV: 22, annualQuotaVenue: 20, usedQuotaVenue: 12, status: 'expired' },
+    { id: 24, corpId: 'E024', name: 'Lily Wong', department: 'Venue', role: 'Venue Booking', email: 'lily.wong@tkoh.com', contact: '91000023', annualQuotaEV: 25, usedQuotaEV: 15, annualQuotaVenue: 55, usedQuotaVenue: 28, status: 'expired' },
+    { id: 25, corpId: 'E025', name: 'Ethan Lim', department: 'Admin', role: 'Admin', email: 'ethan.lim@tkoh.com', contact: '91000024', annualQuotaEV: 60, usedQuotaEV: 40, annualQuotaVenue: 60, usedQuotaVenue: 35, status: 'expired' }
   ]
   _employeeListRaw = baseList.map((u, idx) => ({
     ...u,
@@ -156,9 +156,13 @@ let _parkingList = null
 let _promptList = null
 let _venueList = null
 let _licensePlateList = null
+let _accountVehicleList = null
 let _evTimePeriods = null
 let _bookingWindows = null
 let _displayConfig = null
+let _evManageBookingList = null
+let _venueCalendarBookingList = null
+let _venueManageBookingList = null
 
 export function getMockMeetingPendingList () {
   if (_meetingPendingList) return cloneMockList(_meetingPendingList)
@@ -393,40 +397,18 @@ export function getMockPromptList () {
       id: 1,
       key: 'ev_booking_points_to_note',
       name: 'EV Booking Points to Note',
-      content: `<p><strong>Points to Note:</strong>
-<p>1. For reservation of other venues (e.g. Courtyard or Glasshouse), please contact General Office at 22081951 directly
-<p>2. General Office reserves the right to cancel any booking or reassign another venue under necessary circumstances.
-<p>3. Should user require the following service for the meeting, please directly contact the respective department in advance for arrangement</p>
-<table style="border-collapse: collapse; width: 100%; background-color: #f9fafb;">
-  <thead>
-    <tr>
-      <th style="text-align: left; padding: 6px 8px; border: 1px solid #d1d5db;">Service/Equipment</th>
-      <th style="text-align: left; padding: 6px 8px; border: 1px solid #d1d5db;">Subject Department</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Zoom/Video Conferencing</td>
-      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Information Technology Dept (Tel: 22081830)</td>
-    </tr>
-    <tr>
-      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Venue Setting / Furniture on-loan</td>
-      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Facility Management Dept (Tek: 22081845)</td>
-    </tr>
-    <tr>
-      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Eguipment on-loar</td>
-      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">General Office (Tet: 22081951)</td>
-    </tr>
-    <tr>
-      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Tea Service for Conference Rooms (ad-hoc)</td>
-      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">General Office (Tel: 22081951)</td>
-    </tr>
-    <tr>
-      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Tea Service for Other Venue and Rooms</td>
-      <td style="padding: 6px 8px; border: 1px solid #d1d5db;">Via ADS</td>
-    </tr>
-  </tbody>
-</table>`,
+      content: `<p><strong>Points to Note:</strong></p>
+<ol>
+  <li>1. TKOH Car Park Reservation System allows access by nominated staff only.</li>
+  <li>2. Visitors coming to TKOH to attend meeting or to deliver presentation at lecture/seminar/workshop, or to service or technical support should make booking through the nominated staff.</li>
+  <li>3. Booking is not available for visitors coming to attend training, course, seminar or workshop.</li>
+  <li>4. Booking for contractors or suppliers for whatever purpose is not accepted.</li>
+  <li>5. Booking should be made at least 5 working days before the date of parking.</li>
+  <li>6. Confirmation of booking will be announced on the system 5 days before the date of parking.</li>
+  <li>7. Amendment for car registration number or booking details must be notified in advance.</li>
+  <li>8. Reserved parking-space will be allocated to other users if the registered car does not show up one hour after.</li>
+  <li>9. Owing to the limited number of parking-spaces in the Reserved Carpark, acceptance of car park reservation of a parking-space.</li>
+</ol>`,
       category: 'system_fixed',
       canAdd: false
     },
@@ -434,7 +416,42 @@ export function getMockPromptList () {
       id: 2,
       key: 'venue_booking_points_to_note',
       name: 'Venue Booking Points to Note',
-      content: 'Please arrive on time, keep the venue clean, and restore layout after use.',
+      content: `<p><strong>Points to Note:</strong></p>
+<ol>
+  <li>1. For reservation of other venues (e.g. Courtyard or Glasshouse), please contact General Office at <strong>2208 1951</strong> directly.</li>
+  <li>2. General Office reserves the right to cancel any booking or reassign another venue under necessary circumstances.</li>
+  <li>3. Should user require the following service for the meeting, please directly contact the respective department in advance for arrangement.</li>
+</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Service/Equipment</th>
+      <th>Subject Department</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Zoom/Video Conferencing</td>
+      <td>Information Technology Dept (Tel: 2208 1830)</td>
+    </tr>
+    <tr>
+      <td>Venue Setting / Furniture on-loan</td>
+      <td>Facility Management Dept (Tel: 2208 1845)</td>
+    </tr>
+    <tr>
+      <td>Equipment on-loan</td>
+      <td>General Office (Tel: 2208 1951)</td>
+    </tr>
+    <tr>
+      <td>Tea Service for Conference Rooms (ad-hoc)</td>
+      <td>General Office (Tel: 2208 1951)</td>
+    </tr>
+    <tr>
+      <td>Tea Service for Other Venue and Rooms</td>
+      <td>Via ADS</td>
+    </tr>
+  </tbody>
+</table>`,
       category: 'system_fixed',
       canAdd: false
     },
@@ -532,6 +549,30 @@ export function getMockPromptList () {
       category: 'reject_template',
       canAdd: true,
       templateType: 'account_application'
+    },
+    {
+      id: 15,
+      key: 'ev_booking_rule_update_notice',
+      name: 'EV Booking Rule Update Notice',
+      content: `<p class="attention-line">[ For Attention, please ]</p>
+<p class="main-title">Updates on Booking Rules of EV Charging Facilities</p>
+<p class="section-title">Effective from 01 JAN 2025</p>
+<p class="line-item">a. Booking quota: Change from 2 sessions/week to <span class="change-highlight">1 session/week</span></p>
+<p class="line-item">b. Period of AM session: Change from 09:00hr-13:15hr to <span class="change-highlight">08:30hr-13:00hr</span></p>
+<p class="line-item">c. Period of PM session: Change from 14:00hr-18:15hr to <span class="change-highlight">13:45hr-18:15hr</span></p>
+<p class="section-title">Effective from 13 JAN 2025</p>
+<p class="line-item">d. New booking timeslots releasing time: Change from 00:00hr everyday to <span class="change-highlight">13:00hr everyday</span></p>`,
+      category: 'system_fixed',
+      canAdd: false
+    },
+    {
+      id: 16,
+      key: 'venue_booking_lecture_theatre_notice',
+      name: 'Venue Booking Lecture Theatre Notice',
+      content: `<p class="venue-notice-line">Lecture Theatre is temporarily closed.</p>
+<p class="venue-notice-line zh">演講廳暫停使用</p>`,
+      category: 'system_fixed',
+      canAdd: false
     }
   ]
   return cloneMockList(_promptList)
@@ -577,6 +618,97 @@ export function getMockLicensePlateList () {
   ]
 
   return cloneMockList(_licensePlateList)
+}
+
+export function getMockAccountVehicleList () {
+  if (_accountVehicleList) return cloneMockList(_accountVehicleList)
+  _accountVehicleList = [
+    { plate: 'AB1234', isDefault: true },
+    { plate: 'CD5678', isDefault: false }
+  ]
+  return cloneMockList(_accountVehicleList)
+}
+
+export function getMockEVManageBookingList () {
+  if (_evManageBookingList) return cloneMockList(_evManageBookingList)
+  _evManageBookingList = [
+    { id: 1, licensePlate: 'YZ4567', space: 'B2', date: '28 Mar 2026', time: 'AM (08:30 - 13:00)', bookedOn: '17 Mar 2026', status: 'upcoming' },
+    { id: 2, licensePlate: 'YZ4567', space: 'B3', date: '3 Mar 2026', time: 'AM (08:30 - 13:00)', bookedOn: '25 Feb 2026', status: 'upcoming' },
+    { id: 3, licensePlate: 'AB1234', space: 'B2', date: '12 Feb 2026', time: 'PM (13:45 - 18:15)', bookedOn: '3 Feb 2026', status: 'upcoming' },
+    { id: 4, licensePlate: 'HK7890', space: 'B1', date: '7 Feb 2026', time: 'Night (19:00 - 23:30)', bookedOn: '4 Feb 2026', status: 'upcoming' },
+    { id: 5, licensePlate: 'YZ4567', space: 'B3', date: '3 Feb 2026', time: 'AM (08:30 - 13:00)', bookedOn: '25 Jan 2026', status: 'past' },
+    { id: 6, licensePlate: 'AB1234', space: 'B2', date: '28 Jan 2026', time: 'PM (13:45 - 18:15)', bookedOn: '20 Jan 2026', status: 'cancelled', reason: 'Changed to another vehicle' },
+    { id: 7, licensePlate: 'CD5678', space: 'B1', date: '15 Mar 2026', time: 'AM (08:30 - 13:00)', bookedOn: '10 Mar 2026', status: 'upcoming' },
+    { id: 8, licensePlate: 'EF9012', space: 'B3', date: '18 Mar 2026', time: 'PM (13:45 - 18:15)', bookedOn: '12 Mar 2026', status: 'upcoming' },
+    { id: 9, licensePlate: 'GH3456', space: 'B2', date: '22 Mar 2026', time: 'Night (19:00 - 23:30)', bookedOn: '15 Mar 2026', status: 'upcoming' },
+    { id: 10, licensePlate: 'AB1234', space: 'B1', date: '25 Mar 2026', time: 'AM (08:30 - 13:00)', bookedOn: '18 Mar 2026', status: 'upcoming' },
+    { id: 11, licensePlate: 'YZ4567', space: 'B2', date: '5 Feb 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Jan 2026', status: 'past' },
+    { id: 12, licensePlate: 'HK7890', space: 'B3', date: '8 Feb 2026', time: 'AM (08:30 - 13:00)', bookedOn: '1 Feb 2026', status: 'past' },
+    { id: 13, licensePlate: 'CD5678', space: 'B1', date: '10 Feb 2026', time: 'Night (19:00 - 23:30)', bookedOn: '3 Feb 2026', status: 'past' },
+    { id: 14, licensePlate: 'EF9012', space: 'B2', date: '14 Feb 2026', time: 'PM (13:45 - 18:15)', bookedOn: '7 Feb 2026', status: 'past' },
+    { id: 15, licensePlate: 'GH3456', space: 'B3', date: '20 Feb 2026', time: 'AM (08:30 - 13:00)', bookedOn: '13 Feb 2026', status: 'cancelled', reason: 'Changed to another vehicle' },
+    { id: 16, licensePlate: 'AB1234', space: 'B1', date: '30 Mar 2026', time: 'PM (13:45 - 18:15)', bookedOn: '23 Mar 2026', status: 'upcoming' },
+    { id: 17, licensePlate: 'YZ4567', space: 'B3', date: '2 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '25 Mar 2026', status: 'upcoming' },
+    { id: 18, licensePlate: 'HK7890', space: 'B2', date: '5 Apr 2026', time: 'Night (19:00 - 23:30)', bookedOn: '28 Mar 2026', status: 'upcoming' }
+  ]
+  return cloneMockList(_evManageBookingList)
+}
+
+export function getMockVenueManageBookingList () {
+  if (_venueManageBookingList) return cloneMockList(_venueManageBookingList)
+  _venueManageBookingList = [
+    { id: 1, topic: 'Department Monthly Review', room: 'Conference Room 1', date: '10 Feb 2026', time: '10:00 - 11:30', bookedOn: '28 Jan 2026 14:30', status: 'upcoming', type: 'venue', reservedBy: 'Chan Tai Man', contact: '12345678', email: 'abc@xyz.com', teaServiceRequired: true, teaServiceSummary: 'Tea / One Pot', teaServiceParticipants: 8, approvalStatus: 'pending', approvedBy: '', approvedAt: '', rejectReason: '' },
+    { id: 2, topic: 'Project Kick-off Meeting', room: 'Discussion Room', date: '5 May 2026', time: '14:00 - 15:30', bookedOn: '30 Mar 2026 09:15', status: 'upcoming', type: 'venue', reservedBy: 'Karen Shen', contact: '12345678', email: 'karen.shen@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '30 Jan 2026 09:15', rejectReason: '' },
+    { id: 3, topic: 'Training Session - New Staff', room: 'Lecture Theatre', date: '20 Jan 2026', time: '09:00 - 10:45', bookedOn: '10 Jan 2026 16:20', status: 'past', type: 'venue', reservedBy: 'John Doe', contact: '87654321', email: 'john.doe@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '10 Jan 2026 16:20', rejectReason: '' },
+    { id: 4, topic: 'Budget Planning Meeting', room: 'Conference Room 2', date: '12 Feb 2026', time: '13:00 - 14:30', bookedOn: '29 Jan 2026 11:45', status: 'upcoming', type: 'venue', reservedBy: 'Mary Wong', contact: '23456789', email: 'mary.wong@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '29 Jan 2026 11:45', rejectReason: '' },
+    { id: 5, topic: 'Team Building Workshop', room: 'Function Room', date: '15 Feb 2026', time: '09:00 - 17:00', bookedOn: '01 Feb 2026 08:30', status: 'upcoming', type: 'venue', reservedBy: 'Peter Lee', contact: '34567890', email: 'peter.lee@ha.org.hk', teaServiceRequired: true, teaServiceSummary: 'Water / One Bottle Per Person', teaServiceParticipants: 20, approvalStatus: 'pending', approvedBy: '', approvedAt: '', rejectReason: '' },
+    { id: 6, topic: 'Client Presentation', room: 'Conference Room 3', date: '18 Jan 2026', time: '15:00 - 16:30', bookedOn: '08 Jan 2026 13:10', status: 'past', type: 'venue', reservedBy: 'Sarah Chen', contact: '45678901', email: 'sarah.chen@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '08 Jan 2026 13:10', rejectReason: '' },
+    { id: 7, topic: 'IT Security Briefing', room: 'Discussion Room 2', date: '08 Feb 2026', time: '10:30 - 12:00', bookedOn: '25 Jan 2026 15:40', status: 'upcoming', type: 'venue', reservedBy: 'David Lam', contact: '56789012', email: 'david.lam@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '25 Jan 2026 15:40', rejectReason: '' },
+    { id: 8, topic: 'Annual Performance Review', room: 'Conference Room 1', date: '22 Jan 2026', time: '14:00 - 16:00', bookedOn: '12 Jan 2026 10:25', status: 'past', type: 'venue', reservedBy: 'Emily Ng', contact: '67890123', email: 'emily.ng@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '12 Jan 2026 10:25', rejectReason: '' },
+    { id: 9, topic: 'Product Launch Planning', room: 'Auditorium', date: '20 Feb 2026', time: '09:30 - 11:00', bookedOn: '03 Feb 2026 12:50', status: 'upcoming', type: 'venue', reservedBy: 'Michael Chow', contact: '78901234', email: 'michael.chow@ha.org.hk', teaServiceRequired: true, teaServiceSummary: 'Tea / One Bottle Per Person', teaServiceParticipants: 35, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '03 Feb 2026 12:50', rejectReason: '' },
+    { id: 10, topic: 'HR Policy Update Session', room: 'Lecture Theatre', date: '25 Feb 2026', time: '13:30 - 15:00', bookedOn: '05 Feb 2026 09:05', status: 'upcoming', type: 'venue', reservedBy: 'Linda Tsang', contact: '89012345', email: 'linda.tsang@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '05 Feb 2026 09:05', rejectReason: '' },
+    { id: 11, topic: 'Quarterly Business Review', room: 'Conference Room 2', date: '28 Feb 2026', time: '10:00 - 12:00', bookedOn: '06 Feb 2026 14:15', status: 'upcoming', type: 'venue', reservedBy: 'Robert Chan', contact: '90123456', email: 'robert.chan@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '06 Feb 2026 14:15', rejectReason: '' },
+    { id: 12, topic: 'Marketing Strategy Meeting', room: 'Discussion Room', date: '15 Jan 2026', time: '11:00 - 12:30', bookedOn: '05 Jan 2026 16:55', status: 'canceled', type: 'venue', reservedBy: 'Jessica Liu', contact: '01234567', email: 'jessica.liu@ha.org.hk', teaServiceRequired: false, approvalStatus: 'rejected', approvedBy: '', approvedAt: '', rejectReason: 'Booking rejected by admin' },
+    { id: 13, topic: 'Vendor Negotiation', room: 'Conference Room 3', date: '03 Mar 2026', time: '14:30 - 16:00', bookedOn: '07 Feb 2026 11:20', status: 'upcoming', type: 'venue', reservedBy: 'Thomas Yip', contact: '11223344', email: 'thomas.yip@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '07 Feb 2026 11:20', rejectReason: '' }
+  ]
+  return cloneMockList(_venueManageBookingList)
+}
+
+export function getMockVenueCalendarBookingList ({ today = new Date() } = {}) {
+  if (_venueCalendarBookingList) return cloneMockList(_venueCalendarBookingList)
+
+  const baseDate = new Date(today)
+  const tomorrow = new Date(baseDate)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const dayAfterTomorrow = new Date(baseDate)
+  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2)
+  const threeDaysLater = new Date(baseDate)
+  threeDaysLater.setDate(threeDaysLater.getDate() + 3)
+  const fourDaysLater = new Date(baseDate)
+  fourDaysLater.setDate(fourDaysLater.getDate() + 4)
+  const nextWeek = new Date(baseDate)
+  nextWeek.setDate(nextWeek.getDate() + 7)
+
+  _venueCalendarBookingList = [
+    { id: 1, roomName: 'Conference Room 1', date: baseDate.toISOString(), startTime: '08:00', endTime: '09:00', attendees: 5, topic: 'Labour Department OSH Inspection Meeting', notes: 'Weekly team meeting', reservedBy: 'John Smith', contact: '62001000' },
+    { id: 2, roomName: 'Conference Room 2', date: baseDate.toISOString(), startTime: '09:00', endTime: '11:00', attendees: 8, topic: 'Booking System Discussion with JW', notes: 'Client presentation', reservedBy: 'Mary Johnson', contact: '62001001' },
+    { id: 3, roomName: 'Conference Room 3', date: baseDate.toISOString(), startTime: '11:00', endTime: '12:00', attendees: 6, topic: 'Testing Session', notes: 'QA meeting', reservedBy: 'David Lee', contact: '62001002' },
+    { id: 4, roomName: 'Conference Room 1', date: baseDate.toISOString(), startTime: '13:30', endTime: '15:00', attendees: 10, topic: 'Strategy Planning', notes: 'Quarterly review', reservedBy: 'Sarah Wilson', contact: '62001003' },
+    { id: 5, roomName: 'Discussion Room', date: baseDate.toISOString(), startTime: '10:00', endTime: '11:30', attendees: 4, topic: 'Project Discussion', notes: 'Sprint planning', reservedBy: 'Michael Chen', contact: '62001004' },
+    { id: 6, roomName: 'Conference Room 2', date: baseDate.toISOString(), startTime: '14:00', endTime: '16:00', attendees: 12, topic: 'Training Workshop', notes: 'New employee orientation', reservedBy: 'Lisa Brown', contact: '62001005' },
+    { id: 7, roomName: 'Function Room', date: baseDate.toISOString(), startTime: '09:30', endTime: '12:00', attendees: 20, topic: 'Department Meeting', notes: 'Monthly all-hands', reservedBy: 'Robert Taylor', contact: '62001006' },
+    { id: 8, roomName: 'Conference Room 3', date: baseDate.toISOString(), startTime: '15:00', endTime: '17:00', attendees: 8, topic: 'Client Presentation', notes: 'Product demo', reservedBy: 'Jennifer White', contact: '62001007' },
+    { id: 9, roomName: 'Lecture Theatre', date: baseDate.toISOString(), startTime: '13:00', endTime: '15:30', attendees: 50, topic: 'Annual Conference', notes: 'Company-wide event', reservedBy: 'James Anderson', contact: '62001008' },
+    { id: 10, roomName: 'Discussion Room', date: baseDate.toISOString(), startTime: '16:00', endTime: '17:30', attendees: 5, topic: 'Code Review', notes: 'Development team sync', reservedBy: 'Emily Davis', contact: '62001009' },
+    { id: 11, roomName: 'Conference Room 1', date: tomorrow.toISOString(), startTime: '10:00', endTime: '11:30', attendees: 3, topic: 'Project discussion', notes: 'Project discussion', reservedBy: 'Tom Harris', contact: '62001010' },
+    { id: 12, roomName: 'Conference Room 2', date: tomorrow.toISOString(), startTime: '14:00', endTime: '15:30', attendees: 6, topic: 'Budget Review', notes: 'Finance meeting', reservedBy: 'Patricia Moore', contact: '62001011' },
+    { id: 13, roomName: 'Conference Room 3', date: dayAfterTomorrow.toISOString(), startTime: '09:00', endTime: '10:30', attendees: 8, topic: 'Design Review', notes: 'UI/UX discussion', reservedBy: 'Kevin Garcia', contact: '62001012' },
+    { id: 14, roomName: 'Conference Room 1', date: threeDaysLater.toISOString(), startTime: '11:00', endTime: '12:00', attendees: 5, topic: 'Sprint Planning', notes: 'Agile team meeting', reservedBy: 'Amanda Martinez', contact: '62001013' },
+    { id: 15, roomName: 'Discussion Room', date: fourDaysLater.toISOString(), startTime: '15:00', endTime: '16:30', attendees: 4, topic: 'Team Sync', notes: 'Weekly standup', reservedBy: 'Christopher Lee', contact: '62001014' },
+    { id: 16, roomName: 'Conference Room A', date: nextWeek.toISOString(), startTime: '13:00', endTime: '14:00', attendees: 4, topic: 'Training session', notes: 'Training session', reservedBy: 'Nancy Martin', contact: '62001015', color: '#f43f5e' }
+  ]
+
+  return cloneMockList(_venueCalendarBookingList)
 }
 
 export function generateEVBookingsMock ({

@@ -4,6 +4,10 @@
 
     <!-- Main container: viewport minus header and bottom space -->
     <main class="booking-main">
+      <div class="booking-window-tip">
+        <span>Important Note: Lecture Theatre is temporarily closed.</span>
+        <button type="button" class="read-more-link" @click="noticeDialogVisible = true">Read more...</button>
+      </div>
       <div class="booking-content">
         <h2 class="booking-title">What venue would you like to book?</h2>
 
@@ -44,15 +48,32 @@
         </div>
       </div>
     </main>
+
+    <BookingStyleModal
+      v-model="noticeDialogVisible"
+      title="Important Note"
+      max-width="720px"
+      custom-class="important-note-modal"
+    >
+      <div class="venue-rule-notice-content" v-html="venueRuleNoticeContent"></div>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import venueImage from '../assets/venue/1.jpg'
 import AppHeader from '../components/AppHeader.vue'
+import BookingStyleModal from '../components/BookingStyleModal.vue'
+import { getMockPromptList } from '@/mocks/mockData'
 
 const router = useRouter()
+const noticeDialogVisible = ref(false)
+const promptList = getMockPromptList()
+const venueRuleNoticeContent = computed(() => {
+  return promptList.find(item => item.key === 'venue_booking_lecture_theatre_notice')?.content || ''
+})
 const onLogout = () => router.push('/login')
 const goToConference = () => router.push({ name: 'VenueCalendarView', query: { roomType: 'conference' } })
 const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { roomType: 'other' } })
@@ -65,7 +86,7 @@ const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { 
   height: var(--zoom-vh);
   overflow: hidden;
   background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
-  padding-top: 60px; /* Header reserved height */
+  padding-top: 64px; /* Keep same header spacing as EVBooking */
   box-sizing: border-box;
   position: relative;
 }
@@ -73,18 +94,67 @@ const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { 
 /* Main area: viewport minus header and bottom space */
 .booking-main {
   /* height: calc(100vh - 60px - 20px); 60px header, 20px bottom spacing */
-  padding: 14vh 0 0;
+  padding: 0.5rem 1rem 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
+}
+
+.booking-window-tip {
+  margin: 0 0 0.25rem;
+  width: 100%;
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.read-more-link {
+  border: none;
+  background: transparent;
+  color: #0f766e;
+  font-size: inherit;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.read-more-link:hover {
+  color: #115e59;
+}
+
+.venue-rule-notice-content {
+  color: #1f2937;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.venue-rule-notice-content :deep(.venue-notice-line) {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.venue-rule-notice-content :deep(.venue-notice-line.zh) {
+  color: #111827;
 }
 
 /* Content container: max width and centered */
 .booking-content {
   width: 100%;
   max-width: 90vw;
-  margin: 0 auto;
+  margin: 6vh auto 0;
 }
 
 /* Title: responsive font and compact spacing */

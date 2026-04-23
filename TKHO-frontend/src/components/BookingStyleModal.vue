@@ -2,7 +2,7 @@
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="modal-overlay booking-style-modal-root"
+      :class="['modal-overlay booking-style-modal-root', customClass]"
       @click.self="onOverlayClick"
     >
       <div
@@ -65,12 +65,16 @@ const props = defineProps({
   },
   overlayPadding: {
     type: String,
-    default: '20px 0'
+    default: '24px 28px'
   },
   /** 为 false 时点击遮罩不关闭（对齐 el-dialog close-on-click-modal=false） */
   closeOnClickOverlay: {
     type: Boolean,
     default: true
+  },
+  customClass: {
+    type: String,
+    default: ''
   }
 })
 
@@ -159,7 +163,7 @@ onUnmounted(() => {
   justify-content: center;
   z-index: 10050;
   overflow-y: auto;
-  padding: var(--bsm-overlay-padding, 20px 0);
+  padding: var(--bsm-overlay-padding, 24px 28px);
 }
 
 .booking-style-modal-root .booking-dialog-wrapper {
@@ -182,7 +186,7 @@ onUnmounted(() => {
 .booking-style-modal-root .modal-header {
   background: #00723a;
   color: #fff;
-  padding: 0.75rem 1.25rem;
+  padding: 0.75rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -226,11 +230,10 @@ onUnmounted(() => {
 }
 
 .booking-style-modal-root .modal-body {
-  padding: 1.125rem 1.75rem;
+  padding: 1.125rem 2rem 20px;
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  padding-bottom: 20px;
 }
 
 .booking-style-modal-root .modal-body::-webkit-scrollbar {
@@ -248,11 +251,44 @@ onUnmounted(() => {
 }
 
 .booking-style-modal-root .modal-footer {
-  padding: 1rem 1.5rem;
+  padding: 1rem 2rem;
   border-top: 1px solid #e5e7eb;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   flex-shrink: 0;
+}
+
+/* Edit Booking: keep vertical scrolling on smaller laptop viewport */
+.booking-style-modal-root.edit-booking-modal .modal-body {
+  overflow-y: auto;
+  overflow-x: visible;
+}
+
+/* EV Important Note 等：Teleport 到 body，父页面 scoped 样式无法作用到此外壳，须在本组件内覆盖 */
+.booking-style-modal-root.important-note-modal .booking-dialog-wrapper {
+  border: 2px solid #ef1515;
+  border-radius: 28px;
+}
+
+.booking-style-modal-root.important-note-modal .modal-header {
+  background: #ef1515;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  position: relative;
+}
+
+.booking-style-modal-root.important-note-modal .modal-title {
+  width: 100%;
+  text-align: center;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.booking-style-modal-root.important-note-modal .modal-close {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 </style>

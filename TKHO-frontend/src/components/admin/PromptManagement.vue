@@ -202,7 +202,7 @@ const currentList = computed(() => {
 })
 
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(20)
 
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value

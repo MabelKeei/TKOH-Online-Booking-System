@@ -1,6 +1,6 @@
 <template>
   <div class="booking-page">
-    <AppHeader @logout="onLogout" />
+    <AppHeader />
 
     <!-- Main container: viewport minus header and bottom space -->
     <main class="booking-main">
@@ -74,7 +74,6 @@ const promptList = getMockPromptList()
 const venueRuleNoticeContent = computed(() => {
   return promptList.find(item => item.key === 'venue_booking_lecture_theatre_notice')?.content || ''
 })
-const onLogout = () => router.push('/login')
 const goToConference = () => router.push({ name: 'VenueCalendarView', query: { roomType: 'conference' } })
 const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { roomType: 'other' } })
 </script>

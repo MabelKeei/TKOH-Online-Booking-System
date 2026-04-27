@@ -1,6 +1,6 @@
 <template>
   <div class="page h-screen bg-gradient flex flex-col overflow-hidden pt-[64px]">
-    <AppHeader @logout="onLogout" />
+    <AppHeader />
 
     <main class="account-main flex-1 flex items-start justify-center px-2 md:px-3 lg:px-4 py-1 md:py-2 overflow-y-auto">
       <div class="account-container max-w-6xl w-full">
@@ -90,18 +90,63 @@
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">Current Password <span class="required">*</span></label>
-                  <input type="password" v-model="password.current" class="form-input" placeholder="Enter current password" />
+                  <div class="password-input-wrapper">
+                    <input :type="showPassword.current ? 'text' : 'password'" v-model="password.current" class="form-input password-input" placeholder="Enter current password" />
+                    <button type="button" class="password-toggle-btn" @click="showPassword.current = !showPassword.current">
+                      <svg v-if="showPassword.current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 3l18 18"></path>
+                        <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                        <path d="M9.2 5.2A10.9 10.9 0 0 1 12 5c5.5 0 9.5 4.5 10.8 7-.7 1.4-1.8 2.8-3.3 4"></path>
+                        <path d="M6.2 6.2C4.5 7.4 3.2 9 2.2 12c.9 1.8 2.4 3.7 4.6 5.1"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2.2 12C3.5 9.5 6.8 5 12 5s8.5 4.5 9.8 7c-1.3 2.5-4.6 7-9.8 7s-8.5-4.5-9.8-7z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">New Password <span class="required">*</span></label>
-                  <input type="password" v-model="password.new" class="form-input" placeholder="Enter new password" />
+                  <div class="password-input-wrapper">
+                    <input :type="showPassword.new ? 'text' : 'password'" v-model="password.new" class="form-input password-input" placeholder="Enter new password" />
+                    <button type="button" class="password-toggle-btn" @click="showPassword.new = !showPassword.new">
+                      <svg v-if="showPassword.new" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 3l18 18"></path>
+                        <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                        <path d="M9.2 5.2A10.9 10.9 0 0 1 12 5c5.5 0 9.5 4.5 10.8 7-.7 1.4-1.8 2.8-3.3 4"></path>
+                        <path d="M6.2 6.2C4.5 7.4 3.2 9 2.2 12c.9 1.8 2.4 3.7 4.6 5.1"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2.2 12C3.5 9.5 6.8 5 12 5s8.5 4.5 9.8 7c-1.3 2.5-4.6 7-9.8 7s-8.5-4.5-9.8-7z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">Confirm New Password <span class="required">*</span></label>
-                  <input type="password" v-model="password.confirm" class="form-input" placeholder="Confirm new password" />
+                  <div class="password-input-wrapper">
+                    <input :type="showPassword.confirm ? 'text' : 'password'" v-model="password.confirm" class="form-input password-input" placeholder="Confirm new password" />
+                    <button type="button" class="password-toggle-btn" @click="showPassword.confirm = !showPassword.confirm">
+                      <svg v-if="showPassword.confirm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 3l18 18"></path>
+                        <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                        <path d="M9.2 5.2A10.9 10.9 0 0 1 12 5c5.5 0 9.5 4.5 10.8 7-.7 1.4-1.8 2.8-3.3 4"></path>
+                        <path d="M6.2 6.2C4.5 7.4 3.2 9 2.2 12c.9 1.8 2.4 3.7 4.6 5.1"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2.2 12C3.5 9.5 6.8 5 12 5s8.5 4.5 9.8 7c-1.3 2.5-4.6 7-9.8 7s-8.5-4.5-9.8-7z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -131,16 +176,16 @@
             <div class="vehicle-list">
               <div
                 v-for="(vehicle, index) in sortedVehicles"
-                :key="index"
+                :key="vehicle.id"
                 class="vehicle-item"
-                :class="{ 'vehicle-default': vehicle.isDefault, 'vehicle-editing': editingVehicleIndex === vehicle.originalIndex }"
-                @click="setDefaultVehicle(vehicle.originalIndex)"
+                :class="{ 'vehicle-default': vehicle.isDefault, 'vehicle-editing': editingVehicleId === vehicle.id }"
+                @click="setDefaultVehicle(vehicle.id)"
               >
                 <div class="vehicle-number">{{ index + 1 }}</div>
                 <div class="vehicle-info">
                   <div class="vehicle-main">
                     <input
-                      v-if="editingVehicleIndex === vehicle.originalIndex"
+                      v-if="editingVehicleId === vehicle.id"
                       type="text"
                       v-model="vehicle.plate"
                       class="vehicle-plate-input editing"
@@ -155,9 +200,9 @@
                 </div>
                 <div class="vehicle-actions">
                   <button
-                    v-if="editingVehicleIndex === vehicle.originalIndex"
+                    v-if="editingVehicleId === vehicle.id"
                     class="btn-save-vehicle"
-                    @click.stop="saveVehicle(vehicle.originalIndex)"
+                    @click.stop="saveVehicle(vehicle.id)"
                     title="Save changes"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -165,9 +210,9 @@
                     </svg>
                   </button>
                   <button
-                    v-if="editingVehicleIndex === vehicle.originalIndex"
+                    v-if="editingVehicleId === vehicle.id"
                     class="btn-cancel-edit"
-                    @click.stop="cancelEdit(vehicle.originalIndex)"
+                    @click.stop="cancelEdit(vehicle.id)"
                     title="Cancel"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -178,7 +223,7 @@
                   <button
                     v-else
                     class="btn-edit"
-                    @click.stop="startEditVehicle(vehicle.originalIndex)"
+                    @click.stop="startEditVehicle(vehicle.id)"
                     title="Edit vehicle"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -187,9 +232,9 @@
                     </svg>
                   </button>
                   <button
-                    v-if="editingVehicleIndex !== vehicle.originalIndex"
+                    v-if="editingVehicleId !== vehicle.id"
                     class="btn-remove"
-                    @click.stop="removeVehicle(vehicle.originalIndex)"
+                    @click.stop="removeVehicle(vehicle.id)"
                     title="Remove vehicle"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -229,6 +274,16 @@
                     placeholder="License Plate"
                     @keyup.enter="addVehicle"
                   />
+                </div>
+                <div class="vehicle-default-option" @click.stop>
+                  <label class="vehicle-default-radio">
+                    <input type="radio" v-model="newVehicle.isDefault" :value="false" />
+                    <span>Non-default</span>
+                  </label>
+                  <label class="vehicle-default-radio">
+                    <input type="radio" v-model="newVehicle.isDefault" :value="true" />
+                    <span>Default</span>
+                  </label>
                 </div>
                 <div class="form-actions-row">
                   <button class="btn-confirm" @click="addVehicle">
@@ -275,12 +330,18 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref, computed, reactive } from 'vue'
-import { useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
-import { getMockAccountVehicleList } from '@/mocks/mockData'
+import { useUserStore } from '../stores/user'
+import { changePassword as changePasswordApi, updateProfile as updateProfileApi } from '../api/auth'
+import {
+  createAccountVehicle,
+  deleteAccountVehicle,
+  getAccountVehicles,
+  setDefaultAccountVehicle,
+  updateAccountVehicle
+} from '../api/accountVehicle'
 
-const router = useRouter()
-
+const userStore = useUserStore()
 const profile = ref({
   fullName: 'Karen SHEN',
   corpId: 'E001',
@@ -297,15 +358,21 @@ const password = ref({
   new: '',
   confirm: ''
 })
+const showPassword = ref({
+  current: false,
+  new: false,
+  confirm: false
+})
 
-const vehicles = ref(getMockAccountVehicleList())
+const vehicles = ref([])
 
 const newVehicle = ref({
-  plate: ''
+  plate: '',
+  isDefault: false
 })
 
 const showAddForm = ref(false)
-const editingVehicleIndex = ref(null)
+const editingVehicleId = ref(null)
 const vehicleBackup = ref(null)
 const statusDialog = reactive({
   visible: false,
@@ -315,17 +382,13 @@ const statusDialog = reactive({
 
 const sortedVehicles = computed(() => {
   return vehicles.value
-    .map((v, i) => ({ ...v, originalIndex: i }))
+    .map((v) => ({ ...v }))
     .sort((a, b) => {
       if (a.isDefault && !b.isDefault) return -1
       if (!a.isDefault && b.isDefault) return 1
       return 0
     })
 })
-
-const onLogout = () => {
-  router.push('/login')
-}
 
 const showStatusDialog = (message, type = 'warning') => {
   statusDialog.message = message
@@ -336,15 +399,34 @@ const showStatusDialog = (message, type = 'warning') => {
 const notifyError = (message) => showStatusDialog(message, 'error')
 const notifySuccess = (message) => showStatusDialog(message, 'success')
 
-const saveProfile = () => {
+const saveProfile = async () => {
   if (!profile.value.fullName || !profile.value.phone || !profile.value.employeeNo || !profile.value.department) {
     notifyError('Please fill in all required fields')
     return
   }
-  notifySuccess('Profile saved successfully!')
+  try {
+    const res = await updateProfileApi({
+      fullName: profile.value.fullName,
+      phone: profile.value.phone,
+      department: profile.value.department,
+      employeeNo: profile.value.employeeNo
+    })
+    if (res?.user) {
+      userStore.userInfo = res.user
+      localStorage.setItem('userInfo', JSON.stringify(res.user))
+      profile.value.fullName = res.user.name || profile.value.fullName
+      profile.value.employeeNo = res.user.account || profile.value.employeeNo
+      profile.value.department = res.user.department || ''
+      profile.value.phone = res.user.contact || ''
+    }
+    notifySuccess(res?.message || 'Profile saved successfully!')
+  } catch (error) {
+    const msg = error?.response?.data?.message || error?.message || 'Failed to save profile'
+    notifyError(msg)
+  }
 }
 
-const updatePassword = () => {
+const updatePassword = async () => {
   if (!password.value.current || !password.value.new || !password.value.confirm) {
     notifyError('Please fill in all password fields')
     return
@@ -360,11 +442,35 @@ const updatePassword = () => {
     return
   }
 
-  notifySuccess('Password updated successfully!')
-  password.value = { current: '', new: '', confirm: '' }
+  if (/\s/.test(password.value.new)) {
+    notifyError('New password must not contain whitespace')
+    return
+  }
+
+  try {
+    const res = await changePasswordApi({
+      currentPassword: password.value.current,
+      newPassword: password.value.new
+    })
+    notifySuccess(res?.message || 'Password updated successfully!')
+    password.value = { current: '', new: '', confirm: '' }
+    showPassword.value = { current: false, new: false, confirm: false }
+  } catch (error) {
+    const msg = error?.response?.data?.message || error?.message || 'Failed to update password'
+    notifyError(msg)
+  }
 }
 
-const addVehicle = () => {
+const loadVehicles = async () => {
+  const res = await getAccountVehicles()
+  vehicles.value = (res?.vehicles || []).map((item) => ({
+    id: item.id,
+    plate: item.plateNumber,
+    isDefault: Boolean(item.isDefault)
+  }))
+}
+
+const addVehicle = async () => {
   const rawPlate = newVehicle.value.plate ?? ''
   const trimmedPlate = rawPlate.trim().toUpperCase()
   const platePattern = /^[A-Z0-9]+$/
@@ -379,57 +485,58 @@ const addVehicle = () => {
     return
   }
 
-  const plateExists = vehicles.value.some(v => v.plate.toUpperCase() === trimmedPlate)
-  if (plateExists) {
-    notifyError('This license plate already exists')
-    return
+  try {
+    await createAccountVehicle({ plateNumber: trimmedPlate, isDefault: Boolean(newVehicle.value.isDefault) })
+    await loadVehicles()
+    newVehicle.value = { plate: '', isDefault: false }
+    showAddForm.value = false
+    notifySuccess('Vehicle added successfully!')
+  } catch (error) {
+    const msg = error?.response?.data?.message || error?.message || 'Failed to add vehicle'
+    notifyError(msg)
   }
-
-  vehicles.value.push({
-    plate: trimmedPlate,
-    isDefault: vehicles.value.length === 0
-  })
-
-  newVehicle.value = { plate: '' }
-  showAddForm.value = false
-  notifySuccess('Vehicle added successfully!')
 }
 
 const cancelAddVehicle = () => {
-  newVehicle.value = { plate: '' }
+  newVehicle.value = { plate: '', isDefault: false }
   showAddForm.value = false
 }
 
-const removeVehicle = (index) => {
-  const wasDefault = vehicles.value[index].isDefault
-  vehicles.value.splice(index, 1)
-
-  if (wasDefault && vehicles.value.length > 0) {
-    vehicles.value[0].isDefault = true
+const removeVehicle = async (id) => {
+  try {
+    await deleteAccountVehicle(id)
+    await loadVehicles()
+    notifySuccess('Vehicle removed successfully!')
+  } catch (error) {
+    const msg = error?.response?.data?.message || error?.message || 'Failed to remove vehicle'
+    notifyError(msg)
   }
-
-  notifySuccess('Vehicle removed successfully!')
 }
 
-const setDefaultVehicle = (index) => {
-  if (editingVehicleIndex.value === index) return
-
-  vehicles.value.forEach((v, i) => {
-    v.isDefault = i === index
-  })
-  notifySuccess('Default vehicle updated!')
+const setDefaultVehicle = async (id) => {
+  if (editingVehicleId.value === id) return
+  try {
+    await setDefaultAccountVehicle(id)
+    await loadVehicles()
+    notifySuccess('Default vehicle updated!')
+  } catch (error) {
+    const msg = error?.response?.data?.message || error?.message || 'Failed to update default vehicle'
+    notifyError(msg)
+  }
 }
 
-const startEditVehicle = (index) => {
-  const vehicle = vehicles.value[index]
+const startEditVehicle = (id) => {
+  const vehicle = vehicles.value.find((v) => v.id === id)
+  if (!vehicle) return
   vehicleBackup.value = {
     plate: vehicle.plate
   }
-  editingVehicleIndex.value = index
+  editingVehicleId.value = id
 }
 
-const saveVehicle = (index) => {
-  const vehicle = vehicles.value[index]
+const saveVehicle = async (id) => {
+  const vehicle = vehicles.value.find((v) => v.id === id)
+  if (!vehicle) return
   const trimmedPlate = vehicle.plate.trim().toUpperCase()
   const platePattern = /^[A-Z0-9]+$/
 
@@ -443,24 +550,32 @@ const saveVehicle = (index) => {
     return
   }
 
-  const plateExists = vehicles.value.some((v, i) => i !== index && v.plate.toUpperCase() === trimmedPlate)
+  const plateExists = vehicles.value.some((v) => v.id !== id && v.plate.toUpperCase() === trimmedPlate)
   if (plateExists) {
     notifyError('This license plate already exists')
     return
   }
 
-  vehicle.plate = trimmedPlate
-  editingVehicleIndex.value = null
-  vehicleBackup.value = null
-  notifySuccess('Vehicle updated!')
+  try {
+    await updateAccountVehicle(id, { plateNumber: trimmedPlate })
+    await loadVehicles()
+    editingVehicleId.value = null
+    vehicleBackup.value = null
+    notifySuccess('Vehicle updated!')
+  } catch (error) {
+    const msg = error?.response?.data?.message || error?.message || 'Failed to update vehicle'
+    notifyError(msg)
+  }
 }
 
-const cancelEdit = (index) => {
+const cancelEdit = (id) => {
   if (vehicleBackup.value) {
-    const vehicle = vehicles.value[index]
-    vehicle.plate = vehicleBackup.value.plate
+    const vehicle = vehicles.value.find((v) => v.id === id)
+    if (vehicle) {
+      vehicle.plate = vehicleBackup.value.plate
+    }
   }
-  editingVehicleIndex.value = null
+  editingVehicleId.value = null
   vehicleBackup.value = null
 }
 
@@ -499,6 +614,21 @@ const __accountOnResize = () => {
 }
 
 onMounted(() => {
+  const u = userStore.userInfo || JSON.parse(localStorage.getItem('userInfo') || 'null')
+  if (u) {
+    profile.value.fullName = u.name || ''
+    profile.value.corpId = u.corpId || ''
+    profile.value.email = u.email || ''
+    profile.value.phone = u.contact || ''
+    profile.value.employeeNo = u.account || ''
+    profile.value.department = u.department || ''
+    profile.value.accessLevel = u.role || ''
+    profile.value.bookingRule = `EV: ${u.usedQuotaEv ?? 0}/${u.annualQuotaEv ?? 0}; Venue: ${u.usedQuotaVenue ?? 0}/${u.annualQuotaVenue ?? 0}`
+  }
+  loadVehicles().catch((error) => {
+    const msg = error?.response?.data?.message || error?.message || 'Failed to load vehicles'
+    notifyError(msg)
+  })
   __accountLogPx()
   window.addEventListener('resize', __accountOnResize, { passive: true })
 })
@@ -619,6 +749,49 @@ onUnmounted(() => {
   background-color: #f9fafb;
   color: #6b7280;
   cursor: not-allowed;
+}
+
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-input {
+  width: 100%;
+  padding-right: 2rem;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  width: 1.25rem;
+  height: 1.25rem;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-toggle-btn:hover {
+  color: #374151;
+}
+
+.password-toggle-btn svg {
+  width: 1rem;
+  height: 1rem;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .form-hint {
@@ -990,6 +1163,21 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.vehicle-default-option {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.vehicle-default-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: #374151;
+  cursor: pointer;
 }
 
 .form-actions-row {

@@ -16,9 +16,9 @@ const route = useRoute()
 const isAdminRoute = computed(() => route.path.startsWith('/admin'))
 const showFloatingHelpButton = computed(() => !isAdminRoute.value)
 
-onMounted(() => {
-  // 初始化用户信息
+onMounted(async () => {
   userStore.initUserInfo()
+  await userStore.refreshSessionUser()
 })
 </script>
 

@@ -1,4 +1,22 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '../stores/user'
+
+function pathRequiresAuth(path) {
+  if (path === '/login') return false
+  if (path.startsWith('/VenueBooking/Display')) return false
+  if (path.startsWith('/admin')) return true
+  if (path.startsWith('/VenueBooking')) return true
+  if (path.startsWith('/evBooking') || path.startsWith('/EVBooking')) return true
+  if (path.startsWith('/Account')) return true
+  return false
+}
+
+function defaultHomeForUser(user) {
+  const sys = user?.system
+  if (sys === 'parking') return '/evBooking/Calendar'
+  if (sys === 'admin') return '/admin'
+  return '/VenueBooking'
+}
 
 const routes = [
   // 访问根路径时自动重定向到登录页
@@ -187,12 +205,23 @@ const router = createRouter({
   routes
 })
 
-// Route guard
 router.beforeEach((to, from, next) => {
-  // Set page title
   document.title = to.meta.title
     ? `${to.meta.title} - TKOH GA Service Center`
     : 'TKOH GA Service Center'
+
+  const userStore = useUserStore()
+
+  if (pathRequiresAuth(to.path) && !userStore.token) {
+    next({ path: '/login', query: { redirect: to.fullPath } })
+    return
+  }
+
+  if (to.path === '/login' && userStore.token) {
+    next(defaultHomeForUser(userStore.userInfo))
+    return
+  }
+
   next()
 })
 

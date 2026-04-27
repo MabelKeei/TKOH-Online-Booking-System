@@ -183,9 +183,9 @@ const roleList = ref(getMockAccessRoleList())
 const departmentList = ref(getMockDepartmentList())
 
 const roleCurrentPage = ref(1)
-const rolePageSize = ref(10)
+const rolePageSize = ref(20)
 const departmentCurrentPage = ref(1)
-const departmentPageSize = ref(10)
+const departmentPageSize = ref(20)
 
 const paginatedData = computed(() => {
   const start = (roleCurrentPage.value - 1) * rolePageSize.value

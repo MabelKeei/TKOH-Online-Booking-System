@@ -237,7 +237,7 @@ const evWindowForm = ref({
 
 // Parking pagination
 const parkingCurrentPage = ref(1)
-const parkingPageSize = ref(10)
+const parkingPageSize = ref(20)
 
 const paginatedParkingData = computed(() => {
   const start = (parkingCurrentPage.value - 1) * parkingPageSize.value
@@ -260,7 +260,7 @@ const parkingVisiblePages = computed(() => {
 
 // Time Periods pagination
 const timePeriodsCurrentPage = ref(1)
-const timePeriodsPageSize = ref(10)
+const timePeriodsPageSize = ref(20)
 
 const paginatedTimePeriodsData = computed(() => {
   const start = (timePeriodsCurrentPage.value - 1) * timePeriodsPageSize.value

@@ -339,7 +339,7 @@ const activeMainTab = ref('venueList')
 const activeCategory = ref('conference_discussion')
 
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(20)
 const venueWindow = ref(getMockBookingWindow('venue'))
 const venueWindowForm = ref({
   startDate: venueWindow.value.currentStartDate,
@@ -404,7 +404,7 @@ const blockFormSectionRef = ref(null)
 const blockToolbarRef = ref(null)
 const blockPaginationRef = ref(null)
 const blockCurrentPage = ref(1)
-const blockPageSize = ref(10)
+const blockPageSize = ref(20)
 
 const getRowIndex = (index) => (currentPage.value - 1) * pageSize.value + index + 1
 

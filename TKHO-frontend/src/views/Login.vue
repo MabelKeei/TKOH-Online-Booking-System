@@ -108,12 +108,12 @@
 
 <script setup>
 import { computed, ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { login as loginApi } from '../api/auth'
-import { ElMessage } from 'element-plus'
-import { createMockToken, createMockUser, getMockPromptList } from '@/mocks/mockData'
+import { getMockPromptList } from '@/mocks/mockData'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const loginFormRef = ref(null)
@@ -124,10 +124,9 @@ const statusDialog = reactive({
   type: 'warning'
 })
 
-// 默认账号密码：corpId=test，password=123456
 const loginForm = reactive({
-  corpId: 'test',
-  password: '123456',
+  corpId: '',
+  password: '',
   system: ''
 })
 
@@ -182,22 +181,18 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    // 这里应该调用实际的登录 API
-    // const res = await loginApi(loginForm)
-    // 暂时固定为本地模拟账号：test / 123456
-    if (corpId !== 'test' || password !== '123456') {
-      showStatusDialog('Incorrect corp id / password', 'error')
-      return
-    }
-
-    const mockUser = createMockUser({
-      corpId,
+    const res = await loginApi({
+      account: corpId,
+      password,
       system: loginForm.system
     })
-    const mockToken = createMockToken()
+    userStore.login(res.user, res.token)
 
-    userStore.login(mockUser, mockToken)
-    // 根据选择的系统跳转到对应页面
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+    if (redirect) {
+      router.push(redirect)
+      return
+    }
     if (loginForm.system === 'parking') {
       router.push('/evBooking/Calendar')
     } else if (loginForm.system === 'room') {
@@ -208,7 +203,8 @@ const handleLogin = async () => {
       router.push('/login')
     }
   } catch (error) {
-    ElMessage.error(error.message || 'Login failed')
+    const msg = error?.response?.data?.message || error.message || 'Login failed'
+    showStatusDialog(msg, 'error')
   } finally {
     loading.value = false
   }

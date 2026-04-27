@@ -24,3 +24,19 @@ export const getUserInfo = () => {
     method: 'get'
   })
 }
+
+export const updateProfile = (data) => {
+  return request({
+    url: '/auth/profile',
+    method: 'patch',
+    data
+  })
+}
+
+export const changePassword = (data) => {
+  return request({
+    url: '/auth/password',
+    method: 'patch',
+    data
+  })
+}

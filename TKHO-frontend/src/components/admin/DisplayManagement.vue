@@ -208,7 +208,7 @@ const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
 const defaultMergeQrSrc = `${import.meta.env.BASE_URL}displayQRCode.png`
 const mergePanelTitlePlaceholder = 'Conference Room | 8/F Ambulatory Care Block\n會議室 | 日間醫療大樓8樓'
 const rulesCurrentPage = ref(1)
-const rulesPageSize = ref(10)
+const rulesPageSize = ref(20)
 const arrowDirectionOptions = [
   { label: 'Up', value: 'up' },
   { label: 'Up Right', value: 'up-right' },

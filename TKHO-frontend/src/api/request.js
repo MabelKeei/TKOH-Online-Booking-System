@@ -30,25 +30,36 @@ request.interceptors.request.use(
 request.interceptors.response.use(
   (response) => {
     const res = response.data
-    // 如果返回的状态码不是 200，则视为错误
-    if (res.code && res.code !== 200) {
+    // 仅当后端显式返回 { code } 信封时按 code 判错（如 200 业务码）
+    if (res && typeof res === 'object' && 'code' in res && res.code !== 200) {
       ElMessage.error(res.message || '请求失败')
       return Promise.reject(new Error(res.message || '请求失败'))
     }
     return res
   },
   (error) => {
+    const normalizeMessage = (payload, fallback = '请求失败') => {
+      const raw = payload?.message
+      if (Array.isArray(raw)) return raw[0] || fallback
+      if (typeof raw === 'string') return raw
+      return fallback
+    }
     const { response } = error
     if (response) {
       switch (response.status) {
-        case 401:
-          ElMessage.error('未授权，请重新登录')
-          const userStore = useUserStore()
-          userStore.logout()
-          router.push('/login')
+        case 401: {
+          const url = response.config?.url || ''
+          const isLoginAttempt = url.includes('/auth/login')
+          if (!isLoginAttempt) {
+            ElMessage.error('未授权，请重新登录')
+            const userStore = useUserStore()
+            userStore.logout()
+            router.push('/login')
+          }
           break
+        }
         case 403:
-          ElMessage.error('拒绝访问')
+          ElMessage.error(normalizeMessage(response.data, '拒绝访问'))
           break
         case 404:
           ElMessage.error('请求的资源不存在')
@@ -57,7 +68,7 @@ request.interceptors.response.use(
           ElMessage.error('服务器错误')
           break
         default:
-          ElMessage.error(response.data?.message || '请求失败')
+          ElMessage.error(normalizeMessage(response.data))
       }
     } else {
       ElMessage.error('网络错误，请检查网络连接')

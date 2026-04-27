@@ -1,6 +1,6 @@
 <template>
   <div class="admin-container">
-    <AppHeader @logout="handleLogout" />
+    <AppHeader />
 
     <div class="admin-layout">
       <!-- Left Sidebar Menu -->
@@ -99,11 +99,6 @@ const navigateTo = (path) => {
   if (route.path !== path) {
     router.push(path)
   }
-}
-
-const handleLogout = () => {
-  userStore.logout()
-  router.push('/login')
 }
 </script>
 

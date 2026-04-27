@@ -71,7 +71,9 @@
                       <div class="actions-cell">
                         <el-button size="small" class="action-btn action-edit" @click="handleEdit(row)">Edit</el-button>
                         <el-button size="small" class="action-btn action-inactivate" @click="handleInactivate(row)">Inactive</el-button>
-                        <el-button size="small" class="action-btn action-reset" @click="handleResetQuota(row)">Reset</el-button>
+                        <el-tooltip content="Reset annual quota" placement="top">
+                          <el-button size="small" class="action-btn action-reset" @click="handleResetQuota(row)">Reset</el-button>
+                        </el-tooltip>
                         <el-button size="small" class="action-btn action-delete" @click="handleDelete(row)">Delete</el-button>
                         <el-tooltip content="Reset Password" placement="top">
                           <el-button size="small" class="action-btn action-reset-password" @click="handleResetPassword(row)">
@@ -710,15 +712,15 @@ onUnmounted(() => {
 })
 
 const employeeCurrentPage = ref(1)
-const employeePageSize = ref(10)
+const employeePageSize = ref(20)
 const pendingPendingCurrentPage = ref(1)
-const pendingPendingPageSize = ref(10)
+const pendingPendingPageSize = ref(20)
 const pendingApprovedCurrentPage = ref(1)
-const pendingApprovedPageSize = ref(10)
+const pendingApprovedPageSize = ref(20)
 const pendingRejectedCurrentPage = ref(1)
-const pendingRejectedPageSize = ref(10)
+const pendingRejectedPageSize = ref(20)
 const expiredCurrentPage = ref(1)
-const expiredPageSize = ref(10)
+const expiredPageSize = ref(20)
 const employeeSearch = ref('')
 const expiredSearch = ref('')
 const pendingSearch = ref('')

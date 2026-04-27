@@ -1,6 +1,6 @@
 <template>
   <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
-    <AppHeader @logout="onLogout" />
+    <AppHeader />
     <div class="top-tip-wrapper px-2 md:px-3 lg:px-4 pt-2 pb-0">
       <div class="booking-window-tip">
         <span>Important Note: Lecture Theatre is temporarily closed.</span>
@@ -294,7 +294,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppHeader from '../components/AppHeader.vue'
 import BookingSteps from '../components/BookingSteps.vue'
@@ -309,7 +309,6 @@ import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 // import { getBookingsByMonth, getBookingsByWeek, getBookingsByDate } from '../api/calendar'
 
-const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const { isAdmin } = storeToRefs(userStore)
@@ -865,10 +864,6 @@ function handleBookingClick(dayDate) {
 }
 
 // Logout handler
-function onLogout() {
-  router.push('/login')
-}
-
 // Initialize demo bookings
 onMounted(() => {
   if (!isDateInVenueWindow(currentDate.value)) {

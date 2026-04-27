@@ -1,20 +1,21 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { getUserInfo, logout as logoutApi } from '../api/auth'
 
 export const useUserStore = defineStore('user', () => {
   const userInfo = ref(null)
   const token = ref(localStorage.getItem('token') || '')
 
-  /** 管理员：后续可改为后端返回的 roles / permissions */
+  /** 管理员：后端 role 含 admin，或当前会话 system 为 admin */
   const isAdmin = computed(() => {
     const u = userInfo.value
     if (!u) return false
-    if (u.role === 'admin') return true
     if (u.system === 'admin') return true
-    return false
+    const r = String(u.role || '').toLowerCase()
+    if (r.includes('admin')) return true
+    return u.role === 'admin'
   })
 
-  // 登录
   const login = (userData, authToken) => {
     userInfo.value = userData
     token.value = authToken
@@ -22,7 +23,6 @@ export const useUserStore = defineStore('user', () => {
     localStorage.setItem('userInfo', JSON.stringify(userData))
   }
 
-  // 登出
   const logout = () => {
     userInfo.value = null
     token.value = ''
@@ -30,7 +30,6 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('userInfo')
   }
 
-  // 初始化用户信息
   const initUserInfo = () => {
     const storedUserInfo = localStorage.getItem('userInfo')
     if (storedUserInfo) {
@@ -47,12 +46,44 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  /** 用 Bearer 调后端刷新本地 userInfo（避免仅信 localStorage） */
+  async function refreshSessionUser () {
+    if (!token.value) return false
+    try {
+      const data = await getUserInfo()
+      if (data?.user) {
+        userInfo.value = data.user
+        localStorage.setItem('userInfo', JSON.stringify(data.user))
+        return true
+      }
+      return false
+    } catch {
+      logout()
+      return false
+    }
+  }
+
+  async function performLogout () {
+    try {
+      if (token.value) {
+        await logoutApi()
+      }
+    } catch {
+      /* ignore */
+    }
+    logout()
+    const { default: router } = await import('../router')
+    router.push('/login')
+  }
+
   return {
     userInfo,
     token,
     isAdmin,
     login,
     logout,
-    initUserInfo
+    initUserInfo,
+    refreshSessionUser,
+    performLogout
   }
 })

@@ -106,7 +106,7 @@
       </RouterLink>
 
       <div class="logout-wrapper">
-        <button type="button" class="logout-btn" @click="$emit('logout')">
+        <button type="button" class="logout-btn" @click="userStore.performLogout">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
             <polyline points="16 17 21 12 16 7"></polyline>
@@ -137,8 +137,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
 import { storeToRefs } from 'pinia'
-
-defineEmits(['logout'])
 
 const route = useRoute()
 const router = useRouter()

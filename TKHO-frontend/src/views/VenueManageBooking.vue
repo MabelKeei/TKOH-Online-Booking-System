@@ -1,6 +1,6 @@
 <template>
   <div class="page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
-    <AppHeader @logout="onLogout" />
+    <AppHeader />
 
     <main class="flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 pb-1 overflow-hidden">
       <!-- Toolbar -->
@@ -590,7 +590,6 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
@@ -598,7 +597,6 @@ import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import { getMockEmployeeListNormalized, getMockPromptList, getMockVenueManageBookingList } from '@/mocks/mockData'
 
-const router = useRouter()
 const userStore = useUserStore()
 const { isAdmin, userInfo } = storeToRefs(userStore)
 
@@ -614,7 +612,7 @@ const showColumnsFilter = ref(false)
 const showStatusFilter = ref(false)
 const showDateFilter = ref(false)
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(20)
 const sortState = ref([
   { key: 'dateTime', order: 'asc' }
 ])
@@ -1004,10 +1002,6 @@ const visiblePages = computed(() => {
 watch([statusFilters, searchQuery, dateRange], () => {
   currentPage.value = 1
 }, { deep: true })
-
-const onLogout = () => {
-  router.push('/login')
-}
 
 // Format status to capitalize first letter
 const formatStatus = (status) => {

@@ -1,6 +1,6 @@
 <template>
   <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
-    <AppHeader @logout="onLogout" />
+    <AppHeader />
 
     <!-- 主体内容 -->
     <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 overflow-hidden">
@@ -85,13 +85,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import EVBookingDialog from '../components/EVBookingDialog.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
 import { generateEVBookingsMock, getMockPromptList } from '@/mocks/mockData'
-
-const router = useRouter()
 
 // 对话框状态
 const dialogVisible = ref(false)
@@ -258,11 +255,6 @@ function handleBookingConfirm(bookingData) {
     visible: true,
     message: 'Booking created successfully!'
   }
-}
-
-// 退出登录
-function onLogout() {
-  router.push('/login')
 }
 
 // 初始化数据

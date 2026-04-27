@@ -1,0 +1,335 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               BigInt    @id
+  corpId           String    @unique @map("corp_id")
+  account          String    @unique
+  password         String
+  name             String
+  department       String?
+  role             String?
+  position         String?
+  email            String?
+  contact          String?
+  annualQuotaEv    Int?      @default(0) @map("annual_quota_ev")
+  usedQuotaEv      Int?      @default(0) @map("used_quota_ev")
+  annualQuotaVenue Int?      @default(0) @map("annual_quota_venue")
+  usedQuotaVenue   Int?      @default(0) @map("used_quota_venue")
+  status           String    @default("Active")
+  lastLoginTime    DateTime? @map("last_login_time") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("user")
+}
+
+model Venues {
+  id                   BigInt                 @id
+  name                 String                 @unique
+  nameZh               String?                @map("name_zh")
+  tab                  String?
+  venueType            String?                @map("venue_type")
+  color                String?
+  location             String?
+  locationZh           String?                @map("location_zh")
+  displayType          String?                @map("display_type")
+  imageUrl             String?                @map("image_url")
+  status               String                 @default("active")
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  roomCapacity         Int?                   @map("room_capacity")
+  display_venue_rules  display_venue_rules[]
+  meeting_bookings     meeting_bookings[]
+  tea_service_requests tea_service_requests[]
+  venue_blocks         venue_blocks[]
+
+  @@map("venues")
+}
+
+model EvParkingSlots {
+  id         BigInt       @id
+  slotNumber String       @map("slot_number")
+  location   String?
+  space      String
+  quantity   Int          @default(1)
+  slotType   String       @default("EV") @map("slot_type")
+  status     String       @default("active")
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  bookings   EvBookings[]
+
+  @@map("ev_parking_slots")
+}
+
+model EvTimePeriods {
+  id        BigInt       @id
+  period    String       @unique
+  startTime DateTime     @map("start_time") @db.Time(6)
+  endTime   DateTime     @map("end_time") @db.Time(6)
+  status    String       @default("active")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  bookings  EvBookings[]
+
+  @@map("ev_time_periods")
+}
+
+model EvBookings {
+  id             BigInt         @id @default(autoincrement())
+  sourceId       BigInt?        @map("source_id")
+  employeeCorpId String?        @map("employee_corp_id")
+  plateNumber    String         @map("plate_number")
+  slotId         BigInt         @map("slot_id")
+  periodId       BigInt?        @map("period_id")
+  bookingDate    DateTime       @map("booking_date") @db.Date
+  bookedOn       DateTime?      @map("booked_on") @db.Timestamptz(6)
+  status         String
+  reason         String?
+  sourceRawTime  String?        @map("source_raw_time")
+  sourceRawSpace String?        @map("source_raw_space")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  period         EvTimePeriods? @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  slot           EvParkingSlots @relation(fields: [slotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([slotId, periodId, bookingDate], map: "idx_ev_bookings_slot_period_date")
+  @@map("ev_bookings")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model access_roles {
+  id                 BigInt      @id
+  role_name          String
+  description        String?
+  annual_venue_quota Int?        @default(0)
+  annual_ev_quota    Int?        @default(0)
+  employee_count     Int?        @default(0)
+  created_at         DateTime    @default(now()) @db.Timestamptz(6)
+  employees          employees[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model account_vehicles {
+  id         BigInt   @id @default(autoincrement())
+  plate      String   @unique
+  is_default Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model booking_window_history {
+  id            BigInt    @id
+  resource_type String
+  start_date    DateTime  @db.Date
+  end_date      DateTime  @db.Date
+  published_at  DateTime? @db.Timestamptz(6)
+  published_by  String?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model booking_windows {
+  resource_type      String    @id
+  current_start_date DateTime  @db.Date
+  current_end_date   DateTime  @db.Date
+  updated_by         String?
+  updated_at         DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model departments {
+  id              BigInt   @id
+  department_name String   @unique
+  description     String?
+  employee_count  Int?     @default(0)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model display_configs {
+  id                 Int       @id @db.SmallInt
+  venue_display_mode String?
+  ev_display_mode    String?
+  panel_title_text   String?
+  footer_ticker_text String?
+  qr_code_image      String?
+  updated_by         String?
+  updated_at         DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model display_venue_rules {
+  id              BigInt  @id @default(autoincrement())
+  venue_id        BigInt
+  display_type    String?
+  merge_group     String?
+  display_name    String?
+  arrow_direction String?
+  venues          Venues  @relation(fields: [venue_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model employees {
+  id                 BigInt         @id
+  corp_id            String         @unique
+  name               String
+  department         String?
+  role               String?
+  position           String?
+  email              String?
+  contact            String?
+  annual_quota_ev    Int?           @default(0)
+  used_quota_ev      Int?           @default(0)
+  annual_quota_venue Int?           @default(0)
+  used_quota_venue   Int?           @default(0)
+  status             String         @default("active")
+  last_login_time    DateTime?      @db.Timestamptz(6)
+  created_at         DateTime       @default(now()) @db.Timestamptz(6)
+  access_role_id     BigInt?
+  access_roles       access_roles?  @relation(fields: [access_role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_accounts      user_accounts?
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model license_plates {
+  id           BigInt   @id
+  employee_id  BigInt?
+  plate_number String   @unique
+  is_default   Boolean  @default(false)
+  status       String   @default("active")
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model meeting_bookings {
+  id                 BigInt    @id
+  booking_id         String?   @unique
+  source_list        String
+  venue_id           BigInt?
+  venue_name         String?
+  booker_employee_id BigInt?
+  booker_corp_id     String?
+  user_name          String?
+  department         String?
+  meeting_title      String?
+  booking_date       DateTime? @db.Date
+  time_range         String?
+  submitted_at       DateTime? @db.Timestamptz(6)
+  approved_at        DateTime? @db.Timestamptz(6)
+  approved_by        String?
+  rejected_at        DateTime? @db.Timestamptz(6)
+  rejected_by        String?
+  reject_reason      String?
+  tea_service        Json?
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  venues             Venues?   @relation(fields: [venue_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model pending_users {
+  id              BigInt    @id
+  corp_id         String
+  name            String
+  department      String?
+  department_id   BigInt?
+  role            String?
+  email           String?
+  reason          String?
+  submitted_at    DateTime? @db.Timestamptz(6)
+  last_login_time DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model prompts {
+  id            BigInt   @id
+  prompt_key    String
+  name          String
+  content       String
+  category      String
+  can_add       Boolean  @default(false)
+  template_type String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model tea_service_requests {
+  booking_id    String    @id
+  venue_id      BigInt?
+  meeting_title String?
+  booking_date  DateTime? @db.Date
+  time_range    String?
+  tea_service   Json
+  completed     Boolean   @default(false)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  venues        Venues?   @relation(fields: [venue_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model user_accounts {
+  id             BigInt    @id @default(autoincrement())
+  employee_id    BigInt    @unique
+  username       String    @unique
+  password_hash  String
+  system_role    String
+  account_status String    @default("active")
+  last_login_at  DateTime? @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  employees      employees @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model venue_blocks {
+  id         BigInt   @id
+  venue_id   BigInt
+  start_at   DateTime @db.Timestamptz(6)
+  end_at     DateTime @db.Timestamptz(6)
+  reason     String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  venues     Venues   @relation(fields: [venue_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model venue_calendar_bookings {
+  id           BigInt   @id
+  room_name    String
+  booking_date DateTime @db.Date
+  start_time   DateTime @db.Time(6)
+  end_time     DateTime @db.Time(6)
+  attendees    Int?
+  topic        String?
+  notes        String?
+  reserved_by  String?
+  contact      String?
+  color        String?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model venue_manage_bookings {
+  id                       BigInt    @id
+  topic                    String
+  room                     String
+  booking_date             DateTime? @db.Date
+  time_range               String?
+  booked_on                DateTime? @db.Timestamptz(6)
+  status                   String?
+  booking_type             String?
+  reserved_by              String?
+  contact                  String?
+  email                    String?
+  tea_service_required     Boolean   @default(false)
+  tea_service_summary      String?
+  tea_service_participants Int?
+  approval_status          String?
+  approved_by              String?
+  approved_at              DateTime? @db.Timestamptz(6)
+  reject_reason            String?
+  created_at               DateTime  @default(now()) @db.Timestamptz(6)
+}

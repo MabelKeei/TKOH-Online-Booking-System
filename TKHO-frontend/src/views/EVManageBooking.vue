@@ -1,6 +1,6 @@
 <template>
   <div class="page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
-    <AppHeader @logout="onLogout" />
+    <AppHeader />
 
     <main class="flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 pb-1 overflow-hidden">
       <!-- Toolbar -->
@@ -340,7 +340,6 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
@@ -348,7 +347,6 @@ import { getMockEVManageBookingList } from '@/mocks/mockData'
 import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
 
-const router = useRouter()
 const userStore = useUserStore()
 const { isAdmin, userInfo } = storeToRefs(userStore)
 
@@ -357,7 +355,7 @@ const searchQuery = ref('')
 const showStatusFilter = ref(false)
 const showDateFilter = ref(false)
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(20)
 const sortState = ref([
   { key: 'bookingDateTime', order: 'asc' }
 ])
@@ -732,9 +730,6 @@ const confirmCancel = () => {
   ElMessage.success('EV booking cancelled successfully!')
 }
 
-const onLogout = () => {
-  router.push('/login')
-}
 </script>
 
 <style scoped>

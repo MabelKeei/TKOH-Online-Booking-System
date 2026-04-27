@@ -349,11 +349,11 @@ const quickDateOptions = [
 ]
 
 const pendingCurrentPage = ref(1)
-const pendingPageSize = ref(10)
+const pendingPageSize = ref(20)
 const approvedCurrentPage = ref(1)
-const approvedPageSize = ref(10)
+const approvedPageSize = ref(20)
 const rejectedCurrentPage = ref(1)
-const rejectedPageSize = ref(10)
+const rejectedPageSize = ref(20)
 
 const dateFilterLabel = computed(() => {
   if (!dateRange.value || dateRange.value.length !== 2) return 'All dates'

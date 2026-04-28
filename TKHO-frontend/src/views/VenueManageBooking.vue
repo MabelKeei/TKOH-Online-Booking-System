@@ -1,5 +1,5 @@
 <template>
-  <div class="page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
+  <div class="page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden" style="padding-top: var(--app-header-height, 64px);">
     <AppHeader />
 
     <main class="flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 pb-1 overflow-hidden">
@@ -262,10 +262,17 @@
                     </button>
                   </th>
                   <th v-if="availableColumns[1].visible">
-                    <button type="button" class="th-sort-btn" @click="toggleSort('room')">
-                      Venue
-                      <span class="sort-indicator">{{ getSortIndicator('room') }}</span>
-                    </button>
+                    <SortableFilterHeader
+                      label="Venue"
+                      :sort-indicator="getSortIndicator('room')"
+                      :filter-active="columnFilterState.room.length > 0"
+                      :options="getFilterOptions('room')"
+                      :model-value="columnFilterState.room"
+                      @sort-asc="setSortByMenu('room', 'asc')"
+                      @sort-desc="setSortByMenu('room', 'desc')"
+                      @clear-sort="clearSortByMenu('room')"
+                      @update:model-value="(v) => updateFilter('room', v)"
+                    />
                   </th>
                   <th v-if="availableColumns[2].visible">
                     <button type="button" class="th-sort-btn" @click="toggleSort('topic')">
@@ -274,10 +281,17 @@
                     </button>
                   </th>
                   <th v-if="availableColumns[3].visible">
-                    <button type="button" class="th-sort-btn" @click="toggleSort('reservedBy')">
-                      Reserved By
-                      <span class="sort-indicator">{{ getSortIndicator('reservedBy') }}</span>
-                    </button>
+                    <SortableFilterHeader
+                      label="Reserved By"
+                      :sort-indicator="getSortIndicator('reservedBy')"
+                      :filter-active="columnFilterState.reservedBy.length > 0"
+                      :options="getFilterOptions('reservedBy')"
+                      :model-value="columnFilterState.reservedBy"
+                      @sort-asc="setSortByMenu('reservedBy', 'asc')"
+                      @sort-desc="setSortByMenu('reservedBy', 'desc')"
+                      @clear-sort="clearSortByMenu('reservedBy')"
+                      @update:model-value="(v) => updateFilter('reservedBy', v)"
+                    />
                   </th>
                   <th v-if="availableColumns[4].visible">
                     <button type="button" class="th-sort-btn" @click="toggleSort('contact')">
@@ -291,12 +305,31 @@
                       <span class="sort-indicator">{{ getSortIndicator('email') }}</span>
                     </button>
                   </th>
-                  <th v-if="availableColumns[6].visible">Status</th>
+                  <th v-if="availableColumns[6].visible">
+                    <SortableFilterHeader
+                      label="Status"
+                      :sort-indicator="getSortIndicator('status')"
+                      :filter-active="columnFilterState.status.length > 0"
+                      :options="getFilterOptions('status')"
+                      :model-value="columnFilterState.status"
+                      @sort-asc="setSortByMenu('status', 'asc')"
+                      @sort-desc="setSortByMenu('status', 'desc')"
+                      @clear-sort="clearSortByMenu('status')"
+                      @update:model-value="(v) => updateFilter('status', v)"
+                    />
+                  </th>
                   <th v-if="availableColumns[7].visible">
-                    <button type="button" class="th-sort-btn" @click="toggleSort('approvalStatus')">
-                      Approval
-                      <span class="sort-indicator">{{ getSortIndicator('approvalStatus') }}</span>
-                    </button>
+                    <SortableFilterHeader
+                      label="Approval"
+                      :sort-indicator="getSortIndicator('approvalStatus')"
+                      :filter-active="columnFilterState.approvalStatus.length > 0"
+                      :options="getFilterOptions('approvalStatus')"
+                      :model-value="columnFilterState.approvalStatus"
+                      @sort-asc="setSortByMenu('approvalStatus', 'asc')"
+                      @sort-desc="setSortByMenu('approvalStatus', 'desc')"
+                      @clear-sort="clearSortByMenu('approvalStatus')"
+                      @update:model-value="(v) => updateFilter('approvalStatus', v)"
+                    />
                   </th>
                   <th v-if="availableColumns[8].visible">
                     <button type="button" class="th-sort-btn" @click="toggleSort('bookedOn')">
@@ -595,6 +628,7 @@ import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
 import { getMockEmployeeListNormalized, getMockPromptList, getMockVenueManageBookingList } from '@/mocks/mockData'
 
 const userStore = useUserStore()
@@ -616,6 +650,12 @@ const pageSize = ref(20)
 const sortState = ref([
   { key: 'dateTime', order: 'asc' }
 ])
+const columnFilterState = ref({
+  room: [],
+  reservedBy: [],
+  approvalStatus: [],
+  status: []
+})
 const showCancelDialog = ref(false)
 const showEditDialog = ref(false)
 const cancelBookingId = ref(null)
@@ -795,6 +835,24 @@ const filteredBookings = computed(() => {
     )
   }
 
+  // Column filter (table headers)
+  if (columnFilterState.value.room.length) {
+    const selected = new Set(columnFilterState.value.room)
+    result = result.filter((b) => selected.has(b.room || ''))
+  }
+  if (columnFilterState.value.reservedBy.length) {
+    const selected = new Set(columnFilterState.value.reservedBy)
+    result = result.filter((b) => selected.has(b.reservedBy || ''))
+  }
+  if (columnFilterState.value.approvalStatus.length) {
+    const selected = new Set(columnFilterState.value.approvalStatus)
+    result = result.filter((b) => selected.has(b.approvalStatus || 'pending'))
+  }
+  if (columnFilterState.value.status.length) {
+    const selected = new Set(columnFilterState.value.status)
+    result = result.filter((b) => selected.has(b.status || ''))
+  }
+
   return result
 })
 
@@ -876,6 +934,8 @@ const getSortValue = (booking, key) => {
       return booking.email || ''
     case 'approvalStatus':
       return booking.approvalStatus || 'pending'
+    case 'status':
+      return booking.status || ''
     case 'bookedOn':
       return parseBookedOnDateTime(booking.bookedOn).getTime()
     default:
@@ -919,6 +979,42 @@ const getSortIndicator = (key) => {
   if (idx === -1) return '↕'
   const arrow = sortState.value[idx].order === 'asc' ? '▲' : '▼'
   return `${arrow}${idx + 1}`
+}
+
+const setSortByMenu = (key, order) => {
+  const idx = sortState.value.findIndex(item => item.key === key)
+  if (idx === -1) {
+    sortState.value.push({ key, order })
+  } else {
+    sortState.value[idx].order = order
+  }
+  currentPage.value = 1
+}
+
+const clearSortByMenu = (key) => {
+  sortState.value = sortState.value.filter(item => item.key !== key)
+  currentPage.value = 1
+}
+
+const getFilterOptions = (key) => {
+  const map = new Map()
+  for (const booking of bookings.value) {
+    let value = ''
+    if (key === 'room') value = booking.room || ''
+    if (key === 'reservedBy') value = booking.reservedBy || ''
+    if (key === 'approvalStatus') value = booking.approvalStatus || 'pending'
+    if (key === 'status') value = booking.status || ''
+    if (!value) continue
+    if (!map.has(value)) map.set(value, String(value).toLowerCase())
+  }
+  return [...map.entries()]
+    .sort((a, b) => a[1].localeCompare(b[1], undefined, { sensitivity: 'base' }))
+    .map(([value]) => value)
+}
+
+const updateFilter = (key, value) => {
+  columnFilterState.value[key] = Array.isArray(value) ? [...value] : []
+  currentPage.value = 1
 }
 
 // Status filter label
@@ -999,7 +1095,7 @@ const visiblePages = computed(() => {
 })
 
 // Watch for filter changes and reset to page 1
-watch([statusFilters, searchQuery, dateRange], () => {
+watch([statusFilters, searchQuery, dateRange, columnFilterState], () => {
   currentPage.value = 1
 }, { deep: true })
 

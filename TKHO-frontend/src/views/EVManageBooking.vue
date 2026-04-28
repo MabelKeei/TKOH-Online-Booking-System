@@ -1,5 +1,5 @@
 <template>
-  <div class="page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
+  <div class="page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden" style="padding-top: var(--app-header-height, 64px);">
     <AppHeader />
 
     <main class="flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 pb-1 overflow-hidden">
@@ -176,7 +176,7 @@
               </div>
               <div class="card-body">
                 <div class="card-row">
-                  <span class="card-label">Space</span>
+                  <span class="card-label">EV Space</span>
                   <span class="card-value">{{ booking.space }}</span>
                 </div>
                 <div class="card-row">
@@ -219,16 +219,30 @@
                     </button>
                   </th>
                   <th>
-                    <button type="button" class="th-sort-btn" @click="toggleSort('licensePlate')">
-                      License Plate
-                      <span class="sort-indicator">{{ getSortIndicator('licensePlate') }}</span>
-                    </button>
+                    <SortableFilterHeader
+                      label="License Plate"
+                      :sort-indicator="getSortIndicator('licensePlate')"
+                      :filter-active="columnFilterState.licensePlate.length > 0"
+                      :options="getFilterOptions('licensePlate')"
+                      :model-value="columnFilterState.licensePlate"
+                      @sort-asc="setSortByMenu('licensePlate', 'asc')"
+                      @sort-desc="setSortByMenu('licensePlate', 'desc')"
+                      @clear-sort="clearSortByMenu('licensePlate')"
+                      @update:model-value="(v) => updateFilter('licensePlate', v)"
+                    />
                   </th>
                   <th>
-                    <button type="button" class="th-sort-btn" @click="toggleSort('space')">
-                      Space
-                      <span class="sort-indicator">{{ getSortIndicator('space') }}</span>
-                    </button>
+                    <SortableFilterHeader
+                      label="EV Space"
+                      :sort-indicator="getSortIndicator('space')"
+                      :filter-active="columnFilterState.space.length > 0"
+                      :options="getFilterOptions('space')"
+                      :model-value="columnFilterState.space"
+                      @sort-asc="setSortByMenu('space', 'asc')"
+                      @sort-desc="setSortByMenu('space', 'desc')"
+                      @clear-sort="clearSortByMenu('space')"
+                      @update:model-value="(v) => updateFilter('space', v)"
+                    />
                   </th>
                   <th>
                     <button type="button" class="th-sort-btn" @click="toggleSort('applicationDate')">
@@ -236,7 +250,19 @@
                       <span class="sort-indicator">{{ getSortIndicator('applicationDate') }}</span>
                     </button>
                   </th>
-                  <th>Status</th>
+                  <th>
+                    <SortableFilterHeader
+                      label="Status"
+                      :sort-indicator="getSortIndicator('status')"
+                      :filter-active="columnFilterState.status.length > 0"
+                      :options="getFilterOptions('status')"
+                      :model-value="columnFilterState.status"
+                      @sort-asc="setSortByMenu('status', 'asc')"
+                      @sort-desc="setSortByMenu('status', 'desc')"
+                      @clear-sort="clearSortByMenu('status')"
+                      @update:model-value="(v) => updateFilter('status', v)"
+                    />
+                  </th>
                   <th>Reason</th>
                   <th class="col-actions">Actions</th>
                 </tr>
@@ -346,6 +372,7 @@ import { storeToRefs } from 'pinia'
 import { getMockEVManageBookingList } from '@/mocks/mockData'
 import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
+import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
 
 const userStore = useUserStore()
 const { isAdmin, userInfo } = storeToRefs(userStore)
@@ -359,6 +386,11 @@ const pageSize = ref(20)
 const sortState = ref([
   { key: 'bookingDateTime', order: 'asc' }
 ])
+const columnFilterState = ref({
+  licensePlate: [],
+  space: [],
+  status: []
+})
 const showCancelDialog = ref(false)
 const cancelBookingId = ref(null)
 const currentView = ref('card')
@@ -414,6 +446,20 @@ const filteredBookings = computed(() => {
     )
   }
 
+  // Column filter (table headers)
+  if (columnFilterState.value.licensePlate.length) {
+    const selected = new Set(columnFilterState.value.licensePlate)
+    result = result.filter((b) => selected.has(b.licensePlate || ''))
+  }
+  if (columnFilterState.value.space.length) {
+    const selected = new Set(columnFilterState.value.space)
+    result = result.filter((b) => selected.has(b.space || ''))
+  }
+  if (columnFilterState.value.status.length) {
+    const selected = new Set(columnFilterState.value.status)
+    result = result.filter((b) => selected.has(b.status || ''))
+  }
+
   return result
 })
 
@@ -450,6 +496,8 @@ const getSortValue = (booking, key) => {
       return booking.space || ''
     case 'applicationDate':
       return parseDate(booking.bookedOn).getTime()
+    case 'status':
+      return booking.status || ''
     default:
       return ''
   }
@@ -491,6 +539,41 @@ const getSortIndicator = (key) => {
   if (idx === -1) return '↕'
   const arrow = sortState.value[idx].order === 'asc' ? '▲' : '▼'
   return `${arrow}${idx + 1}`
+}
+
+const setSortByMenu = (key, order) => {
+  const idx = sortState.value.findIndex(item => item.key === key)
+  if (idx === -1) {
+    sortState.value.push({ key, order })
+  } else {
+    sortState.value[idx].order = order
+  }
+  currentPage.value = 1
+}
+
+const clearSortByMenu = (key) => {
+  sortState.value = sortState.value.filter(item => item.key !== key)
+  currentPage.value = 1
+}
+
+const getFilterOptions = (key) => {
+  const map = new Map()
+  for (const booking of bookings.value) {
+    let value = ''
+    if (key === 'licensePlate') value = booking.licensePlate || ''
+    if (key === 'space') value = booking.space || ''
+    if (key === 'status') value = booking.status || ''
+    if (!value) continue
+    if (!map.has(value)) map.set(value, String(value).toLowerCase())
+  }
+  return [...map.entries()]
+    .sort((a, b) => a[1].localeCompare(b[1], undefined, { sensitivity: 'base' }))
+    .map(([value]) => value)
+}
+
+const updateFilter = (key, value) => {
+  columnFilterState.value[key] = Array.isArray(value) ? [...value] : []
+  currentPage.value = 1
 }
 
 // Status filter label
@@ -562,7 +645,7 @@ const visiblePages = computed(() => {
 })
 
 // Watch for filter changes and reset to page 1
-watch([statusFilters, searchQuery, dateRange], () => {
+watch([statusFilters, searchQuery, dateRange, columnFilterState], () => {
   currentPage.value = 1
 }, { deep: true })
 

@@ -39,29 +39,88 @@
                     fixed="left"
                     :index="getUserRowIndex"
                   />
-                  <el-table-column prop="corpId" label="Corp ID" min-width="120" />
-                  <el-table-column prop="name" label="Name" min-width="140" />
-                  <el-table-column prop="department" label="Department" min-width="150" />
-                  <el-table-column prop="role" label="Role" min-width="140" />
+                  <el-table-column prop="corpId" min-width="120">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('user', 'corpId')">
+                        Corp ID
+                        <span class="sort-indicator">{{ getSortIndicator('user', 'corpId') }}</span>
+                      </button>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="name" label="Name" min-width="280" />
+                  <el-table-column prop="department" min-width="100">
+                    <template #header>
+                      <SortableFilterHeader
+                        label="Department"
+                        :sort-indicator="getSortIndicator('user', 'department')"
+                        :filter-active="columnFilterState.user.department.length > 0"
+                        :options="getFilterOptions('user', 'department')"
+                        :model-value="columnFilterState.user.department"
+                        @sort-asc="setSortByMenu('user', 'department', 'asc')"
+                        @sort-desc="setSortByMenu('user', 'department', 'desc')"
+                        @clear-sort="clearSortByMenu('user', 'department')"
+                        @update:model-value="(v) => updateFilter('user', 'department', v)"
+                      />
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="role" min-width="140">
+                    <template #header>
+                      <SortableFilterHeader
+                        label="Role"
+                        :sort-indicator="getSortIndicator('user', 'role')"
+                        :filter-active="columnFilterState.user.role.length > 0"
+                        :options="getFilterOptions('user', 'role')"
+                        :model-value="columnFilterState.user.role"
+                        @sort-asc="setSortByMenu('user', 'role', 'asc')"
+                        @sort-desc="setSortByMenu('user', 'role', 'desc')"
+                        @clear-sort="clearSortByMenu('user', 'role')"
+                        @update:model-value="(v) => updateFilter('user', 'role', v)"
+                      />
+                    </template>
+                  </el-table-column>
                   <el-table-column prop="email" label="Email" min-width="220" />
-                  <el-table-column label="EV Quota" min-width="165">
+                  <el-table-column min-width="165">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('user', 'evQuota')">
+                        EV Quota
+                        <span class="sort-indicator">{{ getSortIndicator('user', 'evQuota') }}</span>
+                      </button>
+                    </template>
                     <template #default="{ row }">
                       {{ row.usedQuotaEV }} / {{ row.annualQuotaEV }}
                     </template>
                   </el-table-column>
-                  <el-table-column label="Venue Quota" min-width="110">
+                  <el-table-column min-width="110">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('user', 'venueQuota')">
+                        Venue Quota
+                        <span class="sort-indicator">{{ getSortIndicator('user', 'venueQuota') }}</span>
+                      </button>
+                    </template>
                     <template #default="{ row }">
                       {{ row.usedQuotaVenue }} / {{ row.annualQuotaVenue }}
                     </template>
                   </el-table-column>
-                  <el-table-column prop="status" label="Status" min-width="120">
+                  <el-table-column prop="status" min-width="120">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('user', 'status')">
+                        Status
+                        <span class="sort-indicator">{{ getSortIndicator('user', 'status') }}</span>
+                      </button>
+                    </template>
                     <template #default="{ row }">
                       <span :class="['status-pill', `status-${row.status}`]">
                         {{ row.status === 'active' ? 'Active' : row.status === 'inactive' ? 'Inactive' : 'Expired' }}
                       </span>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="lastLoginTime" label="Last login time" min-width="180">
+                  <el-table-column prop="lastLoginTime" min-width="180">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('user', 'lastLoginTime')">
+                        Last login time
+                        <span class="sort-indicator">{{ getSortIndicator('user', 'lastLoginTime') }}</span>
+                      </button>
+                    </template>
                     <template #default="{ row }">
                       {{ row.lastLoginTime || '-' }}
                     </template>
@@ -88,7 +147,7 @@
             </div>
             <div class="pagination-bar">
               <div class="pagination-info">
-                Showing {{ employeeStartIndex + 1 }}-{{ employeeEndIndex }} of {{ filteredUserList.length }} records
+                Showing {{ employeeStartIndex + 1 }}-{{ employeeEndIndex }} of {{ sortedUserList.length }} records
               </div>
               <div class="pagination-controls">
                 <button
@@ -145,39 +204,96 @@
                     fixed="left"
                     :index="getExpiredRowIndex"
                   />
-                  <el-table-column prop="corpId" label="Corp ID" min-width="120" />
-                  <el-table-column prop="name" label="Name" min-width="140" />
-                  <el-table-column prop="department" label="Department" min-width="150" />
-                  <el-table-column prop="role" label="Role" min-width="140" />
+                  <el-table-column prop="corpId" min-width="120">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'corpId')">
+                        Corp ID
+                        <span class="sort-indicator">{{ getSortIndicator('expired', 'corpId') }}</span>
+                      </button>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="name" label="Name" min-width="280" />
+                  <el-table-column prop="department" min-width="100">
+                    <template #header>
+                      <SortableFilterHeader
+                        label="Department"
+                        :sort-indicator="getSortIndicator('expired', 'department')"
+                        :filter-active="columnFilterState.expired.department.length > 0"
+                        :options="getFilterOptions('expired', 'department')"
+                        :model-value="columnFilterState.expired.department"
+                        @sort-asc="setSortByMenu('expired', 'department', 'asc')"
+                        @sort-desc="setSortByMenu('expired', 'department', 'desc')"
+                        @clear-sort="clearSortByMenu('expired', 'department')"
+                        @update:model-value="(v) => updateFilter('expired', 'department', v)"
+                      />
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="role" min-width="140">
+                    <template #header>
+                      <SortableFilterHeader
+                        label="Role"
+                        :sort-indicator="getSortIndicator('expired', 'role')"
+                        :filter-active="columnFilterState.expired.role.length > 0"
+                        :options="getFilterOptions('expired', 'role')"
+                        :model-value="columnFilterState.expired.role"
+                        @sort-asc="setSortByMenu('expired', 'role', 'asc')"
+                        @sort-desc="setSortByMenu('expired', 'role', 'desc')"
+                        @clear-sort="clearSortByMenu('expired', 'role')"
+                        @update:model-value="(v) => updateFilter('expired', 'role', v)"
+                      />
+                    </template>
+                  </el-table-column>
                   <el-table-column prop="email" label="Email" min-width="220" />
-                  <el-table-column prop="status" label="Status" min-width="120">
+                  <el-table-column prop="status" min-width="120">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'status')">
+                        Status
+                        <span class="sort-indicator">{{ getSortIndicator('expired', 'status') }}</span>
+                      </button>
+                    </template>
                     <template #default="{ row }">
                       <span :class="['status-pill', `status-${row.status}`]">
                         {{ row.status === 'expired' ? 'Expired' : 'Inactive' }}
                       </span>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="lastLoginTime" label="Last login time" min-width="180">
+                  <el-table-column prop="lastLoginTime" min-width="180">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'lastLoginTime')">
+                        Last login time
+                        <span class="sort-indicator">{{ getSortIndicator('expired', 'lastLoginTime') }}</span>
+                      </button>
+                    </template>
                     <template #default="{ row }">
                       {{ row.lastLoginTime || '-' }}
                     </template>
                   </el-table-column>
-                  <el-table-column label="EV Quota" min-width="165">
+                  <el-table-column min-width="165">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'evQuota')">
+                        EV Quota
+                        <span class="sort-indicator">{{ getSortIndicator('expired', 'evQuota') }}</span>
+                      </button>
+                    </template>
                     <template #default="{ row }">
                       {{ row.usedQuotaEV }} / {{ row.annualQuotaEV }}
                     </template>
                   </el-table-column>
-                  <el-table-column label="Venue Quota" min-width="110">
+                  <el-table-column min-width="110">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'venueQuota')">
+                        Venue Quota
+                        <span class="sort-indicator">{{ getSortIndicator('expired', 'venueQuota') }}</span>
+                      </button>
+                    </template>
                     <template #default="{ row }">
                       {{ row.usedQuotaVenue }} / {{ row.annualQuotaVenue }}
                     </template>
                   </el-table-column>
-                  <el-table-column label="Actions" width="230" fixed="right" class-name="actions-col">
+                  <el-table-column label="Actions" width="130" fixed="right" class-name="actions-col">
                     <template #default="{ row }">
                       <div class="actions-cell">
                         <el-button size="small" class="action-btn action-activate" @click="handleActivate(row)">Activate</el-button>
-                        <el-button size="small" class="action-btn action-edit" @click="handleEdit(row)">Edit</el-button>
-                        <el-button size="small" class="action-btn action-delete" @click="handleDelete(row)">Delete</el-button>
                       </div>
                     </template>
                   </el-table-column>
@@ -186,7 +302,7 @@
             </div>
             <div class="pagination-bar">
               <div class="pagination-info">
-                Showing {{ expiredStartIndex + 1 }}-{{ expiredEndIndex }} of {{ filteredExpiredList.length }} records
+                Showing {{ expiredStartIndex + 1 }}-{{ expiredEndIndex }} of {{ sortedExpiredList.length }} records
               </div>
               <div class="pagination-controls">
                 <button
@@ -228,7 +344,7 @@
           <template #label>
             <span>
               Pending Approval
-              <el-badge :value="pendingPendingList.length" :max="99" class="badge-item" />
+              <el-badge :value="sortedPendingPendingList.length" :max="99" class="badge-item" />
             </span>
           </template>
 
@@ -247,18 +363,66 @@
                         fixed="left"
                         :index="getPendingPendingRowIndex"
                       />
-                      <el-table-column prop="corpId" label="Corp ID" min-width="120" />
-                      <el-table-column prop="name" label="Name" min-width="140" />
-                      <el-table-column prop="department" label="Department" min-width="150" />
-                      <el-table-column prop="role" label="Role" min-width="140" />
+                      <el-table-column prop="corpId" min-width="120">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingPending', 'corpId')">
+                            Corp ID
+                            <span class="sort-indicator">{{ getSortIndicator('pendingPending', 'corpId') }}</span>
+                          </button>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="name" label="Name" min-width="360" />
+                      <el-table-column prop="department" min-width="100">
+                        <template #header>
+                          <SortableFilterHeader
+                            label="Department"
+                            :sort-indicator="getSortIndicator('pendingPending', 'department')"
+                            :filter-active="columnFilterState.pendingPending.department.length > 0"
+                            :options="getFilterOptions('pendingPending', 'department')"
+                            :model-value="columnFilterState.pendingPending.department"
+                            @sort-asc="setSortByMenu('pendingPending', 'department', 'asc')"
+                            @sort-desc="setSortByMenu('pendingPending', 'department', 'desc')"
+                            @clear-sort="clearSortByMenu('pendingPending', 'department')"
+                            @update:model-value="(v) => updateFilter('pendingPending', 'department', v)"
+                          />
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="role" min-width="140">
+                        <template #header>
+                          <SortableFilterHeader
+                            label="Role"
+                            :sort-indicator="getSortIndicator('pendingPending', 'role')"
+                            :filter-active="columnFilterState.pendingPending.role.length > 0"
+                            :options="getFilterOptions('pendingPending', 'role')"
+                            :model-value="columnFilterState.pendingPending.role"
+                            @sort-asc="setSortByMenu('pendingPending', 'role', 'asc')"
+                            @sort-desc="setSortByMenu('pendingPending', 'role', 'desc')"
+                            @clear-sort="clearSortByMenu('pendingPending', 'role')"
+                            @update:model-value="(v) => updateFilter('pendingPending', 'role', v)"
+                          />
+                        </template>
+                      </el-table-column>
                       <el-table-column prop="email" label="Email" min-width="220" />
-                      <el-table-column prop="lastLoginTime" label="Last login time" min-width="180">
+                      <el-table-column prop="lastLoginTime" min-width="180">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingPending', 'lastLoginTime')">
+                            Last login time
+                            <span class="sort-indicator">{{ getSortIndicator('pendingPending', 'lastLoginTime') }}</span>
+                          </button>
+                        </template>
                         <template #default="{ row }">
                           {{ row.lastLoginTime || '-' }}
                         </template>
                       </el-table-column>
                       <el-table-column prop="reason" label="Application Reason" min-width="240" />
-                      <el-table-column prop="submittedAt" label="Submitted At" min-width="180" />
+                      <el-table-column prop="submittedAt" min-width="180">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingPending', 'submittedAt')">
+                            Submitted At
+                            <span class="sort-indicator">{{ getSortIndicator('pendingPending', 'submittedAt') }}</span>
+                          </button>
+                        </template>
+                      </el-table-column>
                       <el-table-column label="Actions" width="120" fixed="right" class-name="actions-col">
                         <template #default="{ row }">
                           <div class="actions-cell">
@@ -271,7 +435,7 @@
                 </div>
                 <div class="pagination-bar">
                   <div class="pagination-info">
-                    Showing {{ pendingPendingStartIndex + 1 }}-{{ pendingPendingEndIndex }} of {{ pendingPendingList.length }} records
+                    Showing {{ pendingPendingStartIndex + 1 }}-{{ pendingPendingEndIndex }} of {{ sortedPendingPendingList.length }} records
                   </div>
                   <div class="pagination-controls">
                     <button class="pagination-btn" :disabled="pendingPendingCurrentPage === 1" @click="pendingPendingCurrentPage--">Previous</button>
@@ -311,24 +475,79 @@
                         fixed="left"
                         :index="getPendingApprovedRowIndex"
                       />
-                      <el-table-column prop="corpId" label="Corp ID" min-width="120" />
-                      <el-table-column prop="name" label="Name" min-width="140" />
-                      <el-table-column prop="department" label="Department" min-width="150" />
-                      <el-table-column prop="role" label="Role" min-width="140" />
+                      <el-table-column prop="corpId" min-width="120">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingApproved', 'corpId')">
+                            Corp ID
+                            <span class="sort-indicator">{{ getSortIndicator('pendingApproved', 'corpId') }}</span>
+                          </button>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="name" label="Name" min-width="360" />
+                      <el-table-column prop="department" min-width="100">
+                        <template #header>
+                          <SortableFilterHeader
+                            label="Department"
+                            :sort-indicator="getSortIndicator('pendingApproved', 'department')"
+                            :filter-active="columnFilterState.pendingApproved.department.length > 0"
+                            :options="getFilterOptions('pendingApproved', 'department')"
+                            :model-value="columnFilterState.pendingApproved.department"
+                            @sort-asc="setSortByMenu('pendingApproved', 'department', 'asc')"
+                            @sort-desc="setSortByMenu('pendingApproved', 'department', 'desc')"
+                            @clear-sort="clearSortByMenu('pendingApproved', 'department')"
+                            @update:model-value="(v) => updateFilter('pendingApproved', 'department', v)"
+                          />
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="role" min-width="140">
+                        <template #header>
+                          <SortableFilterHeader
+                            label="Role"
+                            :sort-indicator="getSortIndicator('pendingApproved', 'role')"
+                            :filter-active="columnFilterState.pendingApproved.role.length > 0"
+                            :options="getFilterOptions('pendingApproved', 'role')"
+                            :model-value="columnFilterState.pendingApproved.role"
+                            @sort-asc="setSortByMenu('pendingApproved', 'role', 'asc')"
+                            @sort-desc="setSortByMenu('pendingApproved', 'role', 'desc')"
+                            @clear-sort="clearSortByMenu('pendingApproved', 'role')"
+                            @update:model-value="(v) => updateFilter('pendingApproved', 'role', v)"
+                          />
+                        </template>
+                      </el-table-column>
                       <el-table-column prop="email" label="Email" min-width="220" />
-                      <el-table-column prop="lastLoginTime" label="Last login time" min-width="180">
+                      <el-table-column prop="lastLoginTime" min-width="180">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingApproved', 'lastLoginTime')">
+                            Last login time
+                            <span class="sort-indicator">{{ getSortIndicator('pendingApproved', 'lastLoginTime') }}</span>
+                          </button>
+                        </template>
                         <template #default="{ row }">
                           {{ row.lastLoginTime || '-' }}
                         </template>
                       </el-table-column>
-                      <el-table-column prop="approvedAt" label="Approved At" min-width="180" />
-                      <el-table-column prop="approvedBy" label="Approved By" min-width="140" />
+                      <el-table-column prop="approvedAt" min-width="180">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingApproved', 'approvedAt')">
+                            Approved At
+                            <span class="sort-indicator">{{ getSortIndicator('pendingApproved', 'approvedAt') }}</span>
+                          </button>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="approvedBy" min-width="140">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingApproved', 'approvedBy')">
+                            Approved By
+                            <span class="sort-indicator">{{ getSortIndicator('pendingApproved', 'approvedBy') }}</span>
+                          </button>
+                        </template>
+                      </el-table-column>
                     </el-table>
                   </div>
                 </div>
                 <div class="pagination-bar">
                   <div class="pagination-info">
-                    Showing {{ pendingApprovedStartIndex + 1 }}-{{ pendingApprovedEndIndex }} of {{ pendingApprovedList.length }} records
+                    Showing {{ pendingApprovedStartIndex + 1 }}-{{ pendingApprovedEndIndex }} of {{ sortedPendingApprovedList.length }} records
                   </div>
                   <div class="pagination-controls">
                     <button class="pagination-btn" :disabled="pendingApprovedCurrentPage === 1" @click="pendingApprovedCurrentPage--">Previous</button>
@@ -368,25 +587,87 @@
                         fixed="left"
                         :index="getPendingRejectedRowIndex"
                       />
-                      <el-table-column prop="corpId" label="Corp ID" min-width="120" />
-                      <el-table-column prop="name" label="Name" min-width="140" />
-                      <el-table-column prop="department" label="Department" min-width="150" />
-                      <el-table-column prop="role" label="Role" min-width="140" />
+                      <el-table-column prop="corpId" min-width="120">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingRejected', 'corpId')">
+                            Corp ID
+                            <span class="sort-indicator">{{ getSortIndicator('pendingRejected', 'corpId') }}</span>
+                          </button>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="name" label="Name" min-width="360" />
+                      <el-table-column prop="department" min-width="100">
+                        <template #header>
+                          <SortableFilterHeader
+                            label="Department"
+                            :sort-indicator="getSortIndicator('pendingRejected', 'department')"
+                            :filter-active="columnFilterState.pendingRejected.department.length > 0"
+                            :options="getFilterOptions('pendingRejected', 'department')"
+                            :model-value="columnFilterState.pendingRejected.department"
+                            @sort-asc="setSortByMenu('pendingRejected', 'department', 'asc')"
+                            @sort-desc="setSortByMenu('pendingRejected', 'department', 'desc')"
+                            @clear-sort="clearSortByMenu('pendingRejected', 'department')"
+                            @update:model-value="(v) => updateFilter('pendingRejected', 'department', v)"
+                          />
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="role" min-width="140">
+                        <template #header>
+                          <SortableFilterHeader
+                            label="Role"
+                            :sort-indicator="getSortIndicator('pendingRejected', 'role')"
+                            :filter-active="columnFilterState.pendingRejected.role.length > 0"
+                            :options="getFilterOptions('pendingRejected', 'role')"
+                            :model-value="columnFilterState.pendingRejected.role"
+                            @sort-asc="setSortByMenu('pendingRejected', 'role', 'asc')"
+                            @sort-desc="setSortByMenu('pendingRejected', 'role', 'desc')"
+                            @clear-sort="clearSortByMenu('pendingRejected', 'role')"
+                            @update:model-value="(v) => updateFilter('pendingRejected', 'role', v)"
+                          />
+                        </template>
+                      </el-table-column>
                       <el-table-column prop="email" label="Email" min-width="220" />
-                      <el-table-column prop="lastLoginTime" label="Last login time" min-width="180">
+                      <el-table-column prop="lastLoginTime" min-width="180">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingRejected', 'lastLoginTime')">
+                            Last login time
+                            <span class="sort-indicator">{{ getSortIndicator('pendingRejected', 'lastLoginTime') }}</span>
+                          </button>
+                        </template>
                         <template #default="{ row }">
                           {{ row.lastLoginTime || '-' }}
                         </template>
                       </el-table-column>
-                      <el-table-column prop="rejectedAt" label="Rejected At" min-width="180" />
-                      <el-table-column prop="rejectedBy" label="Rejected By" min-width="140" />
-                      <el-table-column prop="rejectReason" label="Reject Reason" min-width="240" />
+                      <el-table-column prop="rejectedAt" min-width="180">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingRejected', 'rejectedAt')">
+                            Rejected At
+                            <span class="sort-indicator">{{ getSortIndicator('pendingRejected', 'rejectedAt') }}</span>
+                          </button>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="rejectedBy" min-width="140">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingRejected', 'rejectedBy')">
+                            Rejected By
+                            <span class="sort-indicator">{{ getSortIndicator('pendingRejected', 'rejectedBy') }}</span>
+                          </button>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="rejectReason" min-width="240">
+                        <template #header>
+                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingRejected', 'rejectReason')">
+                            Reject Reason
+                            <span class="sort-indicator">{{ getSortIndicator('pendingRejected', 'rejectReason') }}</span>
+                          </button>
+                        </template>
+                      </el-table-column>
                     </el-table>
                   </div>
                 </div>
                 <div class="pagination-bar">
                   <div class="pagination-info">
-                    Showing {{ pendingRejectedStartIndex + 1 }}-{{ pendingRejectedEndIndex }} of {{ pendingRejectedList.length }} records
+                    Showing {{ pendingRejectedStartIndex + 1 }}-{{ pendingRejectedEndIndex }} of {{ sortedPendingRejectedList.length }} records
                   </div>
                   <div class="pagination-controls">
                     <button class="pagination-btn" :disabled="pendingRejectedCurrentPage === 1" @click="pendingRejectedCurrentPage--">Previous</button>
@@ -435,6 +716,12 @@
             placeholder="Select department"
             style="width: 100%"
             :teleported="false"
+            filterable
+            allow-create
+            default-first-option
+            :reserve-keyword="false"
+            :filter-method="handleDepartmentFilter"
+            @blur="handleDepartmentBlur"
           >
             <el-option v-for="dept in departmentOptions" :key="dept" :label="dept" :value="dept" />
           </el-select>
@@ -448,6 +735,9 @@
           >
             <el-option v-for="r in roleOptions" :key="r" :label="r" :value="r" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="Contact No.">
+          <el-input v-model="formData.contact" />
         </el-form-item>
         <el-form-item label="Email">
           <el-input v-model="formData.email" type="email" />
@@ -660,6 +950,7 @@ import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import QRCode from 'qrcode'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
 import { useAdminStore } from '@/stores/admin'
 import {
   getMockEmployeeListNormalized,
@@ -739,6 +1030,20 @@ const departmentOptions = computed(() => {
   return mockDepartments.map(d => d.departmentName)
 })
 
+const departmentInputKeyword = ref('')
+
+const handleDepartmentFilter = (query) => {
+  departmentInputKeyword.value = String(query || '')
+}
+
+const handleDepartmentBlur = () => {
+  const typed = departmentInputKeyword.value.trim()
+  if (typed) {
+    formData.value.department = typed
+  }
+  departmentInputKeyword.value = ''
+}
+
 const filteredUserList = computed(() => {
   const keyword = employeeSearch.value.trim().toLowerCase()
   const base = employeeList.value.filter((item) => item.status === 'active')
@@ -751,6 +1056,165 @@ const filteredUserList = computed(() => {
     String(item.role).toLowerCase().includes(keyword)
   )
 })
+
+const sortStates = ref({
+  user: [],
+  expired: [],
+  pendingPending: [],
+  pendingApproved: [],
+  pendingRejected: []
+})
+
+const columnFilterState = ref({
+  user: { department: [], role: [] },
+  expired: { department: [], role: [] },
+  pendingPending: { department: [], role: [] },
+  pendingApproved: { department: [], role: [] },
+  pendingRejected: { department: [], role: [] }
+})
+
+const parseDateTimeForSort = (value) => {
+  if (!value) return 0
+  const parsed = new Date(String(value).replace(',', ''))
+  const ts = parsed.getTime()
+  return Number.isNaN(ts) ? 0 : ts
+}
+
+const getSortValue = (row, key) => {
+  switch (key) {
+    case 'corpId':
+    case 'department':
+    case 'role':
+    case 'status':
+    case 'approvedBy':
+    case 'rejectedBy':
+    case 'rejectReason':
+      return row[key] || ''
+    case 'evQuota':
+      return Number(row.usedQuotaEV || 0) * 10000 + Number(row.annualQuotaEV || 0)
+    case 'venueQuota':
+      return Number(row.usedQuotaVenue || 0) * 10000 + Number(row.annualQuotaVenue || 0)
+    case 'lastLoginTime':
+    case 'submittedAt':
+    case 'approvedAt':
+    case 'rejectedAt':
+      return parseDateTimeForSort(row[key])
+    default:
+      return ''
+  }
+}
+
+const sortList = (rows, tableKey) => {
+  const state = sortStates.value[tableKey] || []
+  if (!state.length) return rows.slice()
+  return rows.slice().sort((a, b) => {
+    for (const criterion of state) {
+      const aValue = getSortValue(a, criterion.key)
+      const bValue = getSortValue(b, criterion.key)
+      const direction = criterion.order === 'asc' ? 1 : -1
+      let cmp = 0
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        cmp = aValue - bValue
+      } else {
+        cmp = String(aValue).localeCompare(String(bValue), undefined, { sensitivity: 'base' })
+      }
+      if (cmp !== 0) return cmp * direction
+    }
+    return 0
+  })
+}
+
+const getUniqueOptions = (rows, key) => {
+  return [...new Set((rows || []).map(row => row?.[key]).filter(v => v !== null && v !== undefined && `${v}` !== ''))]
+}
+
+const getFilterOptions = (tableKey, key) => {
+  if (tableKey === 'user') return getUniqueOptions(filteredUserList.value, key)
+  if (tableKey === 'expired') return getUniqueOptions(filteredExpiredList.value, key)
+  if (tableKey === 'pendingPending') return getUniqueOptions(pendingPendingList.value, key)
+  if (tableKey === 'pendingApproved') return getUniqueOptions(pendingApprovedList.value, key)
+  if (tableKey === 'pendingRejected') return getUniqueOptions(pendingRejectedList.value, key)
+  return []
+}
+
+const updateFilter = (tableKey, key, value) => {
+  columnFilterState.value[tableKey][key] = value ?? []
+  if (tableKey === 'user') employeeCurrentPage.value = 1
+  if (tableKey === 'expired') expiredCurrentPage.value = 1
+  if (tableKey === 'pendingPending') pendingPendingCurrentPage.value = 1
+  if (tableKey === 'pendingApproved') pendingApprovedCurrentPage.value = 1
+  if (tableKey === 'pendingRejected') pendingRejectedCurrentPage.value = 1
+}
+
+const selectAllFilterOptions = (tableKey, key, options) => {
+  updateFilter(tableKey, key, [...options])
+}
+
+const clearFilterOptions = (tableKey, key) => {
+  updateFilter(tableKey, key, [])
+}
+
+const applyTableFilters = (rows, tableKey) => {
+  const state = columnFilterState.value[tableKey]
+  return rows.filter((row) => {
+    const depSelected = state.department || []
+    const roleSelected = state.role || []
+    const depMatch = !depSelected.length || depSelected.map(v => String(v)).includes(String(row.department || ''))
+    const roleMatch = !roleSelected.length || roleSelected.map(v => String(v)).includes(String(row.role || ''))
+    return depMatch && roleMatch
+  })
+}
+
+const toggleSort = (tableKey, key) => {
+  const state = sortStates.value[tableKey]
+  const idx = state.findIndex(item => item.key === key)
+  if (idx === -1) {
+    state.push({ key, order: 'asc' })
+  } else if (state[idx].order === 'asc') {
+    state[idx].order = 'desc'
+  } else {
+    state.splice(idx, 1)
+  }
+  if (tableKey === 'user') employeeCurrentPage.value = 1
+  if (tableKey === 'expired') expiredCurrentPage.value = 1
+  if (tableKey === 'pendingPending') pendingPendingCurrentPage.value = 1
+  if (tableKey === 'pendingApproved') pendingApprovedCurrentPage.value = 1
+  if (tableKey === 'pendingRejected') pendingRejectedCurrentPage.value = 1
+}
+
+const setSortByMenu = (tableKey, key, order) => {
+  const state = sortStates.value[tableKey]
+  const idx = state.findIndex(item => item.key === key)
+  if (idx === -1) {
+    state.push({ key, order })
+  } else {
+    state[idx].order = order
+  }
+  if (tableKey === 'user') employeeCurrentPage.value = 1
+  if (tableKey === 'expired') expiredCurrentPage.value = 1
+  if (tableKey === 'pendingPending') pendingPendingCurrentPage.value = 1
+  if (tableKey === 'pendingApproved') pendingApprovedCurrentPage.value = 1
+  if (tableKey === 'pendingRejected') pendingRejectedCurrentPage.value = 1
+}
+
+const clearSortByMenu = (tableKey, key) => {
+  const state = sortStates.value[tableKey]
+  const idx = state.findIndex(item => item.key === key)
+  if (idx !== -1) state.splice(idx, 1)
+  if (tableKey === 'user') employeeCurrentPage.value = 1
+  if (tableKey === 'expired') expiredCurrentPage.value = 1
+  if (tableKey === 'pendingPending') pendingPendingCurrentPage.value = 1
+  if (tableKey === 'pendingApproved') pendingApprovedCurrentPage.value = 1
+  if (tableKey === 'pendingRejected') pendingRejectedCurrentPage.value = 1
+}
+
+const getSortIndicator = (tableKey, key) => {
+  const state = sortStates.value[tableKey] || []
+  const idx = state.findIndex(item => item.key === key)
+  if (idx === -1) return '↕'
+  const arrow = state[idx].order === 'asc' ? '▲' : '▼'
+  return `${arrow}${idx + 1}`
+}
 
 const filteredExpiredList = computed(() => {
   const keyword = expiredSearch.value.trim().toLowerCase()
@@ -766,16 +1230,21 @@ const filteredExpiredList = computed(() => {
 })
 
 const pendingPendingList = computed(() => pendingList.value)
+const sortedPendingPendingList = computed(() => sortList(applyTableFilters(pendingPendingList.value, 'pendingPending'), 'pendingPending'))
+const sortedPendingApprovedList = computed(() => sortList(applyTableFilters(pendingApprovedList.value, 'pendingApproved'), 'pendingApproved'))
+const sortedPendingRejectedList = computed(() => sortList(applyTableFilters(pendingRejectedList.value, 'pendingRejected'), 'pendingRejected'))
+const sortedUserList = computed(() => sortList(applyTableFilters(filteredUserList.value, 'user'), 'user'))
+const sortedExpiredList = computed(() => sortList(applyTableFilters(filteredExpiredList.value, 'expired'), 'expired'))
 
 const paginatedPendingPendingData = computed(() => {
   const start = (pendingPendingCurrentPage.value - 1) * pendingPendingPageSize.value
   const end = start + pendingPendingPageSize.value
-  return pendingPendingList.value.slice(start, end)
+  return sortedPendingPendingList.value.slice(start, end)
 })
 
-const pendingPendingTotalPages = computed(() => Math.max(1, Math.ceil(pendingPendingList.value.length / pendingPendingPageSize.value)))
+const pendingPendingTotalPages = computed(() => Math.max(1, Math.ceil(sortedPendingPendingList.value.length / pendingPendingPageSize.value)))
 const pendingPendingStartIndex = computed(() => (pendingPendingCurrentPage.value - 1) * pendingPendingPageSize.value)
-const pendingPendingEndIndex = computed(() => Math.min(pendingPendingStartIndex.value + pendingPendingPageSize.value, pendingPendingList.value.length))
+const pendingPendingEndIndex = computed(() => Math.min(pendingPendingStartIndex.value + pendingPendingPageSize.value, sortedPendingPendingList.value.length))
 const pendingPendingVisiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -789,12 +1258,12 @@ const pendingPendingVisiblePages = computed(() => {
 const paginatedPendingApprovedData = computed(() => {
   const start = (pendingApprovedCurrentPage.value - 1) * pendingApprovedPageSize.value
   const end = start + pendingApprovedPageSize.value
-  return pendingApprovedList.value.slice(start, end)
+  return sortedPendingApprovedList.value.slice(start, end)
 })
 
-const pendingApprovedTotalPages = computed(() => Math.max(1, Math.ceil(pendingApprovedList.value.length / pendingApprovedPageSize.value)))
+const pendingApprovedTotalPages = computed(() => Math.max(1, Math.ceil(sortedPendingApprovedList.value.length / pendingApprovedPageSize.value)))
 const pendingApprovedStartIndex = computed(() => (pendingApprovedCurrentPage.value - 1) * pendingApprovedPageSize.value)
-const pendingApprovedEndIndex = computed(() => Math.min(pendingApprovedStartIndex.value + pendingApprovedPageSize.value, pendingApprovedList.value.length))
+const pendingApprovedEndIndex = computed(() => Math.min(pendingApprovedStartIndex.value + pendingApprovedPageSize.value, sortedPendingApprovedList.value.length))
 const pendingApprovedVisiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -808,12 +1277,12 @@ const pendingApprovedVisiblePages = computed(() => {
 const paginatedPendingRejectedData = computed(() => {
   const start = (pendingRejectedCurrentPage.value - 1) * pendingRejectedPageSize.value
   const end = start + pendingRejectedPageSize.value
-  return pendingRejectedList.value.slice(start, end)
+  return sortedPendingRejectedList.value.slice(start, end)
 })
 
-const pendingRejectedTotalPages = computed(() => Math.max(1, Math.ceil(pendingRejectedList.value.length / pendingRejectedPageSize.value)))
+const pendingRejectedTotalPages = computed(() => Math.max(1, Math.ceil(sortedPendingRejectedList.value.length / pendingRejectedPageSize.value)))
 const pendingRejectedStartIndex = computed(() => (pendingRejectedCurrentPage.value - 1) * pendingRejectedPageSize.value)
-const pendingRejectedEndIndex = computed(() => Math.min(pendingRejectedStartIndex.value + pendingRejectedPageSize.value, pendingRejectedList.value.length))
+const pendingRejectedEndIndex = computed(() => Math.min(pendingRejectedStartIndex.value + pendingRejectedPageSize.value, sortedPendingRejectedList.value.length))
 const pendingRejectedVisiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -858,12 +1327,12 @@ const currentSearch = computed({
 const paginatedUserData = computed(() => {
   const start = (employeeCurrentPage.value - 1) * employeePageSize.value
   const end = start + employeePageSize.value
-  return filteredUserList.value.slice(start, end)
+  return sortedUserList.value.slice(start, end)
 })
 
-const employeeTotalPages = computed(() => Math.max(1, Math.ceil(filteredUserList.value.length / employeePageSize.value)))
+const employeeTotalPages = computed(() => Math.max(1, Math.ceil(sortedUserList.value.length / employeePageSize.value)))
 const employeeStartIndex = computed(() => (employeeCurrentPage.value - 1) * employeePageSize.value)
-const employeeEndIndex = computed(() => Math.min(employeeStartIndex.value + employeePageSize.value, filteredUserList.value.length))
+const employeeEndIndex = computed(() => Math.min(employeeStartIndex.value + employeePageSize.value, sortedUserList.value.length))
 const employeeVisiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -900,12 +1369,12 @@ const pendingVisiblePages = computed(() => {
 const paginatedExpiredData = computed(() => {
   const start = (expiredCurrentPage.value - 1) * expiredPageSize.value
   const end = start + expiredPageSize.value
-  return filteredExpiredList.value.slice(start, end)
+  return sortedExpiredList.value.slice(start, end)
 })
 
-const expiredTotalPages = computed(() => Math.max(1, Math.ceil(filteredExpiredList.value.length / expiredPageSize.value)))
+const expiredTotalPages = computed(() => Math.max(1, Math.ceil(sortedExpiredList.value.length / expiredPageSize.value)))
 const expiredStartIndex = computed(() => (expiredCurrentPage.value - 1) * expiredPageSize.value)
-const expiredEndIndex = computed(() => Math.min(expiredStartIndex.value + expiredPageSize.value, filteredExpiredList.value.length))
+const expiredEndIndex = computed(() => Math.min(expiredStartIndex.value + expiredPageSize.value, sortedExpiredList.value.length))
 const expiredVisiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -945,6 +1414,7 @@ const formData = ref({
   name: '',
   department: '',
   role: '',
+  contact: '',
   email: '',
   password: DEFAULT_PASSWORD,
   annualQuotaEV: 30,
@@ -1045,7 +1515,8 @@ const handleExport = () => {
     'Used Quota (EV)': item.usedQuotaEV,
     'Venue Quota': item.annualQuotaVenue,
     'Used Quota (Venue)': item.usedQuotaVenue,
-    'Status': item.status === 'active' ? 'Active' : item.status === 'inactive' ? 'Inactive' : 'Expired'
+    'Status': item.status === 'active' ? 'Active' : item.status === 'inactive' ? 'Inactive' : 'Expired',
+    'Last login time': item.lastLoginTime || '-'
   }))
 
   const ws = XLSX.utils.json_to_sheet(exportData)
@@ -1062,6 +1533,7 @@ const handleAdd = () => {
     name: '',
     department: '',
     role: '',
+    contact: '',
     email: '',
     password: DEFAULT_PASSWORD,
     annualQuotaEV: 30,
@@ -1320,7 +1792,7 @@ const confirmReject = () => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0.3rem 0.75rem 0.75rem;
+  padding: 0.25rem 0.6rem 0.6rem;
   display: flex;
   flex-direction: column;
 }
@@ -1331,7 +1803,7 @@ const confirmReject = () => {
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
-  margin: 0.5rem 0.75rem 0.3rem;
+  margin: 0.45rem 0.6rem 0.25rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1358,10 +1830,49 @@ const confirmReject = () => {
   align-items: center;
   gap: 0.5rem;
   margin-left: auto;
+  min-width: 0;
 }
 
 .toolbar-search {
   width: min(460px, 48vw);
+}
+
+@media (max-width: 1180px) {
+  .page-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .toolbar-left {
+    flex: 1 1 100%;
+  }
+
+  .toolbar-right {
+    flex: 1 1 100%;
+    margin-left: 0;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .toolbar-search {
+    width: 100%;
+    min-width: 260px;
+  }
+}
+
+@media (max-width: 768px) {
+  .toolbar-right {
+    gap: 0.375rem;
+  }
+
+  .toolbar-right :deep(.el-button) {
+    flex: 1 1 auto;
+    min-width: 140px;
+  }
+
+  .toolbar-search {
+    min-width: 100%;
+  }
 }
 
 .toolbar-right :deep(.el-button.cancel-btn) {
@@ -1480,6 +1991,145 @@ const confirmReject = () => {
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
+}
+
+.th-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sort-indicator {
+  font-size: 0.68rem;
+  color: #6b7280;
+  line-height: 1;
+}
+
+.th-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.filter-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #00723a;
+  display: inline-block;
+}
+
+.th-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.th-menu-sort {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.th-menu-item {
+  border: 1px solid #b7dec7;
+  background: #f5fbf7;
+  color: #14532d;
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.th-menu-item:hover {
+  background: #e8f6ee;
+  border-color: #8fcca9;
+}
+
+.th-menu-item.danger {
+  color: #b91c1c;
+  border-color: #f3c4c4;
+  background: #fff6f6;
+}
+
+.th-menu-divider {
+  height: 1px;
+  background: #d3ebdd;
+}
+
+.th-menu-filter-title {
+  font-size: 0.75rem;
+  color: #166534;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.menu-icon {
+  width: 0.9rem;
+  text-align: center;
+  color: #15803d;
+}
+
+.th-filter-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.th-filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.th-filter-link {
+  border: none;
+  background: transparent;
+  color: #15803d;
+  font-size: 0.75rem;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.th-filter-link:hover {
+  text-decoration: underline;
+}
+
+.th-checkbox-list {
+  width: 100%;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid #c7e5d4;
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.55rem;
+  background: #f8fdf9;
+}
+
+.th-checkbox-list :deep(.el-checkbox) {
+  display: flex;
+  margin-right: 0;
+  margin-bottom: 0.35rem;
 }
 
 .page-content :deep(.el-table td) {

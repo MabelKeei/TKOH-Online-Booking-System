@@ -367,7 +367,7 @@ const handleClearQrImage = () => {
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
-  margin: 0.5rem 0.75rem 0.3rem;
+  margin: 0.45rem 0.6rem 0.25rem;
 }
 
 .page-title {
@@ -399,7 +399,7 @@ const handleClearQrImage = () => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0.3rem 0.75rem 0.75rem;
+  padding: 0.25rem 0.6rem 0.6rem;
   display: flex;
   flex-direction: column;
 }

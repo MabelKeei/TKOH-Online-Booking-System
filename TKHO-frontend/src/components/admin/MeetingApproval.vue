@@ -71,7 +71,7 @@
           <template #label>
             <span>
               Pending Approval
-              <el-badge :value="filteredPendingList.length" :max="99" class="badge-item" />
+              <el-badge :value="columnFilteredPendingList.length" :max="99" class="badge-item" />
             </span>
           </template>
 
@@ -86,16 +86,64 @@
               fixed="left"
               :index="getPendingRowIndex"
             />
-            <el-table-column prop="venueName" label="Venue" min-width="180" />
+            <el-table-column prop="venueName" min-width="180">
+              <template #header>
+                <SortableFilterHeader
+                  label="Venue"
+                  :sort-indicator="getPendingSortIndicator('venueName')"
+                  :filter-active="columnFilterState.pending.venueName.length > 0"
+                  :options="pendingVenueOptions"
+                  :model-value="columnFilterState.pending.venueName"
+                  @sort-asc="setSortByMenu('pending', 'venueName', 'asc')"
+                  @sort-desc="setSortByMenu('pending', 'venueName', 'desc')"
+                  @clear-sort="clearSortByMenu('pending', 'venueName')"
+                  @update:model-value="(v) => updateFilter('pending', 'venueName', v)"
+                />
+              </template>
+            </el-table-column>
             <el-table-column label="Reserved By" min-width="200">
+              <template #header>
+                <SortableFilterHeader
+                  label="Reserved By"
+                  :sort-indicator="getPendingSortIndicator('reservedBy')"
+                  :filter-active="columnFilterState.pending.reservedBy.length > 0"
+                  :options="pendingReservedByOptions"
+                  :model-value="columnFilterState.pending.reservedBy"
+                  @sort-asc="setSortByMenu('pending', 'reservedBy', 'asc')"
+                  @sort-desc="setSortByMenu('pending', 'reservedBy', 'desc')"
+                  @clear-sort="clearSortByMenu('pending', 'reservedBy')"
+                  @update:model-value="(v) => updateFilter('pending', 'reservedBy', v)"
+                />
+              </template>
               <template #default="{ row }">
                 {{ formatReservedBy(row) }}
               </template>
             </el-table-column>
             <el-table-column prop="meetingTitle" label="Meeting Title" min-width="200" />
-            <el-table-column prop="date" label="Date" min-width="120" />
-            <el-table-column prop="time" label="Time" min-width="130" />
-            <el-table-column prop="submittedAt" label="Submitted" min-width="160" />
+            <el-table-column prop="date" min-width="120">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="togglePendingSort('date')">
+                  Date
+                  <span class="sort-indicator">{{ getPendingSortIndicator('date') }}</span>
+                </button>
+              </template>
+            </el-table-column>
+            <el-table-column prop="time" min-width="130">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="togglePendingSort('time')">
+                  Time
+                  <span class="sort-indicator">{{ getPendingSortIndicator('time') }}</span>
+                </button>
+              </template>
+            </el-table-column>
+            <el-table-column prop="submittedAt" min-width="160">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="togglePendingSort('submittedAt')">
+                  Submitted
+                  <span class="sort-indicator">{{ getPendingSortIndicator('submittedAt') }}</span>
+                </button>
+              </template>
+            </el-table-column>
             <el-table-column label="Actions" width="120" fixed="right" class-name="actions-col">
               <template #default="{ row }">
                 <div class="actions-cell">
@@ -107,7 +155,7 @@
 
           <div class="pagination-bar">
             <div class="pagination-info">
-              Showing {{ pendingStartIndex + 1 }}-{{ pendingEndIndex }} of {{ filteredPendingList.length }} records
+              Showing {{ pendingStartIndex + 1 }}-{{ pendingEndIndex }} of {{ columnFilteredPendingList.length }} records
             </div>
             <div class="pagination-controls">
               <button class="pagination-btn" :disabled="pendingCurrentPage === 1" @click="pendingCurrentPage--">Previous</button>
@@ -145,22 +193,77 @@
               fixed="left"
               :index="getApprovedRowIndex"
             />
-            <el-table-column prop="venueName" label="Venue" min-width="180" />
+            <el-table-column prop="venueName" min-width="180">
+              <template #header>
+                <SortableFilterHeader
+                  label="Venue"
+                  :sort-indicator="getApprovedSortIndicator('venueName')"
+                  :filter-active="columnFilterState.approved.venueName.length > 0"
+                  :options="approvedVenueOptions"
+                  :model-value="columnFilterState.approved.venueName"
+                  @sort-asc="setSortByMenu('approved', 'venueName', 'asc')"
+                  @sort-desc="setSortByMenu('approved', 'venueName', 'desc')"
+                  @clear-sort="clearSortByMenu('approved', 'venueName')"
+                  @update:model-value="(v) => updateFilter('approved', 'venueName', v)"
+                />
+              </template>
+            </el-table-column>
             <el-table-column label="Reserved By" min-width="200">
+              <template #header>
+                <SortableFilterHeader
+                  label="Reserved By"
+                  :sort-indicator="getApprovedSortIndicator('reservedBy')"
+                  :filter-active="columnFilterState.approved.reservedBy.length > 0"
+                  :options="approvedReservedByOptions"
+                  :model-value="columnFilterState.approved.reservedBy"
+                  @sort-asc="setSortByMenu('approved', 'reservedBy', 'asc')"
+                  @sort-desc="setSortByMenu('approved', 'reservedBy', 'desc')"
+                  @clear-sort="clearSortByMenu('approved', 'reservedBy')"
+                  @update:model-value="(v) => updateFilter('approved', 'reservedBy', v)"
+                />
+              </template>
               <template #default="{ row }">
                 {{ formatReservedBy(row) }}
               </template>
             </el-table-column>
             <el-table-column prop="meetingTitle" label="Meeting Title" min-width="200" />
-            <el-table-column prop="date" label="Date" min-width="120" />
-            <el-table-column prop="time" label="Time" min-width="130" />
-            <el-table-column prop="approvedBy" label="Approved By" min-width="120" />
-            <el-table-column prop="approvedAt" label="Approved At" min-width="160" />
+            <el-table-column prop="date" min-width="120">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="toggleApprovedSort('date')">
+                  Date
+                  <span class="sort-indicator">{{ getApprovedSortIndicator('date') }}</span>
+                </button>
+              </template>
+            </el-table-column>
+            <el-table-column prop="time" min-width="130">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="toggleApprovedSort('time')">
+                  Time
+                  <span class="sort-indicator">{{ getApprovedSortIndicator('time') }}</span>
+                </button>
+              </template>
+            </el-table-column>
+            <el-table-column prop="approvedBy" min-width="120">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="toggleApprovedSort('approvedBy')">
+                  Approved By
+                  <span class="sort-indicator">{{ getApprovedSortIndicator('approvedBy') }}</span>
+                </button>
+              </template>
+            </el-table-column>
+            <el-table-column prop="approvedAt" min-width="160">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="toggleApprovedSort('approvedAt')">
+                  Approved At
+                  <span class="sort-indicator">{{ getApprovedSortIndicator('approvedAt') }}</span>
+                </button>
+              </template>
+            </el-table-column>
           </el-table>
 
           <div class="pagination-bar">
             <div class="pagination-info">
-              Showing {{ approvedStartIndex + 1 }}-{{ approvedEndIndex }} of {{ filteredApprovedList.length }} records
+              Showing {{ approvedStartIndex + 1 }}-{{ approvedEndIndex }} of {{ columnFilteredApprovedList.length }} records
             </div>
             <div class="pagination-controls">
               <button class="pagination-btn" :disabled="approvedCurrentPage === 1" @click="approvedCurrentPage--">Previous</button>
@@ -198,23 +301,78 @@
               fixed="left"
               :index="getRejectedRowIndex"
             />
-            <el-table-column prop="venueName" label="Venue" min-width="180" />
+            <el-table-column prop="venueName" min-width="180">
+              <template #header>
+                <SortableFilterHeader
+                  label="Venue"
+                  :sort-indicator="getRejectedSortIndicator('venueName')"
+                  :filter-active="columnFilterState.rejected.venueName.length > 0"
+                  :options="rejectedVenueOptions"
+                  :model-value="columnFilterState.rejected.venueName"
+                  @sort-asc="setSortByMenu('rejected', 'venueName', 'asc')"
+                  @sort-desc="setSortByMenu('rejected', 'venueName', 'desc')"
+                  @clear-sort="clearSortByMenu('rejected', 'venueName')"
+                  @update:model-value="(v) => updateFilter('rejected', 'venueName', v)"
+                />
+              </template>
+            </el-table-column>
             <el-table-column label="Reserved By" min-width="200">
+              <template #header>
+                <SortableFilterHeader
+                  label="Reserved By"
+                  :sort-indicator="getRejectedSortIndicator('reservedBy')"
+                  :filter-active="columnFilterState.rejected.reservedBy.length > 0"
+                  :options="rejectedReservedByOptions"
+                  :model-value="columnFilterState.rejected.reservedBy"
+                  @sort-asc="setSortByMenu('rejected', 'reservedBy', 'asc')"
+                  @sort-desc="setSortByMenu('rejected', 'reservedBy', 'desc')"
+                  @clear-sort="clearSortByMenu('rejected', 'reservedBy')"
+                  @update:model-value="(v) => updateFilter('rejected', 'reservedBy', v)"
+                />
+              </template>
               <template #default="{ row }">
                 {{ formatReservedBy(row) }}
               </template>
             </el-table-column>
             <el-table-column prop="meetingTitle" label="Meeting Title" min-width="180" />
-            <el-table-column prop="date" label="Date" min-width="120" />
-            <el-table-column prop="time" label="Time" min-width="130" />
-            <el-table-column prop="rejectedBy" label="Rejected By" min-width="120" />
-            <el-table-column prop="rejectedAt" label="Rejected At" min-width="160" />
+            <el-table-column prop="date" min-width="120">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="toggleRejectedSort('date')">
+                  Date
+                  <span class="sort-indicator">{{ getRejectedSortIndicator('date') }}</span>
+                </button>
+              </template>
+            </el-table-column>
+            <el-table-column prop="time" min-width="130">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="toggleRejectedSort('time')">
+                  Time
+                  <span class="sort-indicator">{{ getRejectedSortIndicator('time') }}</span>
+                </button>
+              </template>
+            </el-table-column>
+            <el-table-column prop="rejectedBy" min-width="120">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="toggleRejectedSort('rejectedBy')">
+                  Rejected By
+                  <span class="sort-indicator">{{ getRejectedSortIndicator('rejectedBy') }}</span>
+                </button>
+              </template>
+            </el-table-column>
+            <el-table-column prop="rejectedAt" min-width="160">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="toggleRejectedSort('rejectedAt')">
+                  Rejected At
+                  <span class="sort-indicator">{{ getRejectedSortIndicator('rejectedAt') }}</span>
+                </button>
+              </template>
+            </el-table-column>
             <el-table-column prop="reason" label="Reason" min-width="200" />
           </el-table>
 
           <div class="pagination-bar">
             <div class="pagination-info">
-              Showing {{ rejectedStartIndex + 1 }}-{{ rejectedEndIndex }} of {{ filteredRejectedList.length }} records
+              Showing {{ rejectedStartIndex + 1 }}-{{ rejectedEndIndex }} of {{ columnFilteredRejectedList.length }} records
             </div>
             <div class="pagination-controls">
               <button class="pagination-btn" :disabled="rejectedCurrentPage === 1" @click="rejectedCurrentPage--">Previous</button>
@@ -245,15 +403,16 @@
     <BookingStyleModal
       v-model="showHandleDialog"
       title="Handle Booking"
-      max-width="620px"
+      max-width="760px"
       :max-height="handleBookingModalMaxHeight"
+      custom-class="handle-booking-modal"
     >
-      <el-form :model="handleForm" label-width="130px">
-        <el-form-item label="Venue">
+      <el-form :model="handleForm" label-width="170px" class="handle-booking-form">
+        <el-form-item label="Room / Venue">
           <el-input v-model="handleForm.venueName" disabled />
         </el-form-item>
         
-        <el-form-item label="Meeting Title">
+        <el-form-item label="Meeting / Event Title" class="no-wrap-label">
           <el-input v-model="handleForm.meetingTitle" type="textarea" :rows="2" />
         </el-form-item>
         <el-form-item label="Date">
@@ -262,17 +421,23 @@
         <el-form-item label="Time">
           <el-input v-model="handleForm.time" disabled />
         </el-form-item>
+        <el-form-item label="No. of Participants" class="no-wrap-label">
+          <el-input v-model="handleForm.participantCount" disabled />
+        </el-form-item>
+        <el-form-item label="Tea Service">
+          <el-input v-model="handleForm.teaService" disabled />
+        </el-form-item>
         <div class="contact-info-section">
-          <el-form-item label="Full Name" label-width="154px">
+          <el-form-item label="Name" label-width="154px">
             <el-input v-model="handleForm.userName" disabled />
           </el-form-item>
-          <el-form-item label="Department / Unit" label-width="154px">
+          <el-form-item label="Department" label-width="154px">
             <el-input v-model="handleForm.departmentUnit" disabled />
           </el-form-item>
-          <el-form-item label="Contact Telephone No" label-width="154px">
+          <el-form-item label="Contact No." label-width="154px">
             <el-input v-model="handleForm.contactPhone" disabled />
           </el-form-item>
-          <el-form-item label="Contact Email" label-width="154px">
+          <el-form-item label="Email" label-width="154px">
             <el-input v-model="handleForm.contactEmail" disabled />
           </el-form-item>
         </div>
@@ -313,6 +478,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
 import { useAdminStore } from '@/stores/admin'
 import {
   getMockMeetingPendingList,
@@ -386,14 +552,200 @@ const filteredPendingList = computed(() => pendingList.value.filter(isDateInRang
 const filteredApprovedList = computed(() => approvedList.value.filter(isDateInRange))
 const filteredRejectedList = computed(() => rejectedList.value.filter(isDateInRange))
 
+const columnFilterState = ref({
+  pending: { venueName: [], reservedBy: [] },
+  approved: { venueName: [], reservedBy: [] },
+  rejected: { venueName: [], reservedBy: [] }
+})
+
+const getUniqueOptions = (list, mapper) => [...new Set((list || []).map(mapper).filter(v => v != null && `${v}` !== ''))]
+
+const pendingVenueOptions = computed(() => getUniqueOptions(filteredPendingList.value, row => row.venueName || ''))
+const pendingReservedByOptions = computed(() => getUniqueOptions(filteredPendingList.value, row => formatReservedBy(row)))
+const approvedVenueOptions = computed(() => getUniqueOptions(filteredApprovedList.value, row => row.venueName || ''))
+const approvedReservedByOptions = computed(() => getUniqueOptions(filteredApprovedList.value, row => formatReservedBy(row)))
+const rejectedVenueOptions = computed(() => getUniqueOptions(filteredRejectedList.value, row => row.venueName || ''))
+const rejectedReservedByOptions = computed(() => getUniqueOptions(filteredRejectedList.value, row => formatReservedBy(row)))
+
+const updateFilter = (tableKey, key, value) => {
+  columnFilterState.value[tableKey][key] = value ?? []
+  if (tableKey === 'pending') pendingCurrentPage.value = 1
+  if (tableKey === 'approved') approvedCurrentPage.value = 1
+  if (tableKey === 'rejected') rejectedCurrentPage.value = 1
+}
+
+const selectAllFilterOptions = (tableKey, key, options) => {
+  updateFilter(tableKey, key, [...options])
+}
+
+const clearFilterOptions = (tableKey, key) => {
+  updateFilter(tableKey, key, [])
+}
+
+const applyColumnFilters = (rows, tableKey) => {
+  const state = columnFilterState.value[tableKey]
+  return rows.filter((row) => {
+    const venueSelected = state.venueName || []
+    const reservedSelected = state.reservedBy || []
+    const venueMatch = !venueSelected.length || venueSelected.map(v => String(v)).includes(String(row.venueName || ''))
+    const reservedByValue = formatReservedBy(row)
+    const reservedMatch = !reservedSelected.length || reservedSelected.map(v => String(v)).includes(String(reservedByValue))
+    return venueMatch && reservedMatch
+  })
+}
+
+const columnFilteredPendingList = computed(() => applyColumnFilters(filteredPendingList.value, 'pending'))
+const columnFilteredApprovedList = computed(() => applyColumnFilters(filteredApprovedList.value, 'approved'))
+const columnFilteredRejectedList = computed(() => applyColumnFilters(filteredRejectedList.value, 'rejected'))
+
+const pendingSortState = ref([])
+const approvedSortState = ref([])
+const rejectedSortState = ref([])
+
+function parseDisplayDate(dateStr) {
+  if (!dateStr) return new Date(0)
+  const text = String(dateStr).trim()
+  const parts = text.split(' ')
+  if (parts.length < 3) return new Date(text)
+  const day = Number.parseInt(parts[0], 10)
+  const monthMap = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+  }
+  const month = monthMap[parts[1]]
+  const year = Number.parseInt(parts[2], 10)
+  if (!Number.isFinite(day) || !Number.isFinite(year) || month === undefined) return new Date(text)
+  return new Date(year, month, day)
+}
+
+function parseDateTime(dateTimeStr) {
+  if (!dateTimeStr) return new Date(0)
+  const normalized = String(dateTimeStr).replace(',', '')
+  const date = new Date(normalized)
+  return Number.isNaN(date.getTime()) ? new Date(0) : date
+}
+
+function parseStartMinutes(timeRange) {
+  const start = (timeRange || '').split(' - ')[0] || ''
+  const [h = '0', m = '0'] = start.split(':')
+  return (Number.parseInt(h, 10) || 0) * 60 + (Number.parseInt(m, 10) || 0)
+}
+
+function getSortValue(row, key) {
+  switch (key) {
+    case 'venueName':
+      return row.venueName || ''
+    case 'date':
+      return parseDisplayDate(row.date).getTime()
+    case 'time':
+      return parseStartMinutes(row.time)
+    case 'submittedAt':
+      return parseDateTime(row.submittedAt).getTime()
+    case 'approvedBy':
+      return row.approvedBy || ''
+    case 'approvedAt':
+      return parseDateTime(row.approvedAt).getTime()
+    case 'rejectedBy':
+      return row.rejectedBy || ''
+    case 'rejectedAt':
+      return parseDateTime(row.rejectedAt).getTime()
+    case 'reason':
+      return row.reason || ''
+    case 'reservedBy':
+      return formatReservedBy(row)
+    default:
+      return ''
+  }
+}
+
+function sortRowsByState(rows, state) {
+  if (!state.value.length) return rows.slice()
+  return rows.slice().sort((a, b) => {
+    for (const criterion of state.value) {
+      const aValue = getSortValue(a, criterion.key)
+      const bValue = getSortValue(b, criterion.key)
+      const direction = criterion.order === 'asc' ? 1 : -1
+      let cmp = 0
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        cmp = aValue - bValue
+      } else {
+        cmp = String(aValue).localeCompare(String(bValue), undefined, { sensitivity: 'base' })
+      }
+      if (cmp !== 0) return cmp * direction
+    }
+    return 0
+  })
+}
+
+function toggleSortState(state, key) {
+  const idx = state.value.findIndex(item => item.key === key)
+  if (idx === -1) {
+    state.value.push({ key, order: 'asc' })
+  } else if (state.value[idx].order === 'asc') {
+    state.value[idx].order = 'desc'
+  } else {
+    state.value.splice(idx, 1)
+  }
+}
+
+function getSortIndicatorFromState(state, key) {
+  const idx = state.value.findIndex(item => item.key === key)
+  if (idx === -1) return '↕'
+  const arrow = state.value[idx].order === 'asc' ? '▲' : '▼'
+  return `${arrow}${idx + 1}`
+}
+
+const sortedPendingList = computed(() => sortRowsByState(columnFilteredPendingList.value, pendingSortState))
+const sortedApprovedList = computed(() => sortRowsByState(columnFilteredApprovedList.value, approvedSortState))
+const sortedRejectedList = computed(() => sortRowsByState(columnFilteredRejectedList.value, rejectedSortState))
+
+const togglePendingSort = (key) => {
+  toggleSortState(pendingSortState, key)
+  pendingCurrentPage.value = 1
+}
+const toggleApprovedSort = (key) => {
+  toggleSortState(approvedSortState, key)
+  approvedCurrentPage.value = 1
+}
+const toggleRejectedSort = (key) => {
+  toggleSortState(rejectedSortState, key)
+  rejectedCurrentPage.value = 1
+}
+
+const getPendingSortIndicator = (key) => getSortIndicatorFromState(pendingSortState, key)
+const getApprovedSortIndicator = (key) => getSortIndicatorFromState(approvedSortState, key)
+const getRejectedSortIndicator = (key) => getSortIndicatorFromState(rejectedSortState, key)
+
+const setSortByMenu = (tableKey, key, order) => {
+  const state = tableKey === 'pending' ? pendingSortState : tableKey === 'approved' ? approvedSortState : rejectedSortState
+  const idx = state.value.findIndex(item => item.key === key)
+  if (idx === -1) {
+    state.value.push({ key, order })
+  } else {
+    state.value[idx].order = order
+  }
+  if (tableKey === 'pending') pendingCurrentPage.value = 1
+  if (tableKey === 'approved') approvedCurrentPage.value = 1
+  if (tableKey === 'rejected') rejectedCurrentPage.value = 1
+}
+
+const clearSortByMenu = (tableKey, key) => {
+  const state = tableKey === 'pending' ? pendingSortState : tableKey === 'approved' ? approvedSortState : rejectedSortState
+  const idx = state.value.findIndex(item => item.key === key)
+  if (idx !== -1) state.value.splice(idx, 1)
+  if (tableKey === 'pending') pendingCurrentPage.value = 1
+  if (tableKey === 'approved') approvedCurrentPage.value = 1
+  if (tableKey === 'rejected') rejectedCurrentPage.value = 1
+}
+
 const paginatedPendingData = computed(() => {
   const start = (pendingCurrentPage.value - 1) * pendingPageSize.value
   const end = start + pendingPageSize.value
-  return filteredPendingList.value.slice(start, end)
+  return sortedPendingList.value.slice(start, end)
 })
-const pendingTotalPages = computed(() => Math.max(1, Math.ceil(filteredPendingList.value.length / pendingPageSize.value)))
+const pendingTotalPages = computed(() => Math.max(1, Math.ceil(sortedPendingList.value.length / pendingPageSize.value)))
 const pendingStartIndex = computed(() => (pendingCurrentPage.value - 1) * pendingPageSize.value)
-const pendingEndIndex = computed(() => Math.min(pendingStartIndex.value + pendingPageSize.value, filteredPendingList.value.length))
+const pendingEndIndex = computed(() => Math.min(pendingStartIndex.value + pendingPageSize.value, sortedPendingList.value.length))
 const pendingVisiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -407,11 +759,11 @@ const pendingVisiblePages = computed(() => {
 const paginatedApprovedData = computed(() => {
   const start = (approvedCurrentPage.value - 1) * approvedPageSize.value
   const end = start + approvedPageSize.value
-  return filteredApprovedList.value.slice(start, end)
+  return sortedApprovedList.value.slice(start, end)
 })
-const approvedTotalPages = computed(() => Math.max(1, Math.ceil(filteredApprovedList.value.length / approvedPageSize.value)))
+const approvedTotalPages = computed(() => Math.max(1, Math.ceil(sortedApprovedList.value.length / approvedPageSize.value)))
 const approvedStartIndex = computed(() => (approvedCurrentPage.value - 1) * approvedPageSize.value)
-const approvedEndIndex = computed(() => Math.min(approvedStartIndex.value + approvedPageSize.value, filteredApprovedList.value.length))
+const approvedEndIndex = computed(() => Math.min(approvedStartIndex.value + approvedPageSize.value, sortedApprovedList.value.length))
 const approvedVisiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -425,11 +777,11 @@ const approvedVisiblePages = computed(() => {
 const paginatedRejectedData = computed(() => {
   const start = (rejectedCurrentPage.value - 1) * rejectedPageSize.value
   const end = start + rejectedPageSize.value
-  return filteredRejectedList.value.slice(start, end)
+  return sortedRejectedList.value.slice(start, end)
 })
-const rejectedTotalPages = computed(() => Math.max(1, Math.ceil(filteredRejectedList.value.length / rejectedPageSize.value)))
+const rejectedTotalPages = computed(() => Math.max(1, Math.ceil(sortedRejectedList.value.length / rejectedPageSize.value)))
 const rejectedStartIndex = computed(() => (rejectedCurrentPage.value - 1) * rejectedPageSize.value)
-const rejectedEndIndex = computed(() => Math.min(rejectedStartIndex.value + rejectedPageSize.value, filteredRejectedList.value.length))
+const rejectedEndIndex = computed(() => Math.min(rejectedStartIndex.value + rejectedPageSize.value, sortedRejectedList.value.length))
 const rejectedVisiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -569,9 +921,19 @@ const handleForm = ref({
   meetingTitle: '',
   date: '',
   time: '',
+  participantCount: '-',
+  teaService: 'No',
   rejectTemplateKey: 'meeting_approval_reject_template',
   reason: ''
 })
+
+function formatTeaServiceStatus(row) {
+  const count = row.teaServiceParticipants ?? row.attendeeCount ?? row.participants
+  const countSuffix = Number.isFinite(Number(count)) ? ` (${count})` : ''
+  if (row.teaServiceSummary) return `${row.teaServiceSummary}${countSuffix}`
+  if (row.teaServiceRequired === true) return `Required${countSuffix}`
+  return 'No'
+}
 
 const getPendingRowIndex = (index) => (pendingCurrentPage.value - 1) * pendingPageSize.value + index + 1
 const getApprovedRowIndex = (index) => (approvedCurrentPage.value - 1) * approvedPageSize.value + index + 1
@@ -632,6 +994,8 @@ const handleOpen = (row) => {
     meetingTitle: row.meetingTitle || '',
     date: row.date || '',
     time: row.time || '',
+    participantCount: row.attendeeCount || row.participants || '-',
+    teaService: formatTeaServiceStatus(row),
     rejectTemplateKey: 'meeting_approval_reject_template',
     reason: ''
   }
@@ -733,7 +1097,7 @@ const confirmHandleReject = () => {
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
-  margin: 0.5rem 0.75rem 0.3rem;
+  margin: 0.45rem 0.6rem 0.25rem;
 }
 
 .page-header::before {
@@ -776,7 +1140,7 @@ const confirmHandleReject = () => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0.3rem 0.75rem 0.75rem;
+  padding: 0.25rem 0.6rem 0.6rem;
   display: flex;
   flex-direction: column;
 }
@@ -843,6 +1207,145 @@ const confirmHandleReject = () => {
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
+}
+
+.th-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sort-indicator {
+  font-size: 0.68rem;
+  color: #6b7280;
+  line-height: 1;
+}
+
+.th-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.filter-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #00723a;
+  display: inline-block;
+}
+
+.th-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.th-menu-sort {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.th-menu-item {
+  border: 1px solid #b7dec7;
+  background: #f5fbf7;
+  color: #14532d;
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.th-menu-item:hover {
+  background: #e8f6ee;
+  border-color: #8fcca9;
+}
+
+.th-menu-item.danger {
+  color: #b91c1c;
+  border-color: #f3c4c4;
+  background: #fff6f6;
+}
+
+.th-menu-divider {
+  height: 1px;
+  background: #d3ebdd;
+}
+
+.th-menu-filter-title {
+  font-size: 0.75rem;
+  color: #166534;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.menu-icon {
+  width: 0.9rem;
+  text-align: center;
+  color: #15803d;
+}
+
+.th-filter-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.th-filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.th-filter-link {
+  border: none;
+  background: transparent;
+  color: #15803d;
+  font-size: 0.75rem;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.th-filter-link:hover {
+  text-decoration: underline;
+}
+
+.th-checkbox-list {
+  width: 100%;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid #c7e5d4;
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.55rem;
+  background: #f8fdf9;
+}
+
+.th-checkbox-list :deep(.el-checkbox) {
+  display: flex;
+  margin-right: 0;
+  margin-bottom: 0.35rem;
 }
 
 .page-content :deep(.el-table td) {
@@ -1263,5 +1766,9 @@ const confirmHandleReject = () => {
 .contact-info-section :deep(.el-input) {
   width: 96%;
   max-width: 100%;
+}
+
+.handle-booking-form :deep(.no-wrap-label .el-form-item__label) {
+  white-space: nowrap;
 }
 </style>

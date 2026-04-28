@@ -14,7 +14,7 @@
 
     <div class="page-content">
       <el-tabs v-model="activeTab">
-        <el-tab-pane label="EV Parking Slots" name="parking">
+        <el-tab-pane label="EV Space" name="parking">
           <div class="table-card">
             <el-table :data="paginatedParkingData" height="100%" border stripe table-layout="auto" style="width: 100%">
               <el-table-column
@@ -26,10 +26,29 @@
                 fixed="left"
                 :index="getParkingRowIndex"
               />
-              <el-table-column prop="slotNumber" label="Slot Number" min-width="140" />
+              <el-table-column prop="slotNumber" min-width="140">
+                <template #header>
+                  <SortableFilterHeader
+                    label="EV Space"
+                    :sort-indicator="getParkingSortIndicator('slotNumber')"
+                    :filter-active="parkingFilterState.slotNumber.length > 0"
+                    :options="parkingSlotOptions"
+                    :model-value="parkingFilterState.slotNumber"
+                    @sort-asc="setParkingSort('slotNumber', 'asc')"
+                    @sort-desc="setParkingSort('slotNumber', 'desc')"
+                    @clear-sort="clearParkingSort('slotNumber')"
+                    @update:model-value="(v) => updateParkingFilter('slotNumber', v)"
+                  />
+                </template>
+              </el-table-column>
               <el-table-column prop="location" label="Location" min-width="180" />
-              <el-table-column prop="space" label="Space" min-width="100" />
-              <el-table-column prop="quantity" label="Quantity" min-width="100" />
+              <el-table-column prop="status" label="Status" min-width="120">
+                <template #default="{ row }">
+                  <el-tag effect="light" :class="row.status === 'active' ? 'status-tag-active' : 'status-tag-inactive'">
+                    {{ row.status === 'active' ? 'Active' : 'Inactive' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
               <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
                 <template #default="{ row }">
                   <div class="actions-cell">
@@ -42,7 +61,7 @@
 
             <div class="pagination-bar">
               <div class="pagination-info">
-                Showing {{ parkingStartIndex + 1 }}-{{ parkingEndIndex }} of {{ parkingList.length }} records
+                Showing {{ parkingStartIndex + 1 }}-{{ parkingEndIndex }} of {{ sortedParkingList.length }} records
               </div>
               <div class="pagination-controls">
                 <button class="pagination-btn" :disabled="parkingCurrentPage === 1" @click="parkingCurrentPage--">Previous</button>
@@ -68,7 +87,7 @@
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="Time Periods" name="timePeriods">
+        <el-tab-pane label="Booking Period" name="timePeriods">
           <div class="table-card">
             <el-table :data="paginatedTimePeriodsData" height="100%" border stripe table-layout="auto" style="width: 100%">
               <el-table-column
@@ -162,24 +181,18 @@
     >
       <el-form :model="formData" label-width="120px">
         <template v-if="activeTab === 'parking'">
-          <el-form-item label="Slot Number">
+          <el-form-item label="EV Space">
             <el-input v-model="formData.slotNumber" />
           </el-form-item>
           <el-form-item label="Location">
             <el-input v-model="formData.location" />
           </el-form-item>
-          <el-form-item label="Space">
-            <el-input v-model="formData.space" />
-          </el-form-item>
-          <el-form-item label="Quantity">
-            <el-input-number v-model="formData.quantity" :min="1" :max="100" style="width: 100%" />
-          </el-form-item>
-          <el-form-item label="Status">
+          <el-form-item label="Active">
             <el-switch v-model="formData.status" active-value="active" inactive-value="inactive" />
           </el-form-item>
         </template>
         <template v-else>
-          <el-form-item label="Period">
+          <el-form-item label="Time Period">
             <el-input v-model="formData.period" placeholder="e.g., AM, PM, Night" />
           </el-form-item>
           <el-form-item label="Start Time">
@@ -198,7 +211,7 @@
               style="width: 100%"
             />
           </el-form-item>
-          <el-form-item label="Status">
+          <el-form-item label="Active">
             <el-switch v-model="formData.status" active-value="active" inactive-value="inactive" />
           </el-form-item>
         </template>
@@ -224,6 +237,7 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
 import { getMockEVParkingList, getMockEVTimePeriods, getMockBookingWindow, publishMockBookingWindow } from '@/mocks/mockData'
 
 const activeTab = ref('parking')
@@ -238,16 +252,72 @@ const evWindowForm = ref({
 // Parking pagination
 const parkingCurrentPage = ref(1)
 const parkingPageSize = ref(20)
+const parkingSortState = ref({ key: '', order: '' })
+const parkingFilterState = ref({ slotNumber: [] })
+
+const getUniqueOptions = (list, key) => {
+  return [...new Set((list || []).map(item => item?.[key]).filter(v => v !== null && v !== undefined && `${v}` !== ''))]
+}
+
+const parkingSlotOptions = computed(() => getUniqueOptions(parkingList.value, 'slotNumber'))
+
+const updateParkingFilter = (key, value) => {
+  parkingFilterState.value[key] = value ?? []
+  parkingCurrentPage.value = 1
+}
+
+const selectAllParkingFilterOptions = (key, options) => {
+  updateParkingFilter(key, [...options])
+}
+
+const clearParkingFilterOptions = (key) => {
+  updateParkingFilter(key, [])
+}
+
+const filteredParkingList = computed(() => {
+  const selected = parkingFilterState.value.slotNumber || []
+  if (!selected.length) return parkingList.value
+  return parkingList.value.filter(item => selected.map(v => String(v)).includes(String(item.slotNumber)))
+})
+
+const sortedParkingList = computed(() => {
+  const { key, order } = parkingSortState.value
+  const rows = filteredParkingList.value.slice()
+  if (!key || !order) return rows
+  return rows.sort((a, b) => {
+    const aVal = a?.[key] ?? ''
+    const bVal = b?.[key] ?? ''
+    const cmp = String(aVal).localeCompare(String(bVal), undefined, { sensitivity: 'base' })
+    return order === 'asc' ? cmp : -cmp
+  })
+})
+
+const setParkingSort = (key, order) => {
+  parkingSortState.value = { key, order }
+  parkingCurrentPage.value = 1
+}
+
+const clearParkingSort = (key) => {
+  if (parkingSortState.value.key === key) {
+    parkingSortState.value = { key: '', order: '' }
+    parkingCurrentPage.value = 1
+  }
+}
+
+const getParkingSortIndicator = (key) => {
+  if (parkingSortState.value.key !== key || !parkingSortState.value.order) return '↕'
+  return parkingSortState.value.order === 'asc' ? '▲' : '▼'
+}
 
 const paginatedParkingData = computed(() => {
   const start = (parkingCurrentPage.value - 1) * parkingPageSize.value
   const end = start + parkingPageSize.value
-  return parkingList.value.slice(start, end)
+  return sortedParkingList.value.slice(start, end)
 })
 
-const parkingTotalPages = computed(() => Math.max(1, Math.ceil(parkingList.value.length / parkingPageSize.value)))
+const parkingTotalPages = computed(() => Math.max(1, Math.ceil(sortedParkingList.value.length / parkingPageSize.value)))
 const parkingStartIndex = computed(() => (parkingCurrentPage.value - 1) * parkingPageSize.value)
-const parkingEndIndex = computed(() => Math.min(parkingStartIndex.value + parkingPageSize.value, parkingList.value.length))
+const parkingEndIndex = computed(() => Math.min(parkingStartIndex.value + parkingPageSize.value, sortedParkingList.value.length))
 const parkingVisiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -318,7 +388,7 @@ const formatDateTime = (value) => {
 const handleExport = () => {
   if (activeTab.value === 'parking') {
     const exportData = parkingList.value.map(item => ({
-      'Slot Number': item.slotNumber,
+      'EV Space': item.slotNumber,
       'Location': item.location,
       'Space': item.space,
       'Quantity': item.quantity,
@@ -483,7 +553,7 @@ const confirmDelete = () => {
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
-  margin: 0.5rem 0.75rem 0.3rem;
+  margin: 0.45rem 0.6rem 0.25rem;
 }
 
 .page-title {
@@ -527,7 +597,7 @@ const confirmDelete = () => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0.3rem 0.75rem 0.75rem;
+  padding: 0.25rem 0.6rem 0.6rem;
   display: flex;
   flex-direction: column;
 }
@@ -573,6 +643,22 @@ const confirmDelete = () => {
   border-radius: 6px;
   font-weight: 500;
   border: none;
+}
+
+.page-content :deep(.status-tag-active) {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0 10px;
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.page-content :deep(.status-tag-inactive) {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0 10px;
+  background-color: #fee2e2;
+  color: #991b1b;
 }
 
 .header-actions {
@@ -723,6 +809,152 @@ const confirmDelete = () => {
 
 .action-delete:hover {
   background-color: #dc2626 !important;
+}
+
+.th-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sort-indicator {
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1;
+}
+
+.filter-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #00723a;
+  display: inline-block;
+}
+
+.th-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.th-menu-sort {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.th-menu-item {
+  border: 1px solid #b7dec7;
+  background: #f5fbf7;
+  color: #14532d;
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.th-menu-item:hover {
+  background: #e8f6ee;
+  border-color: #8fcca9;
+}
+
+.th-menu-item.danger {
+  color: #b91c1c;
+  border-color: #f3c4c4;
+  background: #fff6f6;
+}
+
+.th-menu-divider {
+  height: 1px;
+  background: #d3ebdd;
+}
+
+.th-menu-filter-title {
+  font-size: 0.75rem;
+  color: #166534;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.menu-icon {
+  width: 0.9rem;
+  text-align: center;
+  color: #15803d;
+}
+
+.th-filter-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.th-filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.th-filter-link {
+  border: none;
+  background: transparent;
+  color: #15803d;
+  font-size: 0.75rem;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.th-filter-link:hover {
+  text-decoration: underline;
+}
+
+.th-checkbox-list {
+  width: 100%;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid #c7e5d4;
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.55rem;
+  background: #f8fdf9;
+}
+
+.th-checkbox-list :deep(.el-checkbox) {
+  display: flex;
+  margin-right: 0;
+  margin-bottom: 0.35rem;
+}
+
+.th-checkbox-list :deep(.el-checkbox:last-child) {
+  margin-bottom: 0;
+}
+
+.th-no-options {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.th-filter-popover :deep(.el-checkbox__input.is-checked .el-checkbox__inner),
+.th-filter-popover :deep(.el-checkbox__input.is-indeterminate .el-checkbox__inner) {
+  background-color: #00723a;
+  border-color: #00723a;
+}
+
+.th-filter-popover :deep(.el-checkbox__input.is-checked + .el-checkbox__label) {
+  color: #14532d;
+  font-weight: 600;
 }
 
 .page-content :deep(.el-tabs__header) {

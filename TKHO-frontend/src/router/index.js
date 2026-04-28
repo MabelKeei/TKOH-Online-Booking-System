@@ -150,7 +150,7 @@ const routes = [
         name: 'AdminUserManagement',
         component: () => import('../components/admin/UserManagement.vue'),
         meta: {
-          title: 'Admin - Users Management'
+          title: 'Admin - User Management'
         }
       },
       {
@@ -174,7 +174,7 @@ const routes = [
         name: 'AdminPromptManagement',
         component: () => import('../components/admin/PromptManagement.vue'),
         meta: {
-          title: 'Admin - System Prompts'
+          title: 'Admin - Prompts and Templates'
         }
       },
       {

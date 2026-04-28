@@ -17,7 +17,7 @@
         <el-tab-pane label="Venue List" name="venueList">
           <div class="venue-list-pane">
           <el-tabs v-model="activeCategory" class="sub-tabs" @tab-change="handleTabChange">
-            <el-tab-pane label="Conference &amp; Discussion" name="conference_discussion" />
+            <el-tab-pane label="Conference & Discussion Rooms" name="conference_discussion" />
             <el-tab-pane label="Other Venues" name="other_venues" />
           </el-tabs>
           <div class="table-card">
@@ -31,9 +31,36 @@
           fixed="left"
           :index="getRowIndex"
         />
-        <el-table-column prop="name" label="Venue Name" min-width="240" />
+        <el-table-column prop="name" min-width="240">
+          <template #header>
+            <SortableFilterHeader
+              label="Venue Name"
+              :sort-indicator="getSortIndicator('name')"
+              :filter-active="columnFilterState.name.length > 0"
+              :options="nameOptions"
+              :model-value="columnFilterState.name"
+              @sort-asc="setSort('name', 'asc')"
+              @sort-desc="setSort('name', 'desc')"
+              @clear-sort="clearSort('name')"
+              @update:model-value="(v) => updateFilter('name', v)"
+            />
+          </template>
+        </el-table-column>
         <el-table-column prop="nameZh" label="Name (ZH)" min-width="240" />
-        <el-table-column prop="type" label="Type" min-width="130">
+        <el-table-column prop="type" min-width="130">
+          <template #header>
+            <SortableFilterHeader
+              label="Type"
+              :sort-indicator="getSortIndicator('type')"
+              :filter-active="columnFilterState.type.length > 0"
+              :options="typeOptions"
+              :model-value="columnFilterState.type"
+              @sort-asc="setSort('type', 'asc')"
+              @sort-desc="setSort('type', 'desc')"
+              @clear-sort="clearSort('type')"
+              @update:model-value="(v) => updateFilter('type', v)"
+            />
+          </template>
           <template #default="{ row }">
             <el-tag effect="light" :class="getTypeTagClass(row.type)">
               {{ getTypeLabel(row.type) }}
@@ -50,7 +77,20 @@
         </el-table-column>
         <el-table-column prop="location" label="Location" min-width="220" />
         <el-table-column prop="locationZh" label="Location (ZH)" min-width="200" />
-        <el-table-column label="Display Type" min-width="150">
+        <el-table-column min-width="150">
+          <template #header>
+            <SortableFilterHeader
+              label="Display Type"
+              :sort-indicator="getSortIndicator('displayType')"
+              :filter-active="columnFilterState.displayType.length > 0"
+              :options="displayTypeOptions"
+              :model-value="columnFilterState.displayType"
+              @sort-asc="setSort('displayType', 'asc')"
+              @sort-desc="setSort('displayType', 'desc')"
+              @clear-sort="clearSort('displayType')"
+              @update:model-value="(v) => updateFilter('displayType', v)"
+            />
+          </template>
           <template #default="{ row }">
             <el-tag effect="light" :class="row.displayType === 'single' ? 'display-tag-single' : 'display-tag-merge'">
               {{ row.displayType === 'single' ? 'Single' : 'Merge' }}
@@ -73,7 +113,20 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="Status" min-width="110">
+        <el-table-column prop="status" min-width="110">
+          <template #header>
+            <SortableFilterHeader
+              label="Status"
+              :sort-indicator="getSortIndicator('status')"
+              :filter-active="columnFilterState.status.length > 0"
+              :options="statusOptions"
+              :model-value="columnFilterState.status"
+              @sort-asc="setSort('status', 'asc')"
+              @sort-desc="setSort('status', 'desc')"
+              @clear-sort="clearSort('status')"
+              @update:model-value="(v) => updateFilter('status', v)"
+            />
+          </template>
           <template #default="{ row }">
             <el-tag effect="light" :class="row.status === 'active' ? 'status-tag-active' : 'status-tag-inactive'">
               {{ row.status === 'active' ? 'Active' : 'Inactive' }}
@@ -158,8 +211,8 @@
       :title="formMode === 'add' ? 'Add Venue' : 'Edit Venue'"
       max-width="600px"
     >
-      <el-form :model="formData" label-width="120px">
-        <el-form-item label="Venue Name">
+      <el-form :model="formData" label-width="150px" class="venue-form">
+        <el-form-item label="Room / Venue Name">
           <el-input v-model="formData.name" />
         </el-form-item>
         <el-form-item label="Name (ZH)">
@@ -215,7 +268,7 @@
             <font-awesome-icon :icon="['fas', 'plus']" />
           </el-upload>
         </el-form-item>
-        <el-form-item label="Status">
+        <el-form-item label="Active">
           <el-switch v-model="formData.status" active-value="active" inactive-value="inactive" />
         </el-form-item>
       </el-form>
@@ -239,7 +292,7 @@
 
     <BookingStyleModal
       v-model="showBlockDialog"
-      :title="`Manage Block Time - ${blockVenueName}`"
+      :title="`Manage Block Period - ${blockVenueName}`"
       max-width="980px"
       :dialog-height="blockDialogHeight"
       :max-height="blockDialogMaxHeight"
@@ -332,6 +385,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
 import { getMockVenueList, getMockBookingWindow, publishMockBookingWindow } from '@/mocks/mockData'
 
 const venueList = ref(getMockVenueList())
@@ -349,17 +403,86 @@ const venueWindowForm = ref({
 const filteredVenueList = computed(() =>
   venueList.value.filter(item => (item.tab ?? item.category) === activeCategory.value)
 )
-const filteredTotal = computed(() => filteredVenueList.value.length)
+const columnFilterState = ref({
+  name: [],
+  type: [],
+  displayType: [],
+  status: []
+})
+const sortState = ref([])
+
+const getUniqueOptions = (list, key) => {
+  return [...new Set((list || []).map(item => getSortValue(item, key)).filter(v => v !== null && v !== undefined && `${v}` !== ''))]
+}
+
+const nameOptions = computed(() => getUniqueOptions(filteredVenueList.value, 'name'))
+const typeOptions = computed(() => getUniqueOptions(filteredVenueList.value, 'type'))
+const displayTypeOptions = computed(() => getUniqueOptions(filteredVenueList.value, 'displayType'))
+const statusOptions = computed(() => getUniqueOptions(filteredVenueList.value, 'status'))
+
+const updateFilter = (key, value) => {
+  columnFilterState.value[key] = value ?? []
+  currentPage.value = 1
+}
+
+const selectAllFilterOptions = (key, options) => {
+  updateFilter(key, [...options])
+}
+
+const clearFilterOptions = (key) => {
+  updateFilter(key, [])
+}
+
+const filteredByColumnList = computed(() => {
+  return filteredVenueList.value.filter((item) => {
+    return Object.entries(columnFilterState.value).every(([key, selected]) => {
+      if (!Array.isArray(selected) || selected.length === 0) return true
+      const value = String(getSortValue(item, key))
+      return selected.map(v => String(v)).includes(value)
+    })
+  })
+})
+
+const filteredTotal = computed(() => filteredByColumnList.value.length)
+
+const getSortValue = (item, key) => {
+  switch (key) {
+    case 'name':
+      return item.name || ''
+    case 'type':
+      return getTypeLabel(item.type)
+    case 'displayType':
+      return item.displayType === 'single' ? 'Single' : 'Merge'
+    case 'status':
+      return item.status || ''
+    default:
+      return ''
+  }
+}
+
+const sortedVenueList = computed(() => {
+  if (!sortState.value.length) return filteredByColumnList.value.slice()
+  return filteredByColumnList.value.slice().sort((a, b) => {
+    for (const criterion of sortState.value) {
+      const aValue = getSortValue(a, criterion.key)
+      const bValue = getSortValue(b, criterion.key)
+      const direction = criterion.order === 'asc' ? 1 : -1
+      const cmp = String(aValue).localeCompare(String(bValue), undefined, { sensitivity: 'base' })
+      if (cmp !== 0) return cmp * direction
+    }
+    return 0
+  })
+})
 
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   const end = start + pageSize.value
-  return filteredVenueList.value.slice(start, end)
+  return sortedVenueList.value.slice(start, end)
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredTotal.value / pageSize.value)))
+const totalPages = computed(() => Math.max(1, Math.ceil(sortedVenueList.value.length / pageSize.value)))
 const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
-const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, filteredTotal.value))
+const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, sortedVenueList.value.length))
 const visiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -407,6 +530,43 @@ const blockCurrentPage = ref(1)
 const blockPageSize = ref(20)
 
 const getRowIndex = (index) => (currentPage.value - 1) * pageSize.value + index + 1
+
+const toggleSort = (key) => {
+  const idx = sortState.value.findIndex(item => item.key === key)
+  if (idx === -1) {
+    sortState.value.push({ key, order: 'asc' })
+  } else if (sortState.value[idx].order === 'asc') {
+    sortState.value[idx].order = 'desc'
+  } else {
+    sortState.value.splice(idx, 1)
+  }
+  currentPage.value = 1
+}
+
+const setSort = (key, order) => {
+  const idx = sortState.value.findIndex(item => item.key === key)
+  if (idx === -1) {
+    sortState.value.push({ key, order })
+  } else {
+    sortState.value[idx].order = order
+  }
+  currentPage.value = 1
+}
+
+const clearSort = (key) => {
+  const idx = sortState.value.findIndex(item => item.key === key)
+  if (idx !== -1) {
+    sortState.value.splice(idx, 1)
+    currentPage.value = 1
+  }
+}
+
+const getSortIndicator = (key) => {
+  const idx = sortState.value.findIndex(item => item.key === key)
+  if (idx === -1) return '↕'
+  const arrow = sortState.value[idx].order === 'asc' ? '▲' : '▼'
+  return `${arrow}${idx + 1}`
+}
 
 const getTypeLabel = (type) => {
   if (type === 'conference') return 'Conference'
@@ -771,7 +931,7 @@ const handlePreview = (file) => {
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
-  margin: 0.5rem 0.75rem 0.3rem;
+  margin: 0.45rem 0.6rem 0.25rem;
   min-height: 56px;
 }
 
@@ -817,7 +977,7 @@ const handlePreview = (file) => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0.3rem 0.75rem 0.75rem;
+  padding: 0.25rem 0.6rem 0.6rem;
   display: flex;
   flex-direction: column;
 }
@@ -885,6 +1045,154 @@ const handlePreview = (file) => {
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
+}
+
+.th-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sort-indicator {
+  font-size: 0.68rem;
+  color: #6b7280;
+  line-height: 1;
+}
+
+.th-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.filter-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #00723a;
+  display: inline-block;
+}
+
+.th-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.th-menu-sort {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.th-menu-item {
+  border: 1px solid #b7dec7;
+  background: #f5fbf7;
+  color: #14532d;
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.th-menu-item:hover {
+  background: #e8f6ee;
+  border-color: #8fcca9;
+}
+
+.th-menu-item.danger {
+  color: #b91c1c;
+  border-color: #f3c4c4;
+  background: #fff6f6;
+}
+
+.th-menu-divider {
+  height: 1px;
+  background: #d3ebdd;
+}
+
+.th-menu-filter-title {
+  font-size: 0.75rem;
+  color: #166534;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.menu-icon {
+  width: 0.9rem;
+  text-align: center;
+  color: #15803d;
+}
+
+.th-filter-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.th-filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.th-filter-link {
+  border: none;
+  background: transparent;
+  color: #15803d;
+  font-size: 0.75rem;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.th-filter-link:hover {
+  text-decoration: underline;
+}
+
+.th-checkbox-list {
+  width: 100%;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid #c7e5d4;
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.55rem;
+  background: #f8fdf9;
+}
+
+.th-checkbox-list :deep(.el-checkbox) {
+  display: flex;
+  margin-right: 0;
+  margin-bottom: 0.35rem;
+}
+
+.th-checkbox-list :deep(.el-checkbox:last-child) {
+  margin-bottom: 0;
+}
+
+.th-no-options {
+  font-size: 0.75rem;
+  color: #9ca3af;
 }
 
 .page-content :deep(.el-table__row:hover) {
@@ -1039,6 +1347,14 @@ const handlePreview = (file) => {
 
 .color-input-group :deep(.el-input) {
   flex: 1;
+}
+
+.venue-form :deep(.el-form-item__label) {
+  white-space: nowrap;
+}
+
+.venue-form :deep(.el-form-item__content) {
+  max-width: 92%;
 }
 
 .pagination-bar {

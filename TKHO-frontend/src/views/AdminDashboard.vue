@@ -1,4 +1,4 @@
-<template>
+c<template>
   <div class="admin-dashboard">
     <section class="dashboard-hero">
       <div class="hero-text">
@@ -28,14 +28,12 @@
             <span v-if="item.badge && item.badge > 0" class="card-badge">{{ item.badge > 99 ? '99+' : item.badge }}</span>
           </div>
           <span class="quick-label">{{ item.label }}</span>
-          <span class="quick-hint">{{ item.hint }}</span>
         </RouterLink>
       </div>
     </section>
 
     <section class="dashboard-section">
       <h3 class="section-title">Booking preview</h3>
-      <p class="section-desc">Open calendar or manage bookings as an end user would see.</p>
       <div class="quick-grid quick-grid--two">
         <RouterLink
           v-for="item in bookingLinks"
@@ -103,19 +101,19 @@ const timezoneLabel = computed(() => {
 })
 
 const managementLinks = computed(() => [
-  { path: '/admin/approval', label: 'Meeting Approval', icon: 'check-circle', hint: 'Pending & history', badge: pendingBookingsCount.value },
-  { path: '/admin/ev', label: 'EV Management', icon: 'car', hint: 'Parking slots' },
-  { path: '/admin/venue', label: 'Venue Management', icon: 'building', hint: 'Rooms & venues' },
-  { path: '/admin/user', label: 'Users Management', icon: 'users', hint: 'Staff & quota', badge: pendingUsersCount.value },
-  { path: '/admin/access-right', label: 'Access Right', icon: 'user-shield', hint: 'Roles & quotas' },
-  { path: '/admin/prompt', label: 'System Prompts', icon: 'message', hint: 'Messages & copy' }
+  { path: '/admin/approval', label: 'Approval', icon: 'check-circle', badge: pendingBookingsCount.value },
+  { path: '/admin/ev', label: 'EV', icon: 'car' },
+  { path: '/admin/venue', label: 'Venue', icon: 'building' },
+  { path: '/admin/user', label: 'User', icon: 'users', badge: pendingUsersCount.value },
+  { path: '/admin/access-right', label: 'Access Right', icon: 'user-shield' },
+  { path: '/admin/prompt', label: 'Templates', icon: 'message' }
 ])
 
 const bookingLinks = [
   { path: '/VenueBooking/Calendar', label: 'Venue Calendar', icon: 'calendar' },
-  { path: '/VenueBooking/ManageBooking', label: 'Venue Manage Booking', icon: 'clipboard-list' },
+  { path: '/VenueBooking/ManageBooking', label: 'Manage Venue Booking', icon: 'clipboard-list' },
   { path: '/evBooking/Calendar', label: 'EV Calendar', icon: 'calendar-check' },
-  { path: '/evBooking/ManageBooking', label: 'EV Manage Booking', icon: 'clipboard-list' }
+  { path: '/evBooking/ManageBooking', label: 'Manage EV Booking', icon: 'clipboard-list' }
 ]
 </script>
 

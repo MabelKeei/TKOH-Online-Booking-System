@@ -1,5 +1,5 @@
 <template>
-  <header class="app-header w-full bg-[#0A3D1F] text-white flex items-center justify-between px-8 py-3">
+  <header ref="headerRef" class="app-header w-full bg-[#0A3D1F] text-white">
     <div class="header-left flex items-center gap-3">
       <img src="../assets/TKOH_logo.png" alt="TKOH Logo" class="header-logo" />
       <h1 class="text-lg font-semibold">
@@ -7,17 +7,19 @@
       </h1>
     </div>
 
-    <nav class="flex items-center gap-4">
-      <div v-if="isAdmin" class="admin-link-wrapper">
-        <RouterLink
-          to="/admin"
-          class="header-link admin-link"
-          :class="{ 'is-active': isAdminNavActive }"
-        >
-          Admin
-        </RouterLink>
-        <span v-if="totalPendingCount > 0" class="badge-dot">{{ totalPendingCount > 99 ? '99+' : totalPendingCount }}</span>
-      </div>
+    <div class="header-right">
+      <div class="header-nav-scroll">
+        <nav class="header-nav">
+          <div v-if="isAdmin" class="admin-link-wrapper">
+            <RouterLink
+              to="/admin"
+              class="header-link admin-link"
+              :class="{ 'is-active': isAdminNavActive }"
+            >
+              Admin
+            </RouterLink>
+            <span v-if="totalPendingCount > 0" class="badge-dot">{{ totalPendingCount > 99 ? '99+' : totalPendingCount }}</span>
+          </div>
 
       <!-- 管理员：Calendar / Manage Booking 悬停选择 Venue / EV -->
       <template v-if="isAdmin">
@@ -96,14 +98,16 @@
         </RouterLink>
       </template>
 
-      <RouterLink
-        to="/Account"
-        class="header-link"
-        :class="{ 'is-active': isActive('/Account') }"
-        @click="saveCurrentPath"
-      >
-        {{ accountNavLabel }}
-      </RouterLink>
+          <RouterLink
+            to="/Account"
+            class="header-link"
+            :class="{ 'is-active': isActive('/Account') }"
+            @click="saveCurrentPath"
+          >
+            {{ accountNavLabel }}
+          </RouterLink>
+        </nav>
+      </div>
 
       <div class="logout-wrapper">
         <button type="button" class="logout-btn" @click="userStore.performLogout">
@@ -112,7 +116,7 @@
             <polyline points="16 17 21 12 16 7"></polyline>
             <line x1="21" y1="12" x2="9" y2="12"></line>
           </svg>
-          Log out
+          <span class="logout-text">Log out</span>
         </button>
         <!-- 仅非管理员：悬停显示 Venue/EV 切换 -->
         <div v-if="!isAdmin" class="switch-dropdown">
@@ -127,12 +131,12 @@
           </button>
         </div>
       </div>
-    </nav>
+    </div>
   </header>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
@@ -146,8 +150,28 @@ const { isAdmin } = storeToRefs(userStore)
 const { totalPendingCount } = storeToRefs(adminStore)
 
 let pollingInterval = null
+const headerRef = ref(null)
+let headerResizeObserver = null
+
+const updateHeaderHeight = () => {
+  const el = headerRef.value
+  if (!el || typeof document === 'undefined') return
+  document.documentElement.style.setProperty('--app-header-height', `${el.offsetHeight}px`)
+}
 
 onMounted(() => {
+  nextTick(() => {
+    updateHeaderHeight()
+  })
+
+  if (typeof ResizeObserver !== 'undefined' && headerRef.value) {
+    headerResizeObserver = new ResizeObserver(() => {
+      updateHeaderHeight()
+    })
+    headerResizeObserver.observe(headerRef.value)
+  }
+  window.addEventListener('resize', updateHeaderHeight, { passive: true })
+
   if (isAdmin.value) {
     adminStore.fetchPendingCounts()
     // 每30秒轮询一次
@@ -158,6 +182,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', updateHeaderHeight)
+  if (headerResizeObserver) {
+    headerResizeObserver.disconnect()
+    headerResizeObserver = null
+  }
   if (pollingInterval) {
     clearInterval(pollingInterval)
   }
@@ -270,12 +299,45 @@ const saveCurrentPath = () => {
   left: 0;
   right: 0;
   z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 2rem;
+  flex-wrap: nowrap;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  min-width: max-content;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+  white-space: nowrap;
+  width: max-content;
+  min-width: max-content;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-left: auto;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.header-nav-scroll {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: visible;
 }
 
 .header-logo {
@@ -455,6 +517,10 @@ const saveCurrentPath = () => {
   gap: 0.4rem;
 }
 
+.logout-text {
+  white-space: nowrap;
+}
+
 .logout-btn svg {
   width: 14px;
   height: 14px;
@@ -505,9 +571,9 @@ const saveCurrentPath = () => {
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
 }
 
-@media (min-width: 768px) and (max-width: 1099px) {
+@media (max-width: 1180px) {
   .app-header {
-    padding-inline: 0.75rem;
+    padding-inline: 0.9rem;
     flex-wrap: wrap;
     row-gap: 0.5rem;
   }
@@ -516,21 +582,24 @@ const saveCurrentPath = () => {
     font-size: 1rem;
   }
 
-  nav {
+  .header-left {
+    flex: 1 1 100%;
+  }
+
+  .header-right {
     width: 100%;
+    flex: 1 1 100%;
+    margin-left: 0;
     justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .header-nav {
     gap: 0.625rem;
-    flex-wrap: wrap;
   }
 }
 
 @media (max-width: 389px) {
-  .app-header {
-    padding-inline: 1rem;
-    flex-wrap: wrap;
-    row-gap: 0.5rem;
-  }
-
   .app-header h1 {
     font-size: 1rem;
   }
@@ -539,19 +608,14 @@ const saveCurrentPath = () => {
     height: 24px;
   }
 
-  nav {
-    width: 100%;
-    justify-content: flex-end;
+  .header-right {
+    gap: 0.4rem;
   }
+
+  .header-nav { gap: 0.5rem; }
 }
 
 @media (min-width: 390px) and (max-width: 767px) {
-  .app-header {
-    padding-inline: 1rem;
-    flex-wrap: wrap;
-    row-gap: 0.5rem;
-  }
-
   .app-header h1 {
     font-size: 1rem;
   }
@@ -560,9 +624,10 @@ const saveCurrentPath = () => {
     height: 24px;
   }
 
-  nav {
-    width: 100%;
-    justify-content: flex-end;
+  .header-right {
+    gap: 0.45rem;
   }
+
+  .header-nav { gap: 0.55rem; }
 }
 </style>

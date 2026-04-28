@@ -1,5 +1,5 @@
 <template>
-  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
+  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden" style="padding-top: var(--app-header-height, 64px);">
     <AppHeader />
     <div class="top-tip-wrapper px-2 md:px-3 lg:px-4 pt-2 pb-0">
       <div class="booking-window-tip">

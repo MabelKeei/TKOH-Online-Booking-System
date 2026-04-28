@@ -1,8 +1,14 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2 class="page-title">System Prompts Management</h2>
+      <h2 class="page-title">Prompts and Templates</h2>
       <div class="header-actions">
+        <el-input
+          v-model="currentSearch"
+          class="toolbar-search"
+          :placeholder="searchPlaceholder"
+          clearable
+        />
         <el-button type="default" class="cancel-btn" @click="handleExport">
           <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
         </el-button>
@@ -14,7 +20,7 @@
 
     <div class="page-content">
       <el-tabs v-model="activeTab">
-        <el-tab-pane label="System Prompts" name="system" />
+        <el-tab-pane label="Prompts and Templates" name="system" />
         <el-tab-pane label="Reject Template" name="reject" />
       </el-tabs>
       <el-tabs v-if="activeTab === 'reject'" v-model="rejectSubTab" class="sub-tabs">
@@ -42,7 +48,7 @@
           <template #default="{ row }">
             <div
               v-if="activeTab === 'system'"
-              class="formatted-content"
+              class="formatted-content rich-content"
               v-html="renderFormattedContent(row.content)"
             />
             <span v-else>{{ row.content }}</span>
@@ -125,18 +131,20 @@
           <template v-if="activeTab === 'system'">
             <div class="rich-editor-wrap">
               <div class="rich-editor-toolbar">
-                <el-button size="small" @click="applyTextStyle('bold')"><b>B</b></el-button>
-                <el-button size="small" @click="applyTextStyle('underline')"><u>U</u></el-button>
-                <label class="color-picker-label">A<input type="color" @click="applyColor($event.target.value)" @input="applyColor($event.target.value)" @change="applyColor($event.target.value)" /></label>
-                <label class="color-picker-label">Bg<input type="color" @click="applyBackgroundColor($event.target.value)" @input="applyBackgroundColor($event.target.value)" @change="applyBackgroundColor($event.target.value)" /></label>
-                <el-button size="small" @click="insertLineBreak">↵</el-button>
+                <WangToolbar
+                  :editor="editorRef"
+                  :default-config="toolbarConfig"
+                  mode="default"
+                  class="wang-toolbar"
+                />
               </div>
-              <div
-                ref="richEditorRef"
-                class="rich-editor"
-                contenteditable="true"
-                @input="handleRichEditorInput"
-                @keydown="handleRichEditorKeydown"
+              <WangEditor
+                v-model="formData.content"
+                :default-config="editorConfig"
+                mode="default"
+                class="rich-editor rich-content wang-editor"
+                @on-created="handleEditorCreated"
+                @on-change="handleEditorChange"
               />
             </div>
           </template>
@@ -162,15 +170,25 @@
         <el-button type="default" class="action-btn action-delete" @click="confirmDelete">Delete</el-button>
       </template>
     </BookingStyleModal>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="450px">
+      <p>{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
+
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import * as XLSX from 'xlsx'
+import { Editor as WangEditor, Toolbar as WangToolbar } from '@wangeditor/editor-for-vue'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import { getMockPromptList } from '@/mocks/mockData'
+import '@/styles/rich-content.css'
+import '@wangeditor/editor/dist/css/style.css'
 
 const promptList = ref(getMockPromptList())
 const rejectTemplateTypeOptions = [
@@ -191,25 +209,46 @@ const rejectTemplateDefaults = {
 }
 const activeTab = ref('system')
 const rejectSubTab = ref('meeting_approval')
+const searchState = ref({
+  system: '',
+  meeting_approval: '',
+  account_application: ''
+})
 const activeTabLabel = computed(() => (activeTab.value === 'system' ? 'System Prompt' : 'Reject Template'))
+const currentSearchKey = computed(() => (activeTab.value === 'system' ? 'system' : rejectSubTab.value))
+const currentSearch = computed({
+  get: () => searchState.value[currentSearchKey.value] || '',
+  set: (value) => {
+    searchState.value[currentSearchKey.value] = value
+  }
+})
+const searchPlaceholder = computed(() =>
+  activeTab.value === 'system' ? 'Search by name' : 'Search reject templates by name'
+)
+
+const filterByName = (list, query) => {
+  const keyword = String(query || '').trim().toLowerCase()
+  if (!keyword) return list
+  return list.filter(item => String(item?.name || '').toLowerCase().includes(keyword))
+}
+
 const currentList = computed(() => {
   if (activeTab.value === 'system') {
-    return promptList.value.filter(item => item.category === 'system_fixed')
+    const base = promptList.value.filter(item => item.category === 'system_fixed')
+    return filterByName(base, searchState.value.system)
   }
-  return promptList.value.filter(
+  const base = promptList.value.filter(
     item => item.category === 'reject_template' && item.templateType === rejectSubTab.value
   )
+  return filterByName(base, searchState.value[rejectSubTab.value])
 })
 
 const currentPage = ref(1)
 const pageSize = ref(20)
-
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return currentList.value.slice(start, end)
+  return currentList.value.slice(start, start + pageSize.value)
 })
-
 const totalPages = computed(() => Math.max(1, Math.ceil(currentList.value.length / pageSize.value)))
 const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
 const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, currentList.value.length))
@@ -218,19 +257,14 @@ const visiblePages = computed(() => {
   const maxVisible = 5
   let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2))
   let end = Math.min(totalPages.value, start + maxVisible - 1)
-  if (end - start < maxVisible - 1) {
-    start = Math.max(1, end - maxVisible + 1)
-  }
+  if (end - start < maxVisible - 1) start = Math.max(1, end - maxVisible + 1)
   for (let i = start; i <= end; i++) pages.push(i)
   return pages
 })
 
-watch(activeTab, () => {
+watch([activeTab, rejectSubTab, searchState], () => {
   currentPage.value = 1
-})
-watch(rejectSubTab, () => {
-  currentPage.value = 1
-})
+}, { deep: true })
 
 const showForm = ref(false)
 const formMode = ref('add')
@@ -242,18 +276,40 @@ const formData = ref({
   canAdd: true,
   templateType: 'meeting_approval'
 })
-
 const showDeleteDialog = ref(false)
 const currentRow = ref(null)
-const richEditorRef = ref(null)
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Operation Notice')
+const noticeMessage = ref('')
+const editorRef = shallowRef()
+const toolbarConfig = {
+  toolbarKeys: [
+    'bold',
+    'italic',
+    'underline',
+    '|',
+    'color',
+    'bgColor',
+    '|',
+    'justifyLeft',
+    'justifyCenter',
+    'justifyRight',
+    '|',
+    'insertTable',
+    'deleteTable',
+    '|',
+    'undo',
+    'redo'
+  ]
+}
+const editorConfig = {
+  placeholder: 'Prompt message content'
+}
 const SYSTEM_PROMPT_MODAL_MQ = '(min-width: 1100px) and (max-width: 1599px)'
 const systemPromptEditModalMaxHeight = ref('94vh')
-const formModalMaxHeight = computed(() => {
-  if (activeTab.value === 'system' && formMode.value === 'edit') {
-    return systemPromptEditModalMaxHeight.value
-  }
-  return '94vh'
-})
+const formModalMaxHeight = computed(() => (
+  activeTab.value === 'system' && formMode.value === 'edit' ? systemPromptEditModalMaxHeight.value : '94vh'
+))
 let systemPromptModalMq = null
 
 function updateSystemPromptEditModalMaxHeight () {
@@ -271,32 +327,38 @@ onUnmounted(() => {
   if (systemPromptModalMq) {
     systemPromptModalMq.removeEventListener('change', updateSystemPromptEditModalMaxHeight)
   }
+  editorRef.value?.destroy()
+  editorRef.value = null
 })
+
 watch(showForm, async (opened) => {
   if (!opened || activeTab.value !== 'system') return
   await nextTick()
-  if (richEditorRef.value) {
-    richEditorRef.value.innerHTML = sanitizeHtml(formData.value.content || '')
-  }
+  formData.value.content = sanitizeHtml(formData.value.content || '<p></p>')
 })
 
 const getRowIndex = (index) => (currentPage.value - 1) * pageSize.value + index + 1
 
+function showNotice (message, title = 'Operation Notice') {
+  noticeMessage.value = message
+  noticeTitle.value = title
+  showNoticeDialog.value = true
+}
+
 const handleExport = () => {
   const exportData = currentList.value.map(item => ({
-    'Type': item.key,
-    'Name': item.name,
-    'Content': item.content,
+    Type: item.key,
+    Name: item.name,
+    Content: item.content,
     'Template Rule': item.canAdd ? 'Customizable' : 'Fixed'
   }))
-
   const ws = XLSX.utils.json_to_sheet(exportData)
   const wb = XLSX.utils.book_new()
-  const sheetName = activeTab.value === 'system' ? 'System Prompts' : 'Reject Template'
+  const sheetName = activeTab.value === 'system' ? 'Prompts and Templates' : 'Reject Template'
   const filePrefix = activeTab.value === 'system' ? 'System_Prompts' : 'Reject_Template'
   XLSX.utils.book_append_sheet(wb, ws, sheetName)
   XLSX.writeFile(wb, `${filePrefix}_${new Date().toISOString().split('T')[0]}.xlsx`)
-  ElMessage.success('Excel file exported successfully')
+  showNotice('Excel file exported successfully', 'Success')
 }
 
 const handleAdd = () => {
@@ -349,13 +411,10 @@ function sanitizeHtml (html) {
           .split(';')
           .map(s => s.trim())
           .filter(Boolean)
-          .filter(rule => /^(color|background-color|font-weight|text-decoration)\s*:/i.test(rule))
+          .filter(rule => /^(color|background-color|font-weight|font-style|text-decoration|text-align|margin-left|margin-right|width|max-width|display)\s*:/i.test(rule))
           .join('; ')
-        if (safe) {
-          el.setAttribute('style', safe)
-        } else {
-          el.removeAttribute('style')
-        }
+        if (safe) el.setAttribute('style', safe)
+        else el.removeAttribute('style')
       }
     }
   })
@@ -364,54 +423,30 @@ function sanitizeHtml (html) {
 
 const renderFormattedContent = (content) => sanitizeHtml(content)
 
-const handleRichEditorInput = () => {
-  formData.value.content = sanitizeHtml(richEditorRef.value?.innerHTML || '')
+function handleEditorCreated (editor) {
+  editorRef.value = editor
 }
 
-function applyTextStyle (command) {
-  document.execCommand(command)
-  handleRichEditorInput()
-}
-
-function applyColor (color) {
-  document.execCommand('foreColor', false, color)
-  handleRichEditorInput()
-}
-
-function applyBackgroundColor (color) {
-  document.execCommand('hiliteColor', false, color)
-  handleRichEditorInput()
-}
-
-function insertLineBreak () {
-  document.execCommand('insertLineBreak')
-  handleRichEditorInput()
-}
-
-function handleRichEditorKeydown (event) {
-  if (event.key !== 'Tab') return
-  event.preventDefault()
-  document.execCommand('insertText', false, '    ')
-  handleRichEditorInput()
+function handleEditorChange (editor) {
+  formData.value.content = sanitizeHtml(editor.getHtml())
 }
 
 const handleSave = () => {
-  if (activeTab.value === 'system') {
-    formData.value.content = sanitizeHtml(formData.value.content || '')
+  if (activeTab.value === 'system' && editorRef.value) {
+    formData.value.content = sanitizeHtml(editorRef.value.getHtml())
   }
   if (!formData.value.key || !formData.value.name || !formData.value.content) {
-    ElMessage.warning('Please fill in all required fields')
+    showNotice('Please fill in all required fields', 'Validation Notice')
     return
   }
-
   if (formMode.value === 'add') {
     promptList.value.push({ ...formData.value, id: Date.now() })
-    ElMessage.success(`${activeTabLabel.value} added successfully`)
+    showNotice(`${activeTabLabel.value} added successfully`, 'Success')
   } else {
     const index = promptList.value.findIndex(item => item.id === formData.value.id)
     if (index !== -1) {
       promptList.value[index] = { ...formData.value }
-      ElMessage.success(`${activeTabLabel.value} updated successfully`)
+      showNotice(`${activeTabLabel.value} updated successfully`, 'Success')
     }
   }
   showForm.value = false
@@ -427,7 +462,7 @@ const confirmDelete = () => {
     const index = promptList.value.findIndex(item => item.id === currentRow.value.id)
     if (index !== -1) {
       promptList.value.splice(index, 1)
-      ElMessage.success('Deleted successfully')
+      showNotice('Deleted successfully', 'Success')
     }
   }
   showDeleteDialog.value = false
@@ -471,7 +506,7 @@ const confirmDelete = () => {
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
-  margin: 0.5rem 0.75rem 0.3rem;
+  margin: 0.45rem 0.6rem 0.25rem;
 }
 
 .page-header::before {
@@ -520,7 +555,7 @@ const confirmDelete = () => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0.3rem 0.75rem 0.75rem;
+  padding: 0.25rem 0.6rem 0.6rem;
   display: flex;
   flex-direction: column;
 }
@@ -634,6 +669,32 @@ const confirmDelete = () => {
   box-sizing: border-box;
 }
 
+.rich-toolbar-style-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rich-toolbar-style-group :deep(.el-button + .el-button) {
+  margin-left: 0 !important;
+}
+
+.rich-toolbar-btn {
+  width: 34px;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rich-toolbar-btn--compact {
+  width: 34px;
+  min-width: 34px;
+}
+
 .rich-editor-wrap {
   display: block;
   width: 100%;
@@ -649,12 +710,36 @@ const confirmDelete = () => {
   color: #4b5563;
 }
 
+.rich-toolbar-color {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  min-width: 54px;
+  padding: 0 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  color: #4b5563;
+  box-sizing: border-box;
+}
+
 .color-picker-label input[type='color'] {
   width: 28px;
   height: 24px;
   border: 1px solid #d1d5db;
   background: #fff;
   border-radius: 4px;
+  padding: 0;
+}
+
+.rich-toolbar-color input[type='color'] {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
   padding: 0;
 }
 
@@ -672,15 +757,114 @@ const confirmDelete = () => {
   outline: none;
   white-space: pre-wrap;
   overflow-y: auto;
+  /* Allow synthetic italic in this editor even when global font-synthesis is disabled. */
+  font-synthesis: style;
 }
 
 .rich-editor:focus {
   border-color: #00723a;
 }
 
+.rich-editor :deep(.ProseMirror) {
+  min-height: 150px;
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Visual-only: hide trailing empty paragraph that ProseMirror keeps for caret. */
+
 .formatted-content {
   white-space: pre-wrap;
   word-break: break-word;
+  /* Keep italic visible in preview/render area as well. */
+  font-synthesis: style;
+}
+
+.rich-editor :deep(em),
+.rich-editor :deep(i),
+.formatted-content :deep(em),
+.formatted-content :deep(i) {
+  font-style: italic !important;
+}
+
+.table-tool-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #dfe7e2;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.table-tool-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.table-tool-label {
+  font-size: 12px;
+  color: #4b5563;
+  min-width: 66px;
+}
+
+.table-tool-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #166534;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 4px;
+}
+
+.table-tool-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.table-tool-inline-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+}
+
+.table-tool-inline-actions :deep(.el-button) {
+  width: 100%;
+  margin: 0 !important;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.table-tool-offset {
+  display: grid;
+  grid-template-columns: 30px 1fr 30px;
+  gap: 6px;
+  width: 100%;
+  align-items: center;
+}
+
+.table-tool-tip {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.text-style-icon {
+  display: inline-block;
+  width: 0.9rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.italic-icon {
+  font-style: italic;
+  transform: skewX(-14deg);
 }
 
 /* Keep system prompt content editor width stable inside el-form flex layout */
@@ -690,7 +874,12 @@ const confirmDelete = () => {
 
 .header-actions {
   display: flex;
+  align-items: center;
   gap: 0.75rem;
+}
+
+.toolbar-search {
+  width: 300px;
 }
 
 .pagination-bar {

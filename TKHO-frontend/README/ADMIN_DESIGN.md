@@ -39,7 +39,7 @@
 3. **Employee Management** (员工管理) - 👥
 4. **Permission Management** (权限管理) - 🛡️
 5. **Meeting Approval** (会议审批) - ✅
-6. **System Prompts** (系统提示词) - 💬
+6. **Prompts and Templates** (系统提示词) - 💬
 
 ### 交互效果
 - 悬停：半透明白色背景
@@ -111,7 +111,7 @@
   - 显示已拒绝的会议
   - 列：预定ID、场地、员工、会议标题、日期、时间、拒绝时间、拒绝人、拒绝原因
 
-#### 6. System Prompts (系统提示词管理)
+#### 6. Prompts and Templates (系统提示词管理)
 - 显示所有系统提示消息
 - 列：提示键、标题、内容、类型、状态
 - 操作：编辑、删除

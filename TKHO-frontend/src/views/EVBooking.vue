@@ -1,5 +1,5 @@
 <template>
-  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden pt-[64px]">
+  <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden" style="padding-top: var(--app-header-height, 64px);">
     <AppHeader />
 
     <!-- 主体内容 -->

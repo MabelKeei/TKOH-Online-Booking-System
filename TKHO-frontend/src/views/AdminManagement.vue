@@ -67,10 +67,10 @@ const menuItems = computed(() => [
   { key: 'approval', label: 'Meeting Approval', icon: 'check-circle', path: '/admin/approval', badge: pendingBookingsCount.value },
   { key: 'ev', label: 'EV Management', icon: 'car', path: '/admin/ev' },
   { key: 'venue', label: 'Venue Management', icon: 'building', path: '/admin/venue' },
-  { key: 'user', label: 'Users Management', icon: 'users', path: '/admin/user', badge: pendingUsersCount.value },
+  { key: 'user', label: 'User Management', icon: 'users', path: '/admin/user', badge: pendingUsersCount.value },
   { key: 'access-right', label: 'Access Right', icon: 'user-shield', path: '/admin/access-right' },
-  { key: 'prompt', label: 'System Prompts', icon: 'message', path: '/admin/prompt' },
-  { key: 'license-plate', label: 'License Plate', icon: 'id-card', path: '/admin/license-plate' },
+  { key: 'prompt', label: 'Prompts and Templates', icon: 'message', path: '/admin/prompt' },
+  { key: 'license-plate', label: 'License Plates', icon: 'id-card', path: '/admin/license-plate' },
   { key: 'display', label: 'Display Management', icon: 'desktop', path: '/admin/display' }
 ])
 
@@ -106,14 +106,14 @@ const navigateTo = (path) => {
 .admin-container {
   min-height: var(--zoom-vh, 100vh);
   background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
-  padding-top: 60px;
+  padding-top: var(--app-header-height, 60px);
   position: relative;
 }
 
 .admin-container::before {
   content: '';
   position: absolute;
-  top: 60px;
+  top: var(--app-header-height, 60px);
   left: 0;
   right: 0;
   bottom: 0;
@@ -125,7 +125,7 @@ const navigateTo = (path) => {
 
 .admin-layout {
   display: flex;
-  height: calc(var(--zoom-vh, 100vh) - 60px);
+  height: calc(var(--zoom-vh, 100vh) - var(--app-header-height, 60px));
   overflow: hidden;
   position: relative;
 }
@@ -138,7 +138,7 @@ const navigateTo = (path) => {
   flex-direction: column;
   position: fixed;
   left: 0;
-  top: 60px;
+  top: var(--app-header-height, 60px);
   bottom: 0;
   z-index: 100;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
@@ -346,7 +346,7 @@ const navigateTo = (path) => {
 .admin-content {
   flex: 1;
   margin-left: 220px;
-  padding: 0.75rem;
+  padding: 0.5rem;
   overflow-y: auto;
   background: transparent;
   position: relative;
@@ -383,7 +383,7 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 170px;
-    padding: 0.75rem;
+    padding: 0.6rem;
   }
 
   .sidebar-header {
@@ -420,7 +420,7 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 180px;
-    padding: 0.75rem;
+    padding: 0.6rem;
   }
 
   .sidebar-header {
@@ -457,7 +457,7 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 200px;
-    padding: 0.75rem;
+    padding: 0.6rem;
   }
 
   .sidebar-header {
@@ -494,7 +494,7 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 220px;
-    padding: 0.75rem;
+    padding: 0.6rem;
   }
 
   .sidebar-header {
@@ -531,7 +531,7 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 240px;
-    padding: 1rem;
+    padding: 0.85rem;
   }
 
   .sidebar-header {
@@ -568,7 +568,7 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 280px;
-    padding: 1.25rem;
+    padding: 1.05rem;
   }
 
   .sidebar-header {

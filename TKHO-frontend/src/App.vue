@@ -30,6 +30,10 @@ onMounted(async () => {
 </style>
 
 <style>
+:root {
+  --app-header-height: 64px;
+}
+
 /* 自定义日期选择器样式 - 全局样式 */
 .el-picker-panel {
   border: 1px solid #e5e7eb !important;

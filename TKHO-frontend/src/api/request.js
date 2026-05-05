@@ -3,9 +3,12 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/user'
 import router from '../router'
 
+const apiOrigin = import.meta.env.VITE_API_ORIGIN?.replace(/\/+$/, '')
+const apiBaseURL = apiOrigin ? `${apiOrigin}/api` : '/api'
+
 // 创建 axios 实例
 const request = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseURL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -16,6 +19,8 @@ const request = axios.create({
 request.interceptors.request.use(
   (config) => {
     const userStore = useUserStore()
+    // For ngrok public tunnels, this header skips the warning page.
+    config.headers['ngrok-skip-browser-warning'] = 'true'
     if (userStore.token) {
       config.headers.Authorization = `Bearer ${userStore.token}`
     }

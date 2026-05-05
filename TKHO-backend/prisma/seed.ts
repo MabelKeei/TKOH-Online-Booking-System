@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import * as path from 'path';
-import { pathToFileURL } from 'url';
+import { seedData } from './seed-data';
 
 const prisma = new PrismaClient();
 
@@ -10,24 +9,14 @@ function parseTimeHm(value: string): Date {
   return new Date(`1970-01-01T${value}:00.000Z`);
 }
 
-async function readFrontendMocks() {
-  const mockPath = path.resolve(__dirname, '../../TKHO-frontend/src/mocks/mockData.js');
-  const mockUrl = pathToFileURL(mockPath).href;
-  try {
-    const mod = await import(mockUrl);
-    return mod;
-  } catch {
-    return null;
-  }
-}
-
 async function main() {
-  const mocks = await readFrontendMocks();
-  const employees = mocks?.getMockEmployeeListNormalized?.() ?? [];
-  const venues = mocks?.getMockVenueList?.() ?? [];
-  const evSlots = mocks?.getMockEVParkingList?.() ?? [];
-  const evPeriods = mocks?.getMockEVTimePeriods?.() ?? [];
-  const licensePlates = mocks?.getMockLicensePlateList?.() ?? [];
+  const employees = seedData.employees;
+  const venues = seedData.venues;
+  const evSlots = seedData.evSlots;
+  const evPeriods = seedData.evPeriods;
+  const licensePlates = seedData.licensePlates;
+
+  console.log('[seed] data source: TKHO-backend/prisma/seed-data.ts');
 
   if (employees.length > 0) {
     for (const row of employees) {
@@ -170,6 +159,10 @@ async function main() {
       });
     }
   }
+
+  console.log(
+    `[seed] done: employees=${employees.length}, venues=${venues.length}, evSlots=${evSlots.length}, evPeriods=${evPeriods.length}, licensePlates=${licensePlates.length}`,
+  );
 }
 
 main()

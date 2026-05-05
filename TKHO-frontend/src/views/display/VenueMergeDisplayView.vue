@@ -25,8 +25,8 @@
 
       <div class="schedule-header">
         <div class="slot-col room-col"></div>
-        <div class="slot-col">AM上午</div>
-        <div class="slot-col pm-col">PM下午</div>
+        <div class="slot-col">AM<sup>上午</sup></div>
+        <div class="slot-col pm-col">PM<sup>下午</sup></div>
       </div>
 
       <div class="schedule-body">
@@ -394,7 +394,7 @@ html.merge-display-fullscreen #app {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-family: Arial, sans-serif;
+  font-family: 'Arial Narrow', Arial, sans-serif;
   transform: scale(var(--display-scale, 1.8));
   transform-origin: top left;
   user-select: none;
@@ -409,10 +409,10 @@ html.merge-display-fullscreen #app {
 }
 
 .top-date-bar {
-  background: #f7a23a;
+  background: rgb(237, 125, 49);
   color: #ffffff;
   font-weight: 700;
-  padding: 8px 10px;
+  padding: 6px;
   font-size: 1.2rem;
   display: flex;
   gap: 10px;
@@ -426,7 +426,7 @@ html.merge-display-fullscreen #app {
   position: relative;
   flex: 1;
   min-height: 0;
-  background: linear-gradient(180deg, #2949b7 0%, #1f2f8d 100%);
+  background: rgb(0, 32, 96);
   padding: 10px 10px 6px;
   display: flex;
   flex-direction: column;
@@ -455,7 +455,7 @@ html.merge-display-fullscreen #app {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 26px;
   margin-bottom: 0;
   min-width: 0;
   /* 为右上角二维码留出空间，避免标题与时间行文字叠在码上 */
@@ -476,7 +476,7 @@ html.merge-display-fullscreen #app {
 }
 
 .panel-title-line {
-  font-size: 1.45rem;
+  font-size: 1.6rem;
   font-weight: 700;
   line-height: 1.2;
   white-space: pre-line;
@@ -488,7 +488,7 @@ html.merge-display-fullscreen #app {
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.02em;
-  color: #ffec5c;
+  color: rgb(255, 212, 91);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
@@ -496,7 +496,7 @@ html.merge-display-fullscreen #app {
 .schedule-row {
   display: grid;
   grid-template-columns: minmax(0, 130px) minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
+  gap: 1px;
   align-items: stretch;
 }
 
@@ -513,7 +513,7 @@ html.merge-display-fullscreen #app {
 
 .schedule-header {
   flex-shrink: 0;
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 700;
   margin-top: 20px;
   margin-bottom: 6px;
@@ -557,7 +557,7 @@ html.merge-display-fullscreen #app {
   width: 2.2rem;
   height: 2.2rem;
   border-radius: 999px;
-  background: #ffd34d;
+  background: rgb(237, 125, 49);
   color: #ffffff;
   font-size: 2.05rem;
   font-weight: 900;
@@ -571,6 +571,7 @@ html.merge-display-fullscreen #app {
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  color: rgb(255, 212, 91);
 }
 
 /* 分割线仅覆盖 AM/PM 区域，且在 AM/PM 之间连续不断 */
@@ -640,12 +641,12 @@ html.merge-display-fullscreen #app {
 }
 
 .footer-ticker {
-  background: #f7a23a;
-  color: #1f2f8d;
+  background: rgb(237, 125, 49);
+  color: rgb(0, 32, 96);
   overflow: hidden;
-  font-size: 1.4rem;
-  font-weight: 700;
-  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0;
 }
 
 .ticker-track {
@@ -653,7 +654,7 @@ html.merge-display-fullscreen #app {
   width: max-content;
   white-space: nowrap;
   will-change: transform;
-  animation: ticker 20s linear infinite;
+  animation: ticker 40s linear infinite;
 }
 
 .ticker-text {

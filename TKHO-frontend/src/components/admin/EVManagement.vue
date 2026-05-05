@@ -26,18 +26,18 @@
                 fixed="left"
                 :index="getParkingRowIndex"
               />
-              <el-table-column prop="slotNumber" min-width="140">
+              <el-table-column prop="evSpace" min-width="140">
                 <template #header>
                   <SortableFilterHeader
                     label="EV Space"
-                    :sort-indicator="getParkingSortIndicator('slotNumber')"
-                    :filter-active="parkingFilterState.slotNumber.length > 0"
+                    :sort-indicator="getParkingSortIndicator('evSpace')"
+                    :filter-active="parkingFilterState.evSpace.length > 0"
                     :options="parkingSlotOptions"
-                    :model-value="parkingFilterState.slotNumber"
-                    @sort-asc="setParkingSort('slotNumber', 'asc')"
-                    @sort-desc="setParkingSort('slotNumber', 'desc')"
-                    @clear-sort="clearParkingSort('slotNumber')"
-                    @update:model-value="(v) => updateParkingFilter('slotNumber', v)"
+                    :model-value="parkingFilterState.evSpace"
+                    @sort-asc="setParkingSort('evSpace', 'asc')"
+                    @sort-desc="setParkingSort('evSpace', 'desc')"
+                    @clear-sort="clearParkingSort('evSpace')"
+                    @update:model-value="(v) => updateParkingFilter('evSpace', v)"
                   />
                 </template>
               </el-table-column>
@@ -182,7 +182,7 @@
       <el-form :model="formData" label-width="120px">
         <template v-if="activeTab === 'parking'">
           <el-form-item label="EV Space">
-            <el-input v-model="formData.slotNumber" />
+            <el-input v-model="formData.evSpace" />
           </el-form-item>
           <el-form-item label="Location">
             <el-input v-model="formData.location" />
@@ -229,12 +229,18 @@
         <el-button type="default" class="action-btn action-delete" @click="confirmDelete">Delete</el-button>
       </template>
     </BookingStyleModal>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+      <p class="notice-message">{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
@@ -253,13 +259,13 @@ const evWindowForm = ref({
 const parkingCurrentPage = ref(1)
 const parkingPageSize = ref(20)
 const parkingSortState = ref({ key: '', order: '' })
-const parkingFilterState = ref({ slotNumber: [] })
+const parkingFilterState = ref({ evSpace: [] })
 
 const getUniqueOptions = (list, key) => {
   return [...new Set((list || []).map(item => item?.[key]).filter(v => v !== null && v !== undefined && `${v}` !== ''))]
 }
 
-const parkingSlotOptions = computed(() => getUniqueOptions(parkingList.value, 'slotNumber'))
+const parkingSlotOptions = computed(() => getUniqueOptions(parkingList.value, 'evSpace'))
 
 const updateParkingFilter = (key, value) => {
   parkingFilterState.value[key] = value ?? []
@@ -275,9 +281,9 @@ const clearParkingFilterOptions = (key) => {
 }
 
 const filteredParkingList = computed(() => {
-  const selected = parkingFilterState.value.slotNumber || []
+  const selected = parkingFilterState.value.evSpace || []
   if (!selected.length) return parkingList.value
-  return parkingList.value.filter(item => selected.map(v => String(v)).includes(String(item.slotNumber)))
+  return parkingList.value.filter(item => selected.map(v => String(v)).includes(String(item.evSpace)))
 })
 
 const sortedParkingList = computed(() => {
@@ -354,10 +360,8 @@ const timePeriodsVisiblePages = computed(() => {
 const showForm = ref(false)
 const formMode = ref('add')
 const formData = ref({
-  slotNumber: '',
+  evSpace: '',
   location: '',
-  space: '',
-  quantity: 1,
   period: '',
   startTime: '',
   endTime: '',
@@ -366,6 +370,15 @@ const formData = ref({
 
 const showDeleteDialog = ref(false)
 const currentRow = ref(null)
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
 
 const getFormTitle = computed(() => {
   if (activeTab.value === 'parking') {
@@ -388,10 +401,8 @@ const formatDateTime = (value) => {
 const handleExport = () => {
   if (activeTab.value === 'parking') {
     const exportData = parkingList.value.map(item => ({
-      'EV Space': item.slotNumber,
+      'EV Space': item.evSpace,
       'Location': item.location,
-      'Space': item.space,
-      'Quantity': item.quantity,
       'Status': item.status === 'active' ? 'Active' : 'Inactive'
     }))
 
@@ -412,13 +423,13 @@ const handleExport = () => {
     XLSX.utils.book_append_sheet(wb, ws, 'Time Periods')
     XLSX.writeFile(wb, `EV_Time_Periods_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
-  ElMessage.success('Excel file exported successfully')
+  showNotice('Excel file exported successfully', 'Success')
 }
 
 const handleAdd = () => {
   formMode.value = 'add'
   if (activeTab.value === 'parking') {
-    formData.value = { slotNumber: '', location: '', space: '', quantity: 1, status: 'active' }
+    formData.value = { evSpace: '', location: '', status: 'active' }
   } else {
     formData.value = { period: '', startTime: '', endTime: '', status: 'active' }
   }
@@ -427,11 +438,11 @@ const handleAdd = () => {
 
 const handlePublishEvWindow = () => {
   if (!evWindowForm.value.startDate || !evWindowForm.value.endDate) {
-    ElMessage.warning('Please select start and end date')
+    showNotice('Please select start and end date', 'Warning')
     return
   }
   if (evWindowForm.value.endDate < evWindowForm.value.startDate) {
-    ElMessage.warning('End date must be later than start date')
+    showNotice('End date must be later than start date', 'Warning')
     return
   }
 
@@ -441,7 +452,7 @@ const handlePublishEvWindow = () => {
     endDate: evWindowForm.value.endDate,
     publishedBy: 'EV Admin'
   })
-  ElMessage.success('EV booking date range published')
+  showNotice('EV booking date range published', 'Success')
 }
 
 const applyNext14Days = () => {
@@ -463,23 +474,23 @@ const handleSave = () => {
   if (activeTab.value === 'parking') {
     if (formMode.value === 'add') {
       parkingList.value.push({ ...formData.value, id: Date.now(), type: 'EV' })
-      ElMessage.success('EV added successfully')
+      showNotice('EV added successfully', 'Success')
     } else {
       const index = parkingList.value.findIndex(item => item.id === formData.value.id)
       if (index !== -1) {
         parkingList.value[index] = { ...formData.value }
-        ElMessage.success('EV updated successfully')
+        showNotice('EV updated successfully', 'Success')
       }
     }
   } else {
     if (formMode.value === 'add') {
       timePeriodsList.value.push({ ...formData.value, id: Date.now() })
-      ElMessage.success('Time period added successfully')
+      showNotice('Time period added successfully', 'Success')
     } else {
       const index = timePeriodsList.value.findIndex(item => item.id === formData.value.id)
       if (index !== -1) {
         timePeriodsList.value[index] = { ...formData.value }
-        ElMessage.success('Time period updated successfully')
+        showNotice('Time period updated successfully', 'Success')
       }
     }
   }
@@ -496,13 +507,13 @@ const confirmDelete = () => {
     const index = parkingList.value.findIndex(item => item.id === currentRow.value.id)
     if (index !== -1) {
       parkingList.value.splice(index, 1)
-      ElMessage.success('Deleted successfully')
+      showNotice('Deleted successfully', 'Success')
     }
   } else {
     const index = timePeriodsList.value.findIndex(item => item.id === currentRow.value.id)
     if (index !== -1) {
       timePeriodsList.value.splice(index, 1)
-      ElMessage.success('Deleted successfully')
+      showNotice('Deleted successfully', 'Success')
     }
   }
   showDeleteDialog.value = false
@@ -1056,5 +1067,12 @@ const confirmDelete = () => {
   margin-top: 0.5rem;
   font-size: 0.8125rem;
   color: #6b7280;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
 }
 </style>

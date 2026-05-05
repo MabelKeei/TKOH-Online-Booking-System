@@ -37,8 +37,8 @@ export class ParkingService {
             status: { in: ['pending', 'confirmed'] },
           },
         });
-        if (usedCount >= slot.quantity) {
-          throw new ConflictException('No capacity left for this slot and period.');
+        if (usedCount >= 1) {
+          throw new ConflictException('This EV space is already occupied for the selected period.');
         }
 
         return tx.evBookings.create({

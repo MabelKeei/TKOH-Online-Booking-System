@@ -470,12 +470,18 @@
         <el-button type="default" class="action-btn action-approve" @click="confirmHandleApprove">Approve</el-button>
       </template>
     </BookingStyleModal>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+      <p class="notice-message">{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
@@ -491,6 +497,15 @@ import {
 const adminStore = useAdminStore()
 
 const activeTab = ref('pending')
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
 
 const pendingList = ref(getMockMeetingPendingList())
 const employeeList = ref(getMockEmployeeListNormalized())
@@ -928,6 +943,12 @@ const handleForm = ref({
 })
 
 function formatTeaServiceStatus(row) {
+  if (row?.teaService && typeof row.teaService === 'object') {
+    const beverages = row.teaService.beverages
+    if (beverages) return String(beverages)
+    return 'Required'
+  }
+
   const count = row.teaServiceParticipants ?? row.attendeeCount ?? row.participants
   const countSuffix = Number.isFinite(Number(count)) ? ` (${count})` : ''
   if (row.teaServiceSummary) return `${row.teaServiceSummary}${countSuffix}`
@@ -978,7 +999,7 @@ const handleExport = () => {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Meeting Approvals')
   XLSX.writeFile(wb, `Meeting_Approval_${new Date().toISOString().split('T')[0]}.xlsx`)
-  ElMessage.success('Excel file exported successfully')
+  showNotice('Excel file exported successfully', 'Success')
 }
 
 const handleOpen = (row) => {
@@ -994,7 +1015,11 @@ const handleOpen = (row) => {
     meetingTitle: row.meetingTitle || '',
     date: row.date || '',
     time: row.time || '',
-    participantCount: row.attendeeCount || row.participants || '-',
+    participantCount: row.attendeeCount
+      ?? row.participants
+      ?? row.teaServiceParticipants
+      ?? row.teaService?.attendees
+      ?? '-',
     teaService: formatTeaServiceStatus(row),
     rejectTemplateKey: 'meeting_approval_reject_template',
     reason: ''
@@ -1027,14 +1052,14 @@ const confirmHandleApprove = () => {
   }
   showHandleDialog.value = false
   currentHandleRow.value = null
-  ElMessage.success('Booking approved successfully')
+  showNotice('Booking approved successfully', 'Success')
   adminStore.fetchPendingCounts()
 }
 
 const confirmHandleReject = () => {
   if (!currentHandleRow.value) return
   if (!handleForm.value.reason.trim()) {
-    ElMessage.warning('Please provide a reason for rejection')
+    showNotice('Please provide a reason for rejection', 'Warning')
     return
   }
 
@@ -1055,7 +1080,7 @@ const confirmHandleReject = () => {
   }
   showHandleDialog.value = false
   currentHandleRow.value = null
-  ElMessage.success('Booking rejected')
+  showNotice('Booking rejected', 'Success')
   adminStore.fetchPendingCounts()
 }
 
@@ -1770,5 +1795,12 @@ const confirmHandleReject = () => {
 
 .handle-booking-form :deep(.no-wrap-label .el-form-item__label) {
   white-space: nowrap;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
 }
 </style>

@@ -377,12 +377,18 @@
         <el-button type="default" class="cancel-btn" @click="showBlockDialog = false">Close</el-button>
       </template>
     </BookingStyleModal>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+      <p class="notice-message">{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
@@ -522,6 +528,15 @@ const blockForm = ref({
   endAt: '',
   reason: ''
 })
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
 const blockModalContentRef = ref(null)
 const blockFormSectionRef = ref(null)
 const blockToolbarRef = ref(null)
@@ -683,7 +698,7 @@ const handleExport = () => {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Venues')
   XLSX.writeFile(wb, `Venue_Management_${new Date().toISOString().split('T')[0]}.xlsx`)
-  ElMessage.success('Excel file exported successfully')
+  showNotice('Excel file exported successfully', 'Success')
 }
 
 const formatDateTime = (value) => {
@@ -695,11 +710,11 @@ const formatDateTime = (value) => {
 
 const handlePublishVenueWindow = () => {
   if (!venueWindowForm.value.startDate || !venueWindowForm.value.endDate) {
-    ElMessage.warning('Please select start and end date')
+    showNotice('Please select start and end date', 'Warning')
     return
   }
   if (venueWindowForm.value.endDate < venueWindowForm.value.startDate) {
-    ElMessage.warning('End date must be later than start date')
+    showNotice('End date must be later than start date', 'Warning')
     return
   }
 
@@ -709,7 +724,7 @@ const handlePublishVenueWindow = () => {
     endDate: venueWindowForm.value.endDate,
     publishedBy: 'Venue Admin'
   })
-  ElMessage.success('Venue booking date range published')
+  showNotice('Venue booking date range published', 'Success')
 }
 
 const handleAdd = () => {
@@ -749,17 +764,17 @@ const handleEdit = (row) => {
 
 const handleSave = () => {
   if (!formData.value.color) {
-    ElMessage.warning('Please select a color for calendar display')
+    showNotice('Please select a color for calendar display', 'Warning')
     return
   }
 
   if (!isValidHexColor(formData.value.color)) {
-    ElMessage.warning('Please enter a valid HEX color value, e.g. #F4E9DA')
+    showNotice('Please enter a valid HEX color value, e.g. #F4E9DA', 'Warning')
     return
   }
 
   if (!formData.value.type) {
-    ElMessage.warning('Please select a type')
+    showNotice('Please select a type', 'Warning')
     return
   }
 
@@ -773,12 +788,12 @@ const handleSave = () => {
 
   if (formMode.value === 'add') {
     venueList.value.push({ ...normalizedFormData, id: Date.now() })
-    ElMessage.success('Venue added successfully')
+    showNotice('Venue added successfully', 'Success')
   } else {
     const index = venueList.value.findIndex(item => item.id === formData.value.id)
     if (index !== -1) {
       venueList.value[index] = { ...normalizedFormData }
-      ElMessage.success('Venue updated successfully')
+      showNotice('Venue updated successfully', 'Success')
     }
   }
   showForm.value = false
@@ -793,7 +808,7 @@ const confirmDelete = () => {
   const index = venueList.value.findIndex(item => item.id === currentRow.value.id)
   if (index !== -1) {
     venueList.value.splice(index, 1)
-    ElMessage.success('Deleted successfully')
+    showNotice('Deleted successfully', 'Success')
   }
   showDeleteDialog.value = false
   currentRow.value = null
@@ -804,12 +819,12 @@ const handleViewImage = (row) => {
     previewImageUrl.value = row.image
     showImagePreview.value = true
   } else {
-    ElMessage.info('No image available')
+    showNotice('No image available', 'Notice')
   }
 }
 
 const handleExceed = () => {
-  ElMessage.warning('Only one image is allowed')
+  showNotice('Only one image is allowed', 'Warning')
 }
 
 const resetBlockForm = () => {
@@ -832,17 +847,17 @@ const handleManageBlocks = (row) => {
 const handleAddBlockPeriod = () => {
   if (!currentBlockVenue.value) return
   if (!blockForm.value.startAt || !blockForm.value.endAt || !blockForm.value.reason) {
-    ElMessage.warning('Please fill in Start, End and Reason')
+    showNotice('Please fill in Start, End and Reason', 'Warning')
     return
   }
   const startAtDate = new Date(blockForm.value.startAt.replace(' ', 'T'))
   const endAtDate = new Date(blockForm.value.endAt.replace(' ', 'T'))
   if (Number.isNaN(startAtDate.getTime()) || Number.isNaN(endAtDate.getTime())) {
-    ElMessage.warning('Invalid date time format')
+    showNotice('Invalid date time format', 'Warning')
     return
   }
   if (endAtDate <= startAtDate) {
-    ElMessage.warning('End datetime must be later than start datetime')
+    showNotice('End datetime must be later than start datetime', 'Warning')
     return
   }
   currentBlockVenue.value.blocks.push({
@@ -854,7 +869,7 @@ const handleAddBlockPeriod = () => {
   blockCurrentPage.value = Math.max(1, Math.ceil(currentBlockVenue.value.blocks.length / blockPageSize.value))
   resetBlockForm()
   updateBlockTableMaxHeight()
-  ElMessage.success('Blocked period added')
+  showNotice('Blocked period added', 'Success')
 }
 
 const handleRemoveBlockPeriod = (blockId) => {
@@ -863,7 +878,7 @@ const handleRemoveBlockPeriod = (blockId) => {
   if (index !== -1) {
     currentBlockVenue.value.blocks.splice(index, 1)
     updateBlockTableMaxHeight()
-    ElMessage.success('Blocked period removed')
+    showNotice('Blocked period removed', 'Success')
   }
 }
 
@@ -1624,5 +1639,12 @@ const handlePreview = (file) => {
   padding: 0 10px;
   background-color: #dbeafe;
   color: #2563eb;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
 }
 </style>

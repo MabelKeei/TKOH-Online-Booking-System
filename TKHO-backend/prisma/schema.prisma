@@ -52,15 +52,12 @@ model Venues {
 }
 
 model EvParkingSlots {
-  id         BigInt       @id
-  slotNumber String       @map("slot_number")
-  location   String?
-  space      String
-  quantity   Int          @default(1)
-  slotType   String       @default("EV") @map("slot_type")
-  status     String       @default("active")
-  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  bookings   EvBookings[]
+  id        BigInt       @id
+  evSpace   String       @map("ev_space")
+  location  String?
+  status    String       @default("active")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  bookings  EvBookings[]
 
   @@map("ev_parking_slots")
 }

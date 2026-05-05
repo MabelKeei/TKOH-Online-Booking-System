@@ -399,6 +399,11 @@ const showStatusDialog = (message, type = 'warning') => {
 const notifyError = (message) => showStatusDialog(message, 'error')
 const notifySuccess = (message) => showStatusDialog(message, 'success')
 
+const formatQuotaRule = (used, annual) => {
+  if (Number(annual) === -1) return `${used ?? 0}/Unlimited`
+  return `${used ?? 0}/${annual ?? 0}`
+}
+
 const saveProfile = async () => {
   if (!profile.value.fullName || !profile.value.phone || !profile.value.employeeNo || !profile.value.department) {
     notifyError('Please fill in all required fields')
@@ -613,7 +618,8 @@ const __accountOnResize = () => {
   __accountResizeTimer = window.setTimeout(__accountLogPx, 80)
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await userStore.refreshSessionUser()
   const u = userStore.userInfo || JSON.parse(localStorage.getItem('userInfo') || 'null')
   if (u) {
     profile.value.fullName = u.name || ''
@@ -623,7 +629,7 @@ onMounted(() => {
     profile.value.employeeNo = u.account || ''
     profile.value.department = u.department || ''
     profile.value.accessLevel = u.role || ''
-    profile.value.bookingRule = `EV: ${u.usedQuotaEv ?? 0}/${u.annualQuotaEv ?? 0}; Venue: ${u.usedQuotaVenue ?? 0}/${u.annualQuotaVenue ?? 0}`
+    profile.value.bookingRule = `EV: ${formatQuotaRule(u.usedQuotaEv, u.annualQuotaEv)}; Venue: ${formatQuotaRule(u.usedQuotaVenue, u.annualQuotaVenue)}`
   }
   loadVehicles().catch((error) => {
     const msg = error?.response?.data?.message || error?.message || 'Failed to load vehicles'

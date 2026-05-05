@@ -289,13 +289,20 @@
     >
       <div class="venue-rule-notice-content" v-html="venueRuleNoticeContent"></div>
     </BookingStyleModal>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+      <p class="notice-message">{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
 import AppHeader from '../components/AppHeader.vue'
 import BookingSteps from '../components/BookingSteps.vue'
 import VenueCalendarMonth from '../components/VenueCalendarMonth.vue'
@@ -337,6 +344,14 @@ const pickerDate = ref(new Date()) // Month/year shown in the date picker
 const showRoomFilter = ref(false)
 const showBlockDialog = ref(false)
 const noticeDialogVisible = ref(false)
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
 const promptList = getMockPromptList()
 const venueRuleNoticeContent = computed(() => {
   return promptList.find(item => item.key === 'venue_booking_lecture_theatre_notice')?.content || ''
@@ -575,7 +590,7 @@ function goToPreviousPeriod() {
     date.setDate(date.getDate() - 1)
   }
   if (!isDateInVenueWindow(date)) {
-    ElMessage.warning('Date is outside the venue booking date range')
+    showNotice('Date is outside the venue booking date range', 'Warning')
     return
   }
   currentDate.value = date
@@ -592,7 +607,7 @@ function goToNextPeriod() {
     date.setDate(date.getDate() + 1)
   }
   if (!isDateInVenueWindow(date)) {
-    ElMessage.warning('Date is outside the venue booking date range')
+    showNotice('Date is outside the venue booking date range', 'Warning')
     return
   }
   currentDate.value = date
@@ -603,7 +618,7 @@ function goToToday() {
   const today = new Date()
   if (!isDateInVenueWindow(today)) {
     currentDate.value = new Date(venueWindowRange.value.start)
-    ElMessage.warning('Today is outside the venue booking date range')
+    showNotice('Today is outside the venue booking date range', 'Warning')
     return
   }
   currentDate.value = today
@@ -643,7 +658,7 @@ function changeMonth(offset) {
 function selectDate(date) {
   const selected = new Date(date)
   if (!isDateInVenueWindow(selected)) {
-    ElMessage.warning('Selected date is outside the venue booking date range')
+    showNotice('Selected date is outside the venue booking date range', 'Warning')
     return
   }
   currentDate.value = selected
@@ -720,7 +735,7 @@ function clearAllRooms() {
 // Switch to day view from month cell
 function selectDay(date) {
   if (!isDateInVenueWindow(date)) {
-    ElMessage.warning('Selected date is outside the venue booking date range')
+    showNotice('Selected date is outside the venue booking date range', 'Warning')
     return
   }
   currentDate.value = date
@@ -730,7 +745,7 @@ function selectDay(date) {
 // Open create booking dialog
 function showBookingDialog() {
   if (!isDateInVenueWindow(currentDate.value)) {
-    ElMessage.warning('Current date is outside the venue booking date range')
+    showNotice('Current date is outside the venue booking date range', 'Warning')
     return
   }
   editingBooking.value = null
@@ -741,7 +756,7 @@ function showBookingDialog() {
 // Open booking dialog from selected slot
 function openBookingDialog(timeInfo) {
   if (timeInfo?.date && !isDateInVenueWindow(new Date(timeInfo.date))) {
-    ElMessage.warning('Selected slot is outside the venue booking date range')
+    showNotice('Selected slot is outside the venue booking date range', 'Warning')
     return
   }
   if (timeInfo?.room && timeInfo?.date && timeInfo?.time) {
@@ -757,7 +772,7 @@ function openBookingDialog(timeInfo) {
       return slotDate < blockEnd && slotEnd > blockStart
     })
     if (hasBlock) {
-      ElMessage.warning('This slot is blocked and cannot be booked')
+      showNotice('This slot is blocked and cannot be booked', 'Warning')
       return
     }
   }
@@ -784,18 +799,18 @@ function resetBlockForm() {
 
 function handleCreateBlock() {
   if (!blockForm.value.roomName || !blockForm.value.startAt || !blockForm.value.endAt || !blockForm.value.reason) {
-    ElMessage.warning('Please fill in Room, Start, End and Reason')
+    showNotice('Please fill in Room, Start, End and Reason', 'Warning')
     return
   }
 
   const start = normalizeDateTime(blockForm.value.startAt)
   const end = normalizeDateTime(blockForm.value.endAt)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    ElMessage.warning('Invalid datetime format')
+    showNotice('Invalid datetime format', 'Warning')
     return
   }
   if (end <= start) {
-    ElMessage.warning('End datetime must be later than start datetime')
+    showNotice('End datetime must be later than start datetime', 'Warning')
     return
   }
 
@@ -809,7 +824,7 @@ function handleCreateBlock() {
 
   showBlockDialog.value = false
   resetBlockForm()
-  ElMessage.success('Blocked period created')
+  showNotice('Blocked period created', 'Success')
 }
 
 // Handle booking create/update
@@ -824,7 +839,7 @@ function handleBookingConfirm(bookingData) {
   })
 
   if (conflictBlock) {
-    ElMessage.warning(`Blocked period conflict: ${conflictBlock.startAt} - ${conflictBlock.endAt}`)
+    showNotice(`Blocked period conflict: ${conflictBlock.startAt} - ${conflictBlock.endAt}`, 'Warning')
     return
   }
 
@@ -835,7 +850,7 @@ function handleBookingConfirm(bookingData) {
     roomType: roomType.value
   })
   closeBookingDialog()
-  ElMessage.success('Booking added successfully!')
+  showNotice('Booking added successfully!', 'Success')
 }
 
 // Handle booking delete
@@ -852,7 +867,7 @@ function handleDeleteBooking(bookingId) {
     .then(() => {
       bookings.value = bookings.value.filter(b => b.id !== bookingId)
       detailDialogVisible.value = false
-      ElMessage.success('Booking deleted successfully!')
+      showNotice('Booking deleted successfully!', 'Success')
     })
     .catch(() => {})
 }
@@ -1019,6 +1034,13 @@ onUnmounted(() => {
 
 .venue-rule-notice-content :deep(.venue-notice-line.zh) {
   color: #111827;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
 }
 
 .calendar-container {

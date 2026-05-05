@@ -3,6 +3,12 @@
     <div class="page-header">
       <h2 class="page-title">License Plate Management</h2>
       <div class="header-actions">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="Search current table data"
+          clearable
+          class="toolbar-search"
+        />
         <el-button type="default" class="cancel-btn" @click="handleExport">
           <font-awesome-icon :icon="['fas', 'file-excel']" /> Export Excel
         </el-button>
@@ -24,19 +30,35 @@
             fixed="left"
             :index="getRowIndex"
           />
-          <el-table-column prop="plateNumber" label="Plate Number" min-width="170" />
-          <el-table-column prop="brand" label="Brand" min-width="150" />
-          <el-table-column prop="type" label="Type" min-width="140">
-            <template #default="{ row }">
-              <el-tag
-                effect="light"
-                :class="row.type === 'company' ? 'plate-type-tag plate-type-company' : 'plate-type-tag plate-type-personal'"
-              >
-                {{ row.type === 'company' ? 'Company' : 'Personal' }}
-              </el-tag>
+          <el-table-column prop="plateNumber" min-width="170">
+            <template #header>
+              <SortableFilterHeader
+                label="Plate Number"
+                :sort-indicator="getSortIndicator('plateNumber')"
+                :filter-active="plateFilterState.length > 0"
+                :options="plateFilterOptions"
+                :model-value="plateFilterState"
+                @sort-asc="setSortByMenu('plateNumber', 'asc')"
+                @sort-desc="setSortByMenu('plateNumber', 'desc')"
+                @clear-sort="clearSortByMenu('plateNumber')"
+                @update:model-value="updatePlateFilter"
+              />
             </template>
           </el-table-column>
-          <el-table-column prop="owner" label="Owner" min-width="200">
+          <el-table-column prop="owner" min-width="200">
+            <template #header>
+              <SortableFilterHeader
+                label="Owner"
+                :sort-indicator="getSortIndicator('owner')"
+                :filter-active="ownerFilterState.length > 0"
+                :options="ownerFilterOptions"
+                :model-value="ownerFilterState"
+                @sort-asc="setSortByMenu('owner', 'asc')"
+                @sort-desc="setSortByMenu('owner', 'desc')"
+                @clear-sort="clearSortByMenu('owner')"
+                @update:model-value="updateOwnerFilter"
+              />
+            </template>
             <template #default="{ row }">
               {{ row.owner }} ({{ row.corpId }})
             </template>
@@ -53,7 +75,7 @@
 
         <div class="pagination-bar">
           <div class="pagination-info">
-            Showing {{ startIndex + 1 }}-{{ endIndex }} of {{ licensePlateList.length }} records
+            Showing {{ startIndex + 1 }}-{{ endIndex }} of {{ filteredLicensePlateList.length }} records
           </div>
           <div class="pagination-controls">
             <button class="pagination-btn" :disabled="currentPage === 1" @click="currentPage--">Previous</button>
@@ -83,47 +105,38 @@
       v-model="showForm"
       :title="formMode === 'add' ? 'Add License Plate' : 'Edit License Plate'"
       max-width="520px"
+      custom-class="license-plate-edit-modal"
     >
       <el-form :model="formData" label-width="140px">
         <el-form-item label="Owner">
           <el-select
             v-model="formData.owner"
             filterable
+            clearable
             allow-create
             default-first-option
             style="width: 100%"
-            placeholder="Type to search or enter owner name"
+            placeholder="Type owner name / corp ID"
             :teleported="false"
+            :reserve-keyword="false"
+            :filter-method="handleOwnerFilter"
             popper-class="license-plate-owner-select"
           >
             <el-option
-              v-for="user in employeeOptions"
+              v-for="user in displayedEmployeeOptions"
               :key="user.corpId"
               :label="`${user.name} (${user.corpId})`"
               :value="user.name"
             >
-              <span>{{ user.name }}</span>
-              <span style="float: right; color: #8492a6; font-size: 13px">{{ user.corpId }}</span>
+              <div class="owner-option">
+                <span class="owner-option-name">{{ user.name }}</span>
+                <span class="owner-option-corp">{{ user.corpId }}</span>
+              </div>
             </el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Type">
-          <el-select
-            v-model="formData.type"
-            style="width: 100%"
-            placeholder="Select type"
-            :teleported="false"
-            popper-class="license-plate-type-select"
-          >
-            <el-option label="Personal" value="personal" />
-            <el-option label="Company" value="company" />
           </el-select>
         </el-form-item>
         <el-form-item label="Plate Number">
           <el-input v-model="formData.plateNumber" />
-        </el-form-item>
-        <el-form-item label="Brand">
-          <el-input v-model="formData.brand" />
         </el-form-item>
       </el-form>
 
@@ -140,14 +153,21 @@
         <el-button type="default" class="action-btn action-delete" @click="confirmDelete">Delete</el-button>
       </template>
     </BookingStyleModal>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+      <p class="notice-message">{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, ref, watch } from 'vue'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
 import { getMockLicensePlateList, getMockEmployeeListNormalized } from '@/mocks/mockData'
 
 const licensePlateList = ref(getMockLicensePlateList())
@@ -156,19 +176,77 @@ const employeeList = ref(getMockEmployeeListNormalized())
 const employeeOptions = computed(() => {
   return employeeList.value.filter(u => u.status === 'active')
 })
+const ownerKeyword = ref('')
+
+const displayedEmployeeOptions = computed(() => {
+  const keyword = ownerKeyword.value.trim().toLowerCase()
+  const source = employeeOptions.value
+
+  if (!keyword) return source.slice(0, 12)
+
+  return source
+    .filter((user) =>
+      String(user.name || '').toLowerCase().includes(keyword) ||
+      String(user.corpId || '').toLowerCase().includes(keyword)
+    )
+    .slice(0, 30)
+})
 
 const currentPage = ref(1)
 const pageSize = ref(20)
+const searchKeyword = ref('')
+const sortState = ref({ key: '', order: '' })
+const plateFilterState = ref([])
+const ownerFilterState = ref([])
+
+const searchedLicensePlateList = computed(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  return !keyword
+    ? licensePlateList.value
+    : licensePlateList.value.filter((item) =>
+      String(item.plateNumber || '').toLowerCase().includes(keyword) ||
+      String(item.owner || '').toLowerCase().includes(keyword) ||
+      String(item.corpId || '').toLowerCase().includes(keyword)
+    )
+})
+
+const filteredLicensePlateList = computed(() => {
+  const filtered = searchedLicensePlateList.value.filter((item) => {
+    const plateMatch = !plateFilterState.value.length || plateFilterState.value.includes(item.plateNumber)
+    const ownerMatch = !ownerFilterState.value.length || ownerFilterState.value.includes(item.owner)
+    return plateMatch && ownerMatch
+  })
+
+  const { key, order } = sortState.value
+  if (!key || !order) return filtered
+
+  const direction = order === 'asc' ? 1 : -1
+  return filtered.slice().sort((a, b) => {
+    const aValue = String(a[key] ?? '').toLowerCase()
+    const bValue = String(b[key] ?? '').toLowerCase()
+    return aValue.localeCompare(bValue) * direction
+  })
+})
+
+const plateFilterOptions = computed(() => {
+  const values = new Set(searchedLicensePlateList.value.map((item) => item.plateNumber).filter(Boolean))
+  return [...values]
+})
+
+const ownerFilterOptions = computed(() => {
+  const values = new Set(searchedLicensePlateList.value.map((item) => item.owner).filter(Boolean))
+  return [...values]
+})
 
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   const end = start + pageSize.value
-  return licensePlateList.value.slice(start, end)
+  return filteredLicensePlateList.value.slice(start, end)
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(licensePlateList.value.length / pageSize.value)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredLicensePlateList.value.length / pageSize.value)))
 const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
-const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, licensePlateList.value.length))
+const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, filteredLicensePlateList.value.length))
 const visiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
@@ -179,18 +257,77 @@ const visiblePages = computed(() => {
   return pages
 })
 
+watch(searchKeyword, () => {
+  currentPage.value = 1
+})
+
+watch(totalPages, (value) => {
+  if (currentPage.value > value) {
+    currentPage.value = value
+  }
+})
+
+const toggleSort = (key) => {
+  if (sortState.value.key !== key) {
+    sortState.value = { key, order: 'asc' }
+  } else if (sortState.value.order === 'asc') {
+    sortState.value = { key, order: 'desc' }
+  } else {
+    sortState.value = { key: '', order: '' }
+  }
+  currentPage.value = 1
+}
+
+const getSortIndicator = (key) => {
+  if (sortState.value.key !== key || !sortState.value.order) return '↕'
+  return sortState.value.order === 'asc' ? '▲' : '▼'
+}
+
+const setSortByMenu = (key, order) => {
+  sortState.value = { key, order }
+  currentPage.value = 1
+}
+
+const clearSortByMenu = (key) => {
+  if (sortState.value.key === key) {
+    sortState.value = { key: '', order: '' }
+    currentPage.value = 1
+  }
+}
+
+const updatePlateFilter = (values) => {
+  plateFilterState.value = values ?? []
+  currentPage.value = 1
+}
+
+const updateOwnerFilter = (values) => {
+  ownerFilterState.value = values ?? []
+  currentPage.value = 1
+}
+
+const handleOwnerFilter = (query) => {
+  ownerKeyword.value = String(query || '')
+}
+
 const showForm = ref(false)
 const formMode = ref('add')
 const formData = ref({
   corpId: '',
   owner: '',
-  brand: '',
-  type: 'personal',
   plateNumber: ''
 })
 
 const showDeleteDialog = ref(false)
 const currentRow = ref(null)
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
 
 const getRowIndex = (index) => (currentPage.value - 1) * pageSize.value + index + 1
 
@@ -198,21 +335,19 @@ const handleExport = () => {
   const exportData = licensePlateList.value.map(item => ({
     'Corp ID': item.corpId,
     'Plate Number': item.plateNumber,
-    'Brand': item.brand ?? '',
-    'Owner': item.owner,
-    'Type': item.type === 'company' ? 'Company' : 'Personal'
+    'Owner': item.owner
   }))
 
   const ws = XLSX.utils.json_to_sheet(exportData)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'License Plates')
   XLSX.writeFile(wb, `License_Plates_${new Date().toISOString().split('T')[0]}.xlsx`)
-  ElMessage.success('Excel file exported successfully')
+  showNotice('Excel file exported successfully', 'Success')
 }
 
 const handleAdd = () => {
   formMode.value = 'add'
-  formData.value = { corpId: '', owner: '', brand: '', type: 'personal', plateNumber: '' }
+  formData.value = { corpId: '', owner: '', plateNumber: '' }
   showForm.value = true
 }
 
@@ -229,12 +364,12 @@ const handleSave = () => {
 
   if (formMode.value === 'add') {
     licensePlateList.value.push({ ...formData.value, corpId, id: Date.now() })
-    ElMessage.success('License plate added successfully')
+    showNotice('License plate added successfully', 'Success')
   } else {
     const index = licensePlateList.value.findIndex(item => item.id === formData.value.id)
     if (index !== -1) {
       licensePlateList.value[index] = { ...formData.value, corpId }
-      ElMessage.success('License plate updated successfully')
+      showNotice('License plate updated successfully', 'Success')
     }
   }
   showForm.value = false
@@ -249,7 +384,7 @@ const confirmDelete = () => {
   const index = licensePlateList.value.findIndex(item => item.id === currentRow.value.id)
   if (index !== -1) {
     licensePlateList.value.splice(index, 1)
-    ElMessage.success('Deleted successfully')
+    showNotice('Deleted successfully', 'Success')
   }
   showDeleteDialog.value = false
   currentRow.value = null
@@ -364,6 +499,25 @@ const confirmDelete = () => {
   text-overflow: clip;
 }
 
+.th-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sort-indicator {
+  font-size: 0.68rem;
+  color: #6b7280;
+  line-height: 1;
+}
+
 .page-content :deep(.el-table__row:hover) {
   background: #f9fafb;
 }
@@ -391,25 +545,14 @@ const confirmDelete = () => {
   border: none;
 }
 
-.page-content :deep(.plate-type-tag) {
-  border-radius: 999px;
-  font-weight: 600;
-  padding: 0 10px;
-}
-
-.page-content :deep(.plate-type-company) {
-  background-color: #dbeafe;
-  color: #1d4ed8;
-}
-
-.page-content :deep(.plate-type-personal) {
-  background-color: #fef3c7;
-  color: #92400e;
-}
-
 .header-actions {
   display: flex;
+  align-items: center;
   gap: 0.75rem;
+}
+
+.toolbar-search {
+  width: min(460px, 48vw);
 }
 
 .pagination-bar {
@@ -558,10 +701,33 @@ const confirmDelete = () => {
 }
 
 .license-plate-owner-select {
-  max-height: 150px;
+  max-height: 260px;
 }
 
-.license-plate-type-select {
-  max-height: 100px;
+.owner-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
+
+.owner-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.owner-option-corp {
+  color: #8492a6;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
+}
+
 </style>

@@ -60,7 +60,7 @@
             </div>
           </template>
           <template #default="{ row }">
-            <el-tag effect="light" class="quota-tag quota-tag-venue">{{ row.AnnualVenueQuota }} bookings/year</el-tag>
+            <el-tag effect="light" class="quota-tag quota-tag-venue">{{ formatAnnualQuota(row.AnnualVenueQuota) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column min-width="130">
@@ -77,21 +77,7 @@
             </div>
           </template>
           <template #default="{ row }">
-            <el-tag effect="light" class="quota-tag quota-tag-ev">{{ row.AnnualEvQuota }} bookings/year</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="employeeCount" min-width="120">
-          <template #header>
-            <div class="th-header-tools">
-              <button
-                type="button"
-                class="th-sort-btn"
-                @click="toggleSort('role', 'employeeCount')"
-              >
-                Users
-                <span class="sort-indicator">{{ getSortIndicator('role', 'employeeCount') }}</span>
-              </button>
-            </div>
+            <el-tag effect="light" class="quota-tag quota-tag-ev">{{ formatAnnualQuota(row.AnnualEvQuota) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
@@ -164,20 +150,6 @@
             <span>Description</span>
           </template>
         </el-table-column>
-        <el-table-column prop="employeeCount" min-width="120">
-          <template #header>
-            <div class="th-header-tools">
-              <button
-                type="button"
-                class="th-sort-btn"
-                @click="toggleSort('department', 'employeeCount')"
-              >
-                Users
-                <span class="sort-indicator">{{ getSortIndicator('department', 'employeeCount') }}</span>
-              </button>
-            </div>
-          </template>
-        </el-table-column>
         <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
           <template #default="{ row }">
             <div class="actions-cell">
@@ -232,10 +204,16 @@
         </el-form-item>
         <template v-if="activeTab === 'role'">
           <el-form-item label="Annual Venue Quota">
-            <el-input-number v-model="formData.AnnualVenueQuota" :min="0" />
+            <div class="quota-input-row">
+              <el-input-number v-model="formData.AnnualVenueQuota" :min="0" :disabled="isVenueUnlimited" />
+              <el-checkbox v-model="isVenueUnlimited">Unlimited</el-checkbox>
+            </div>
           </el-form-item>
           <el-form-item label="Annual EV Quota">
-            <el-input-number v-model="formData.AnnualEvQuota" :min="0" />
+            <div class="quota-input-row">
+              <el-input-number v-model="formData.AnnualEvQuota" :min="0" :disabled="isEvUnlimited" />
+              <el-checkbox v-model="isEvUnlimited">Unlimited</el-checkbox>
+            </div>
           </el-form-item>
         </template>
       </el-form>
@@ -252,12 +230,18 @@
         <el-button type="default" class="action-btn action-delete" @click="confirmDelete">Delete</el-button>
       </template>
     </BookingStyleModal>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+      <p class="notice-message">{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, watch } from 'vue'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
@@ -432,11 +416,23 @@ const departmentVisiblePages = computed(() => {
 
 const showForm = ref(false)
 const formMode = ref('add')
+const isVenueUnlimited = ref(false)
+const isEvUnlimited = ref(false)
 const formData = ref({
   name: '',
   description: '',
   AnnualVenueQuota: 30,
   AnnualEvQuota: 60
+})
+
+watch(isVenueUnlimited, (checked) => {
+  if (checked) formData.value.AnnualVenueQuota = -1
+  else if (Number(formData.value.AnnualVenueQuota) < 0) formData.value.AnnualVenueQuota = 0
+})
+
+watch(isEvUnlimited, (checked) => {
+  if (checked) formData.value.AnnualEvQuota = -1
+  else if (Number(formData.value.AnnualEvQuota) < 0) formData.value.AnnualEvQuota = 0
 })
 
 const getFormTitle = computed(() => {
@@ -449,9 +445,20 @@ const getFormTitle = computed(() => {
 
 const showDeleteDialog = ref(false)
 const currentRow = ref(null)
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
 
 const getRoleRowIndex = (index) => (roleCurrentPage.value - 1) * rolePageSize.value + index + 1
 const getDepartmentRowIndex = (index) => (departmentCurrentPage.value - 1) * departmentPageSize.value + index + 1
+
+const formatAnnualQuota = (value) => (Number(value) === -1 ? 'unlimited bookings/year' : `${value} bookings/year`)
 
 const handleExport = () => {
   if (activeTab.value === 'role') {
@@ -479,13 +486,15 @@ const handleExport = () => {
     XLSX.utils.book_append_sheet(wb, ws, 'Departments')
     XLSX.writeFile(wb, `Department_Management_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
-  ElMessage.success('Excel file exported successfully')
+  showNotice('Excel file exported successfully', 'Success')
 }
 
 const handleAdd = () => {
   formMode.value = 'add'
   if (activeTab.value === 'role') {
     formData.value = { name: '', description: '', AnnualVenueQuota: 30, AnnualEvQuota: 60 }
+    isVenueUnlimited.value = false
+    isEvUnlimited.value = false
   } else {
     formData.value = { name: '', description: '' }
   }
@@ -496,6 +505,8 @@ const handleEdit = (row) => {
   formMode.value = 'edit'
   if (activeTab.value === 'role') {
     formData.value = { ...row, name: row.roleName }
+    isVenueUnlimited.value = Number(row.AnnualVenueQuota) === -1
+    isEvUnlimited.value = Number(row.AnnualEvQuota) === -1
   } else {
     formData.value = { ...row, name: row.departmentName }
   }
@@ -504,23 +515,28 @@ const handleEdit = (row) => {
 
 const handleSave = () => {
   if (activeTab.value === 'role') {
+    const rolePayload = {
+      ...formData.value,
+      AnnualVenueQuota: isVenueUnlimited.value ? -1 : Number(formData.value.AnnualVenueQuota ?? 0),
+      AnnualEvQuota: isEvUnlimited.value ? -1 : Number(formData.value.AnnualEvQuota ?? 0)
+    }
     if (formMode.value === 'add') {
       roleList.value.push({
-        ...formData.value,
+        ...rolePayload,
         id: Date.now(),
         roleName: formData.value.name,
         employeeCount: 0
       })
-      ElMessage.success('Role added successfully')
+      showNotice('Role added successfully', 'Success')
     } else {
       const index = roleList.value.findIndex(item => item.id === formData.value.id)
       if (index !== -1) {
         roleList.value[index] = {
-          ...formData.value,
+          ...rolePayload,
           roleName: formData.value.name,
           employeeCount: roleList.value[index].employeeCount
         }
-        ElMessage.success('Role updated successfully')
+        showNotice('Role updated successfully', 'Success')
       }
     }
   } else {
@@ -531,7 +547,7 @@ const handleSave = () => {
         departmentName: formData.value.name,
         employeeCount: 0
       })
-      ElMessage.success('Department added successfully')
+      showNotice('Department added successfully', 'Success')
     } else {
       const index = departmentList.value.findIndex(item => item.id === formData.value.id)
       if (index !== -1) {
@@ -540,7 +556,7 @@ const handleSave = () => {
           departmentName: formData.value.name,
           employeeCount: departmentList.value[index].employeeCount
         }
-        ElMessage.success('Department updated successfully')
+        showNotice('Department updated successfully', 'Success')
       }
     }
   }
@@ -549,7 +565,7 @@ const handleSave = () => {
 
 const handleDelete = (row) => {
   if (row.employeeCount > 0) {
-    ElMessage.warning(`Cannot delete ${activeTab.value} with assigned employees`)
+    showNotice(`Cannot delete ${activeTab.value} with assigned employees`, 'Warning')
     return
   }
   currentRow.value = row
@@ -561,13 +577,13 @@ const confirmDelete = () => {
     const index = roleList.value.findIndex(item => item.id === currentRow.value.id)
     if (index !== -1) {
       roleList.value.splice(index, 1)
-      ElMessage.success('Deleted successfully')
+      showNotice('Deleted successfully', 'Success')
     }
   } else {
     const index = departmentList.value.findIndex(item => item.id === currentRow.value.id)
     if (index !== -1) {
       departmentList.value.splice(index, 1)
-      ElMessage.success('Deleted successfully')
+      showNotice('Deleted successfully', 'Success')
     }
   }
   showDeleteDialog.value = false
@@ -952,6 +968,12 @@ const confirmDelete = () => {
   line-height: 1;
 }
 
+.quota-input-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
 .th-header-tools {
   display: inline-flex;
   align-items: center;
@@ -1122,6 +1144,13 @@ const confirmDelete = () => {
 
 .th-filter-popover :deep(.el-checkbox__inner:hover) {
   border-color: #00723a;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
 }
 
 </style>

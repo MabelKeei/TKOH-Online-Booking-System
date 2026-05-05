@@ -107,6 +107,8 @@ const isLoginPage = computed(() =>
   route.path === '/VenueBooking/Display' ||
   route.path === '/VenueBooking/Display/Merge' ||
   route.path === '/VenueBooking/Display/TeaService' ||
+  route.path === '/evBooking/Display' ||
+  route.path === '/EVBooking/Display' ||
   route.path === '/evBooking/ManageBooking' ||
   route.path === '/VenueBooking/ManageBooking' ||
   route.name === 'VenueManageBooking'

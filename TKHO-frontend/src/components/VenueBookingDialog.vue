@@ -256,11 +256,18 @@
       </div>
     </div>
   </div>
+
+  <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+    <p class="notice-message">{{ noticeMessage }}</p>
+    <template #footer>
+      <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+    </template>
+  </BookingStyleModal>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import { InfoFilled } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -289,6 +296,15 @@ const showVenueSetupDialog = ref(false)
 const showEquipmentDialog = ref(false)
 const showToolsDialog = ref(false)
 const showSpecialRequestsDialog = ref(false)
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
 
 // 拖拽相关
 const isDragging = ref(false)
@@ -413,17 +429,17 @@ function disabledDate(date) {
 
 function checkAvailability() {
   if (!form.value.room || !form.value.date || !form.value.startTime || !form.value.endTime) {
-    ElMessage.warning('Please fill in Room, Date, Start Time and End Time first')
+    showNotice('Please fill in Room, Date, Start Time and End Time first', 'Warning')
     return
   }
   
   // 简单的时间验证
   if (form.value.startTime >= form.value.endTime) {
-    ElMessage.warning('End time must be after start time')
+    showNotice('End time must be after start time', 'Warning')
     return
   }
   
-  ElMessage.success('Room is available for the selected time slot!')
+  showNotice('Room is available for the selected time slot!', 'Success')
 }
 
 function initializeForm() {
@@ -464,14 +480,14 @@ function handleConfirm() {
     if (valid) {
       // 验证结束时间是否晚于开始时间
       if (form.value.startTime && form.value.endTime && form.value.startTime >= form.value.endTime) {
-        ElMessage.error('End time must be later than start time')
+        showNotice('End time must be later than start time', 'Error')
         return
       }
       emit('confirm', { ...form.value, id: props.booking?.id || Date.now() })
-      ElMessage.success('Booking submitted successfully!')
+      showNotice('Booking submitted successfully!', 'Success')
       handleClose()
     } else {
-      ElMessage.error('Please fill in all required fields')
+      showNotice('Please fill in all required fields', 'Error')
     }
   })
 }
@@ -942,6 +958,13 @@ watch(() => props.visible, (val) => {
 .submit-btn:hover {
   background-color: #005a2e;
   border-color: #005a2e;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
 }
 
 @media (max-width: 389px) {

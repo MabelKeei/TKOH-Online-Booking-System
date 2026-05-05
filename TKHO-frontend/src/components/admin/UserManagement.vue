@@ -87,7 +87,7 @@
                       </button>
                     </template>
                     <template #default="{ row }">
-                      {{ row.usedQuotaEV }} / {{ row.annualQuotaEV }}
+                      {{ formatQuotaDisplay(row.usedQuotaEV, row.annualQuotaEV) }}
                     </template>
                   </el-table-column>
                   <el-table-column min-width="110">
@@ -98,7 +98,7 @@
                       </button>
                     </template>
                     <template #default="{ row }">
-                      {{ row.usedQuotaVenue }} / {{ row.annualQuotaVenue }}
+                      {{ formatQuotaDisplay(row.usedQuotaVenue, row.annualQuotaVenue) }}
                     </template>
                   </el-table-column>
                   <el-table-column prop="status" min-width="120">
@@ -276,7 +276,7 @@
                       </button>
                     </template>
                     <template #default="{ row }">
-                      {{ row.usedQuotaEV }} / {{ row.annualQuotaEV }}
+                      {{ formatQuotaDisplay(row.usedQuotaEV, row.annualQuotaEV) }}
                     </template>
                   </el-table-column>
                   <el-table-column min-width="110">
@@ -287,7 +287,7 @@
                       </button>
                     </template>
                     <template #default="{ row }">
-                      {{ row.usedQuotaVenue }} / {{ row.annualQuotaVenue }}
+                      {{ formatQuotaDisplay(row.usedQuotaVenue, row.annualQuotaVenue) }}
                     </template>
                   </el-table-column>
                   <el-table-column label="Actions" width="130" fixed="right" class-name="actions-col">
@@ -941,12 +941,18 @@
         <el-button type="default" class="action-btn action-delete" @click="confirmReject">Confirm Reject</el-button>
       </template>
     </BookingStyleModal>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+      <p class="notice-message">{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import QRCode from 'qrcode'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
@@ -1408,6 +1414,15 @@ const showPendingHandleDialog = ref(false)
 const showApproveDialog = ref(false)
 const showRejectDialog = ref(false)
 const currentRow = ref(null)
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
 const formMode = ref('add')
 const formData = ref({
   corpId: '',
@@ -1466,14 +1481,14 @@ watch(showQRCode, async (newVal) => {
       })
     } catch (error) {
       console.error('Failed to generate QR code:', error)
-      ElMessage.error('Failed to generate QR code')
+      showNotice('Failed to generate QR code', 'Error')
     }
   }
 })
 
 const downloadQRCode = () => {
   if (!qrCodeDataUrl.value) {
-    ElMessage.warning('QR code not generated yet')
+    showNotice('QR code not generated yet', 'Warning')
     return
   }
 
@@ -1481,7 +1496,7 @@ const downloadQRCode = () => {
   link.download = `User_Registration_QRCode_${new Date().toISOString().split('T')[0]}.png`
   link.href = qrCodeDataUrl.value
   link.click()
-  ElMessage.success('QR code downloaded successfully')
+  showNotice('QR code downloaded successfully', 'Success')
 }
 
 const getUserRowIndex = (index) => {
@@ -1504,6 +1519,11 @@ const getExpiredRowIndex = (index) => {
   return (expiredCurrentPage.value - 1) * expiredPageSize.value + index + 1
 }
 
+const formatQuotaDisplay = (used, annual) => {
+  if (Number(annual) === -1) return `${used ?? 0} / Unlimited`
+  return `${used ?? 0} / ${annual ?? 0}`
+}
+
 const handleExport = () => {
   const exportData = employeeList.value.map(item => ({
     'Corp ID': item.corpId,
@@ -1523,7 +1543,7 @@ const handleExport = () => {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Users')
   XLSX.writeFile(wb, `User_Management_${new Date().toISOString().split('T')[0]}.xlsx`)
-  ElMessage.success('Excel file exported successfully')
+  showNotice('Excel file exported successfully', 'Success')
 }
 
 const handleAdd = () => {
@@ -1554,12 +1574,12 @@ const handleEdit = (row) => {
 const handleSave = () => {
   if (formMode.value === 'add') {
     employeeList.value.push({ ...formData.value, id: Date.now() })
-    ElMessage.success('User added successfully')
+    showNotice('User added successfully', 'Success')
   } else {
     const index = employeeList.value.findIndex(item => item.id === formData.value.id)
     if (index !== -1) {
       employeeList.value[index] = { ...formData.value }
-      ElMessage.success('User updated successfully')
+      showNotice('User updated successfully', 'Success')
     }
   }
   showForm.value = false
@@ -1574,7 +1594,7 @@ const confirmDelete = () => {
   const index = employeeList.value.findIndex(item => item.id === currentRow.value.id)
   if (index !== -1) {
     employeeList.value.splice(index, 1)
-    ElMessage.success('Deleted successfully')
+    showNotice('Deleted successfully', 'Success')
   }
   showDeleteDialog.value = false
   currentRow.value = null
@@ -1588,7 +1608,7 @@ const handleResetQuota = (row) => {
 const confirmReset = () => {
   currentRow.value.usedQuotaEV = 0
   currentRow.value.usedQuotaVenue = 0
-  ElMessage.success('Quota reset successfully')
+  showNotice('Quota reset successfully', 'Success')
   showResetDialog.value = false
   currentRow.value = null
 }
@@ -1602,14 +1622,14 @@ const handleResetPassword = (row) => {
 
 const confirmResetPassword = () => {
   currentRow.value.password = resetPasswordForm.value.password
-  ElMessage.success('Password reset successfully')
+  showNotice('Password reset successfully', 'Success')
   showResetPasswordDialog.value = false
   currentRow.value = null
 }
 
 const handleInactivate = (row) => {
   row.status = 'inactive'
-  ElMessage.success('Account set to inactive')
+  showNotice('Account set to inactive', 'Success')
 }
 
 const handlePending = (row) => {
@@ -1648,7 +1668,7 @@ const confirmPendingApprove = () => {
     pendingList.value.splice(index, 1)
   }
 
-  ElMessage.success('Account created successfully')
+  showNotice('Account created successfully', 'Success')
   adminStore.fetchPendingCounts()
   showPendingHandleDialog.value = false
   currentRow.value = null
@@ -1656,7 +1676,7 @@ const confirmPendingApprove = () => {
 
 const confirmPendingReject = () => {
   if (!pendingHandleForm.value.rejectReason.trim()) {
-    ElMessage.warning('Please provide a reason for rejection')
+    showNotice('Please provide a reason for rejection', 'Warning')
     return
   }
 
@@ -1671,7 +1691,7 @@ const confirmPendingReject = () => {
   const index = pendingList.value.findIndex(item => item.id === data.id)
   if (index !== -1) {
     pendingList.value.splice(index, 1)
-    ElMessage.success('Registration rejected')
+    showNotice('Registration rejected', 'Success')
     adminStore.fetchPendingCounts()
   }
   showPendingHandleDialog.value = false
@@ -1680,7 +1700,7 @@ const confirmPendingReject = () => {
 
 const handleActivate = (row) => {
   row.status = 'active'
-  ElMessage.success('Account activated successfully')
+  showNotice('Account activated successfully', 'Success')
   currentRow.value = null
 }
 
@@ -1711,7 +1731,7 @@ const confirmApprove = () => {
   if (index !== -1) {
     pendingList.value.splice(index, 1)
   }
-  ElMessage.success('Account created successfully')
+  showNotice('Account created successfully', 'Success')
   adminStore.fetchPendingCounts()
   showApproveDialog.value = false
   currentRow.value = null
@@ -1739,7 +1759,7 @@ const handlePendingRejectTemplateChange = (templateKey) => {
 
 const confirmReject = () => {
   if (!rejectForm.value.reason.trim()) {
-    ElMessage.warning('Please provide a reason for rejection')
+    showNotice('Please provide a reason for rejection', 'Warning')
     return
   }
 
@@ -1755,7 +1775,7 @@ const confirmReject = () => {
   const index = pendingList.value.findIndex(item => item.id === data.id)
   if (index !== -1) {
     pendingList.value.splice(index, 1)
-    ElMessage.success('Registration rejected')
+    showNotice('Registration rejected', 'Success')
     adminStore.fetchPendingCounts()
   }
   showRejectDialog.value = false
@@ -2399,5 +2419,12 @@ const confirmReject = () => {
 .pagination-container {
   display: flex;
   justify-content: flex-end;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
 }
 </style>

@@ -4,6 +4,7 @@ import { useUserStore } from '../stores/user'
 function pathRequiresAuth(path) {
   if (path === '/login') return false
   if (path.startsWith('/VenueBooking/Display')) return false
+  if (path.startsWith('/evBooking/Display') || path.startsWith('/EVBooking/Display')) return false
   if (path.startsWith('/admin')) return true
   if (path.startsWith('/VenueBooking')) return true
   if (path.startsWith('/evBooking') || path.startsWith('/EVBooking')) return true
@@ -107,6 +108,18 @@ const routes = [
     meta: {
       title: 'Manage EV Booking'
     }
+  },
+  {
+    path: '/evBooking/Display',
+    name: 'EVDisplayView',
+    component: () => import('../views/display/EVDisplayView.vue'),
+    meta: {
+      title: 'EV Display'
+    }
+  },
+  {
+    path: '/EVBooking/Display',
+    redirect: '/evBooking/Display'
   },
   {
     path: '/login',

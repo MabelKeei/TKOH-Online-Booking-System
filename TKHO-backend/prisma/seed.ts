@@ -5,6 +5,11 @@ import { pathToFileURL } from 'url';
 
 const prisma = new PrismaClient();
 
+/** Parse HH:mm for @db.Time fields (time-only, UTC base date). */
+function parseTimeHm(value: string): Date {
+  return new Date(`1970-01-01T${value}:00.000Z`);
+}
+
 async function readFrontendMocks() {
   const mockPath = path.resolve(__dirname, '../../TKHO-frontend/src/mocks/mockData.js');
   const mockUrl = pathToFileURL(mockPath).href;
@@ -20,6 +25,9 @@ async function main() {
   const mocks = await readFrontendMocks();
   const employees = mocks?.getMockEmployeeListNormalized?.() ?? [];
   const venues = mocks?.getMockVenueList?.() ?? [];
+  const evSlots = mocks?.getMockEVParkingList?.() ?? [];
+  const evPeriods = mocks?.getMockEVTimePeriods?.() ?? [];
+  const licensePlates = mocks?.getMockLicensePlateList?.() ?? [];
 
   if (employees.length > 0) {
     for (const row of employees) {
@@ -92,6 +100,71 @@ async function main() {
           locationZh: row.locationZh ?? null,
           displayType: row.displayType ?? null,
           imageUrl: row.image ?? null,
+          status: row.status ?? 'active',
+        },
+      });
+    }
+  }
+
+  if (evSlots.length > 0) {
+    for (const row of evSlots) {
+      const id = BigInt(row.id);
+      await prisma.evParkingSlots.upsert({
+        where: { id },
+        update: {
+          evSpace: row.evSpace,
+          location: row.location ?? null,
+          status: row.status ?? 'active',
+        },
+        create: {
+          id,
+          evSpace: row.evSpace,
+          location: row.location ?? null,
+          status: row.status ?? 'active',
+        },
+      });
+    }
+  }
+
+  if (evPeriods.length > 0) {
+    for (const row of evPeriods) {
+      const id = BigInt(row.id);
+      await prisma.evTimePeriods.upsert({
+        where: { id },
+        update: {
+          period: row.period,
+          startTime: parseTimeHm(row.startTime),
+          endTime: parseTimeHm(row.endTime),
+          status: row.status ?? 'active',
+        },
+        create: {
+          id,
+          period: row.period,
+          startTime: parseTimeHm(row.startTime),
+          endTime: parseTimeHm(row.endTime),
+          status: row.status ?? 'active',
+        },
+      });
+    }
+  }
+
+  if (licensePlates.length > 0) {
+    for (const row of licensePlates) {
+      const id = BigInt(row.id);
+      const employeeId = row.employeeId != null ? BigInt(row.employeeId) : null;
+      await prisma.license_plates.upsert({
+        where: { id },
+        update: {
+          employee_id: employeeId,
+          plate_number: row.plateNumber,
+          is_default: row.isDefault === true,
+          status: row.status ?? 'active',
+        },
+        create: {
+          id,
+          employee_id: employeeId,
+          plate_number: row.plateNumber,
+          is_default: row.isDefault === true,
           status: row.status ?? 'active',
         },
       });

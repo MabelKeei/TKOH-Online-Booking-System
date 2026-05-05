@@ -7,6 +7,7 @@
  * - 账号待审批：departmentId → 部门 id（与 department 名称对应）
  * - 车牌：employeeId → 员工 id（与 corpId 对应同一人）
  * - 展示配置 venueRules：venueId、displayType、mergeGroup、displayName（大屏行名，如 CR1）、arrowDirection（8方向）
+ *   - 特殊规则：EV 可使用 venueId=null，前端据此判断为固定行（不可修改）
  * - 员工 ↔ 角色 / 部门：当前仅用字符串 role、department，若需 roleId、departmentId 可在员工记录上扩展
  */
 
@@ -60,31 +61,31 @@ export function getMockEmployeeListRaw () {
   if (_employeeListRaw) return cloneMockList(_employeeListRaw)
 
   const baseList = [
-    { id: 1, corpId: 'E001', name: 'John Doe', department: 'IT', position: 'Manager', email: 'john@tkoh.com', contact: '91000000', annualQuota: 50, usedQuota: 12, status: 'active' },
-    { id: 2, corpId: 'E002', name: 'Jane Smith', department: 'HR', position: 'Staff', email: 'jane@tkoh.com', contact: '91000001', annualQuota: 30, usedQuota: 5, status: 'active' },
-    { id: 3, corpId: 'E003', name: 'Michael Tan', department: 'Finance', position: 'Senior Staff', email: 'michael.tan@tkoh.com', contact: '91000002', annualQuota: 40, usedQuota: 9, status: 'active' },
-    { id: 4, corpId: 'E004', name: 'Emily Wong', department: 'Operations', position: 'Staff', email: 'emily.wong@tkoh.com', contact: '91000003', annualQuota: 30, usedQuota: 3, status: 'active' },
-    { id: 5, corpId: 'E005', name: 'Daniel Lee', department: 'IT', position: 'Engineer', email: 'daniel.lee@tkoh.com', contact: '91000004', annualQuota: 35, usedQuota: 14, status: 'active' },
-    { id: 6, corpId: 'E006', name: 'Olivia Chan', department: 'Admin', position: 'Assistant', email: 'olivia.chan@tkoh.com', contact: '91000005', annualQuota: 25, usedQuota: 2, status: 'active' },
-    { id: 7, corpId: 'E007', name: 'Ryan Lim', department: 'Logistics', position: 'Coordinator', email: 'ryan.lim@tkoh.com', contact: '91000006', annualQuota: 30, usedQuota: 7, status: 'active' },
-    { id: 8, corpId: 'E008', name: 'Sophia Ng', department: 'HR', position: 'Executive', email: 'sophia.ng@tkoh.com', contact: '91000007', annualQuota: 30, usedQuota: 11, status: 'active' },
-    { id: 9, corpId: 'E009', name: 'Kevin Ho', department: 'Sales', position: 'Staff', email: 'kevin.ho@tkoh.com', contact: '91000008', annualQuota: 30, usedQuota: 6, status: 'active' },
-    { id: 10, corpId: 'E010', name: 'Grace Low', department: 'Marketing', position: 'Executive', email: 'grace.low@tkoh.com', contact: '91000009', annualQuota: 35, usedQuota: 15, status: 'active' },
-    { id: 11, corpId: 'E011', name: 'Jason Chua', department: 'IT', position: 'Analyst', email: 'jason.chua@tkoh.com', contact: '91000010', annualQuota: 35, usedQuota: 8, status: 'active' },
-    { id: 12, corpId: 'E012', name: 'Alicia Koh', department: 'Legal', position: 'Officer', email: 'alicia.koh@tkoh.com', contact: '91000011', annualQuota: 25, usedQuota: 4, status: 'active' },
-    { id: 13, corpId: 'E013', name: 'Marcus Teo', department: 'Operations', position: 'Supervisor', email: 'marcus.teo@tkoh.com', contact: '91000012', annualQuota: 40, usedQuota: 18, status: 'active' },
-    { id: 14, corpId: 'E014', name: 'Hannah Goh', department: 'Finance', position: 'Staff', email: 'hannah.goh@tkoh.com', contact: '91000013', annualQuota: 30, usedQuota: 10, status: 'active' },
-    { id: 15, corpId: 'E015', name: 'Brandon Yap', department: 'Procurement', position: 'Officer', email: 'brandon.yap@tkoh.com', contact: '91000014', annualQuota: 30, usedQuota: 5, status: 'active' },
-    { id: 16, corpId: 'E016', name: 'Natalie Sim', department: 'Admin', position: 'Manager', email: 'natalie.sim@tkoh.com', contact: '91000015', annualQuota: 45, usedQuota: 13, status: 'active' },
-    { id: 17, corpId: 'E017', name: 'Darren Ang', department: 'Security', position: 'Lead', email: 'darren.ang@tkoh.com', contact: '91000016', annualQuota: 25, usedQuota: 1, status: 'active' },
-    { id: 18, corpId: 'E018', name: 'Chloe Tan', department: 'Customer Service', position: 'Staff', email: 'chloe.tan@tkoh.com', contact: '91000017', annualQuota: 30, usedQuota: 12, status: 'active' },
-    { id: 19, corpId: 'E019', name: 'Samuel Neo', department: 'Warehouse', position: 'Coordinator', email: 'samuel.neo@tkoh.com', contact: '91000018', annualQuota: 30, usedQuota: 7, status: 'inactive' },
-    { id: 20, corpId: 'E020', name: 'Ivy Cheong', department: 'Marketing', position: 'Staff', email: 'ivy.cheong@tkoh.com', contact: '91000019', annualQuota: 30, usedQuota: 9, status: 'active' },
-    { id: 21, corpId: 'E021', name: 'Leonard Fong', department: 'Sales', position: 'Manager', email: 'leonard.fong@tkoh.com', contact: '91000020', annualQuota: 50, usedQuota: 20, status: 'active' },
-    { id: 22, corpId: 'E022', name: 'Vanessa Liew', department: 'IT', position: 'Support', email: 'vanessa.liew@tkoh.com', contact: '91000021', annualQuota: 30, usedQuota: 6, status: 'inactive' },
-    { id: 23, corpId: 'E023', name: 'Tommy Tan', department: 'EV', role: 'EV Booking', email: 'tommy.tan@tkoh.com', contact: '91000022', annualQuotaEV: 40, usedQuotaEV: 22, annualQuotaVenue: 20, usedQuotaVenue: 12, status: 'expired' },
-    { id: 24, corpId: 'E024', name: 'Lily Wong', department: 'Venue', role: 'Venue Booking', email: 'lily.wong@tkoh.com', contact: '91000023', annualQuotaEV: 25, usedQuotaEV: 15, annualQuotaVenue: 55, usedQuotaVenue: 28, status: 'expired' },
-    { id: 25, corpId: 'E025', name: 'Ethan Lim', department: 'Admin', role: 'Admin', email: 'ethan.lim@tkoh.com', contact: '91000024', annualQuotaEV: 60, usedQuotaEV: 40, annualQuotaVenue: 60, usedQuotaVenue: 35, status: 'expired' }
+    { id: 1, corpId: 'E001', name: 'John Doe', department: 'ADM', position: 'Admin', email: 'john@tkoh.com', contact: '91000000', annualQuotaEV: -1, usedQuotaEV: 12, annualQuotaVenue: -1, usedQuotaVenue: 3, status: 'active' },
+    { id: 2, corpId: 'E002', name: 'Jane Smith', department: 'CNS', position: 'User', email: 'jane@tkoh.com', contact: '91000001', annualQuota: 30, usedQuota: 5, status: 'active' },
+    { id: 3, corpId: 'E003', name: 'Michael Tan', department: 'D&T', position: 'User', email: 'michael.tan@tkoh.com', contact: '91000002', annualQuota: 40, usedQuota: 9, status: 'active' },
+    { id: 4, corpId: 'E004', name: 'Emily Wong', department: 'HCE', position: 'User', email: 'emily.wong@tkoh.com', contact: '91000003', annualQuota: 30, usedQuota: 3, status: 'active' },
+    { id: 5, corpId: 'E005', name: 'Daniel Lee', department: 'ADM', position: 'User', email: 'daniel.lee@tkoh.com', contact: '91000004', annualQuota: 35, usedQuota: 14, status: 'active' },
+    { id: 6, corpId: 'E006', name: 'Olivia Chan', department: 'ENT', position: 'User', email: 'olivia.chan@tkoh.com', contact: '91000005', annualQuota: 25, usedQuota: 2, status: 'active' },
+    { id: 7, corpId: 'E007', name: 'Ryan Lim', department: 'GO', position: 'User', email: 'ryan.lim@tkoh.com', contact: '91000006', annualQuota: 30, usedQuota: 7, status: 'active' },
+    { id: 8, corpId: 'E008', name: 'Sophia Ng', department: 'CNS', position: 'User', email: 'sophia.ng@tkoh.com', contact: '91000007', annualQuota: 30, usedQuota: 11, status: 'active' },
+    { id: 9, corpId: 'E009', name: 'Kevin Ho', department: 'PMMD', position: 'User', email: 'kevin.ho@tkoh.com', contact: '91000008', annualQuota: 30, usedQuota: 6, status: 'active' },
+    { id: 10, corpId: 'E010', name: 'Grace Low', department: 'SOPD', position: 'User', email: 'grace.low@tkoh.com', contact: '91000009', annualQuota: 35, usedQuota: 15, status: 'active' },
+    { id: 11, corpId: 'E011', name: 'Jason Chua', department: 'ADM', position: 'User', email: 'jason.chua@tkoh.com', contact: '91000010', annualQuota: 35, usedQuota: 8, status: 'active' },
+    { id: 12, corpId: 'E012', name: 'Alicia Koh', department: 'NSD', position: 'User', email: 'alicia.koh@tkoh.com', contact: '91000011', annualQuota: 25, usedQuota: 4, status: 'active' },
+    { id: 13, corpId: 'E013', name: 'Marcus Teo', department: 'HCE', position: 'User_EV', email: 'marcus.teo@tkoh.com', contact: '91000012', annualQuota: 40, usedQuota: 18, status: 'active' },
+    { id: 14, corpId: 'E014', name: 'Hannah Goh', department: 'D&T', position: 'User', email: 'hannah.goh@tkoh.com', contact: '91000013', annualQuota: 30, usedQuota: 10, status: 'active' },
+    { id: 15, corpId: 'E015', name: 'Brandon Yap', department: 'SS', position: 'User', email: 'brandon.yap@tkoh.com', contact: '91000014', annualQuota: 30, usedQuota: 5, status: 'active' },
+    { id: 16, corpId: 'E016', name: 'Natalie Sim', department: 'ENT', position: 'Admin', email: 'natalie.sim@tkoh.com', contact: '91000015', annualQuota: -1, usedQuota: 13, status: 'active' },
+    { id: 17, corpId: 'E017', name: 'Darren Ang', department: 'SOPD', position: 'User_Venue', email: 'darren.ang@tkoh.com', contact: '91000016', annualQuota: 25, usedQuota: 1, status: 'active' },
+    { id: 18, corpId: 'E018', name: 'Chloe Tan', department: 'SS', position: 'User', email: 'chloe.tan@tkoh.com', contact: '91000017', annualQuota: 30, usedQuota: 12, status: 'active' },
+    { id: 19, corpId: 'E019', name: 'Samuel Neo', department: 'SS', position: 'User_EV', email: 'samuel.neo@tkoh.com', contact: '91000018', annualQuota: 30, usedQuota: 7, status: 'inactive' },
+    { id: 20, corpId: 'E020', name: 'Ivy Cheong', department: 'SOPD', position: 'User', email: 'ivy.cheong@tkoh.com', contact: '91000019', annualQuota: 30, usedQuota: 9, status: 'active' },
+    { id: 21, corpId: 'E021', name: 'Leonard Fong', department: 'PMMD', position: 'Admin', email: 'leonard.fong@tkoh.com', contact: '91000020', annualQuota: -1, usedQuota: 20, status: 'active' },
+    { id: 22, corpId: 'E022', name: 'Vanessa Liew', department: 'ADM', position: 'Support', email: 'vanessa.liew@tkoh.com', contact: '91000021', annualQuota: 30, usedQuota: 6, status: 'inactive' },
+    { id: 23, corpId: 'E023', name: 'Tommy Tan', department: 'SS', role: 'EV Booking', email: 'tommy.tan@tkoh.com', contact: '91000022', annualQuotaEV: 40, usedQuotaEV: 22, annualQuotaVenue: 20, usedQuotaVenue: 12, status: 'expired' },
+    { id: 24, corpId: 'E024', name: 'Lily Wong', department: 'SS', role: 'Venue Booking', email: 'lily.wong@tkoh.com', contact: '91000023', annualQuotaEV: 25, usedQuotaEV: 15, annualQuotaVenue: 55, usedQuotaVenue: 28, status: 'expired' },
+    { id: 25, corpId: 'E025', name: 'Ethan Lim', department: 'ENT', role: 'Admin', email: 'ethan.lim@tkoh.com', contact: '91000024', annualQuotaEV: -1, usedQuotaEV: 40, annualQuotaVenue: -1, usedQuotaVenue: 35, status: 'expired' }
   ]
   _employeeListRaw = baseList.map((u, idx) => ({
     ...u,
@@ -114,7 +115,7 @@ export function getMockPendingListRaw () {
       id: 101,
       corpId: 'E003',
       name: 'Bob Wilson',
-      department: 'Finance',
+      department: 'D&T',
       /** 关联 getMockDepartmentList 的 id，便于按部门筛选/统计 */
       departmentId: 3,
       role: 'Staff',
@@ -175,11 +176,11 @@ export function getMockMeetingPendingList () {
       bookerEmployeeId: 1,
       bookerCorpId: 'E001',
       userName: 'John Doe',
-      department: 'IT',
+      department: 'ADM',
       meetingTitle: 'Reserved',
-      date: '2026-03-16',
+      date: '2026-05-05',
       time: '14:30-15:30',
-      teaService: { attendees: 8, beverages: 'Chinese tea, Water', serveAs: 'pot', quantity: 1, notes: 'Serve at 14:20' },
+      teaService: { attendees: 8, beverages: '不用茶', serveAs: 'pot', quantity: 1, notes: 'Serve at 14:20' },
       submittedAt: '2026-03-20 10:30'
     },
     {
@@ -190,11 +191,11 @@ export function getMockMeetingPendingList () {
       bookerEmployeeId: 2,
       bookerCorpId: 'E002',
       userName: 'Jane Smith',
-      department: 'HR',
+      department: 'CNS',
       meetingTitle: 'Team Building Planning',
-      date: '2026-03-26',
+      date: '2026-05-06',
       time: '09:30-10:30',
-      teaService: { attendees: 10, beverages: 'Coffee, Water', serveAs: 'perPersonCup', quantity: 10, notes: 'Paper cups needed' },
+      teaService: { attendees: 10, beverages: '茶 + 杯', serveAs: 'perPersonCup', quantity: 10},
       submittedAt: '2026-03-20 11:15'
     },
     {
@@ -205,12 +206,12 @@ export function getMockMeetingPendingList () {
       bookerEmployeeId: 2,
       bookerCorpId: 'E002',
       userName: 'Jane Smith',
-      department: 'HR',
+      department: 'CNS',
       meetingTitle: 'Reflooring Discussion',
-      date: '2026-03-16',
+      date: '2026-05-05',
       time: '10:30-12:30',
-      teaService: { attendees: 12, beverages: 'Milk tea, Water', serveAs: 'pot', quantity: 2 },
-      submittedAt: '2026-03-16 11:15'
+      teaService: { attendees: 12, beverages: '1壺茶+1壺水', serveAs: 'pot', quantity: 2 },
+      submittedAt: '2026-05-05 11:15'
     },
     {
       id: 4,
@@ -220,12 +221,12 @@ export function getMockMeetingPendingList () {
       bookerEmployeeId: 2,
       bookerCorpId: 'E002',
       userName: 'Jane Smith',
-      department: 'HR',
+      department: 'CNS',
       meetingTitle: 'Booking System Discussion with JW',
-      date: '2026-03-16',
+      date: '2026-05-05',
       time: '15:00-17:00',
-      teaService: { attendees: 6, beverages: 'Black coffee', serveAs: 'perPersonCup', quantity: 6, notes: 'No sugar' },
-      submittedAt: '2026-03-16 11:15'
+      teaService: { attendees: 6, beverages: '2壺茶', serveAs: 'perPersonCup', quantity: 6, notes: 'No sugar' },
+      submittedAt: '2026-05-05 11:15'
     },
     {
       id: 5,
@@ -235,12 +236,12 @@ export function getMockMeetingPendingList () {
       bookerEmployeeId: 2,
       bookerCorpId: 'E002',
       userName: 'Jane Smith',
-      department: 'HR',
+      department: 'CNS',
       meetingTitle: 'Labour Department OSH Inspection Meeting',
-      date: '2026-03-16',
+      date: '2026-05-05',
       time: '10:00-12:00',
-      teaService: { attendees: 18, beverages: 'Tea, Coffee, Water', serveAs: 'perPersonCup', quantity: 18 },
-      submittedAt: '2026-03-16 11:15'
+      teaService: { attendees: 18, beverages: '每位茶', serveAs: 'perPersonCup', quantity: 18 },
+      submittedAt: '2026-05-05 11:15'
     },
     {
       id: 6,
@@ -250,12 +251,27 @@ export function getMockMeetingPendingList () {
       bookerEmployeeId: 2,
       bookerCorpId: 'E002',
       userName: 'Jane Smith',
-      department: 'HR',
+      department: 'CNS',
       meetingTitle: 'Fall Prevention Internal Meeting',
-      date: '2026-03-16',
+      date: '2026-05-05',
       time: '09:30-13:00',
-      teaService: { attendees: 14, beverages: 'Lemon tea, Water', serveAs: 'pot', quantity: 2, notes: 'Refill at 11:00' },
-      submittedAt: '2026-03-16 11:15'
+      teaService: { attendees: 14, beverages: '每位茶', serveAs: 'pot', quantity: 2, notes: 'Refill at 11:00' },
+      submittedAt: '2026-05-05 11:15'
+    },
+    {
+      id: 6,
+      bookingId: 'BK20260320007',
+      venueId: 3,
+      venueName: 'Conference Room C',
+      bookerEmployeeId: 2,
+      bookerCorpId: 'E002',
+      userName: 'Jane Smith',
+      department: 'CNS',
+      meetingTitle: 'Fall Prevention Internal Meeting',
+      date: '2026-05-06',
+      time: '09:30-13:00',
+      teaService: { attendees: 14, beverages: '每位茶', serveAs: 'pot', quantity: 2, notes: 'Refill at 11:00' },
+      submittedAt: '2026-05-06 11:15'
     }
   ]
   return cloneMockList(_meetingPendingList)
@@ -305,7 +321,7 @@ export function getMockMeetingApprovedList () {
       bookerEmployeeId: null,
       bookerCorpId: 'E099',
       userName: 'Bob Wilson',
-      department: 'Finance',
+      department: 'D&T',
       meetingTitle: 'Budget Review',
       date: '2026-03-24',
       time: '09:00-11:00',
@@ -327,7 +343,7 @@ export function getMockMeetingRejectedList () {
       bookerEmployeeId: null,
       bookerCorpId: 'E088',
       userName: 'Alice Brown',
-      department: 'Marketing',
+      department: 'SOPD',
       meetingTitle: 'Casual Discussion',
       date: '2026-03-23',
       time: '15:00-17:00',
@@ -342,10 +358,10 @@ export function getMockMeetingRejectedList () {
 export function getMockAccessRoleList () {
   if (_accessRoleList) return cloneMockList(_accessRoleList)
   _accessRoleList = [
-    { id: 1, roleName: 'Manager', description: 'Department managers', AnnualVenueQuota: 50, AnnualEvQuota: 100, employeeCount: 15 },
-    { id: 2, roleName: 'Staff', description: 'Regular staff members', AnnualVenueQuota: 30, AnnualEvQuota: 60, employeeCount: 120 },
-    { id: 3, roleName: 'Senior Staff', description: 'Senior level staff', AnnualVenueQuota: 40, AnnualEvQuota: 80, employeeCount: 35 },
-    { id: 4, roleName: 'Executive', description: 'Executive level', AnnualVenueQuota: 100, AnnualEvQuota: 200, employeeCount: 8 }
+    { id: 1, roleName: 'Admin', description: 'Admin user who has FULL control withour restructions over the system', AnnualVenueQuota: -1, AnnualEvQuota: -1, employeeCount: 15 },
+    { id: 2, roleName: 'User', description: 'Regular user who can access EV and venue bookings', AnnualVenueQuota: 100, AnnualEvQuota: 60, employeeCount: 120 },
+    { id: 3, roleName: 'User_EV', description: 'Regular user who can access EV booking ONLY', AnnualVenueQuota: 0, AnnualEvQuota: 60, employeeCount: 35 },
+    { id: 4, roleName: 'User_Veue', description: 'Regular user who can access venue booking ONLY', AnnualVenueQuota: 100, AnnualEvQuota: 0, employeeCount: 8 }
   ]
   return cloneMockList(_accessRoleList)
 }
@@ -353,19 +369,31 @@ export function getMockAccessRoleList () {
 export function getMockDepartmentList () {
   if (_departmentList) return cloneMockList(_departmentList)
   _departmentList = [
-    { id: 1, departmentName: 'IT', description: 'Information Technology Department', employeeCount: 25 },
-    { id: 2, departmentName: 'HR', description: 'Human Resources Department', employeeCount: 12 },
-    { id: 3, departmentName: 'Finance', description: 'Finance and Accounting Department', employeeCount: 18 },
-    { id: 4, departmentName: 'Marketing', description: 'Marketing and Sales Department', employeeCount: 20 },
-    { id: 5, departmentName: 'Operations', description: 'Operations Management Department', employeeCount: 30 },
-    { id: 6, departmentName: 'Sales', description: 'Sales Department', employeeCount: 15 },
-    { id: 7, departmentName: 'Admin', description: 'Administration Department', employeeCount: 10 },
-    { id: 8, departmentName: 'Legal', description: 'Legal Department', employeeCount: 5 },
-    { id: 9, departmentName: 'Logistics', description: 'Logistics Department', employeeCount: 12 },
-    { id: 10, departmentName: 'Procurement', description: 'Procurement Department', employeeCount: 8 },
-    { id: 11, departmentName: 'Security', description: 'Security Department', employeeCount: 6 },
-    { id: 12, departmentName: 'Customer Service', description: 'Customer Service Department', employeeCount: 14 },
-    { id: 13, departmentName: 'Warehouse', description: 'Warehouse Department', employeeCount: 10 }
+    { id: 1, departmentName: 'ADM', description: 'Administrative Services Division', employeeCount: 0 },
+    { id: 2, departmentName: 'CNS', description: 'Community Nursing Services', employeeCount: 0 },
+    { id: 3, departmentName: 'D&T', description: 'Domestic & Transportation', employeeCount: 0 },
+    { id: 4, departmentName: 'EMSD', description: 'Electrical & Mechanical Services Department', employeeCount: 0 },
+    { id: 5, departmentName: 'ENT', description: 'Department of Ear, Nose & Throat', employeeCount: 0 },
+    { id: 6, departmentName: 'FM', description: 'Facility Management', employeeCount: 0 },
+    { id: 7, departmentName: 'FM&PHC', description: 'Department of Family Medicine & Primary Health Care', employeeCount: 0 },
+    { id: 8, departmentName: 'GO', description: 'General Office', employeeCount: 0 },
+    { id: 9, departmentName: 'HCE', description: 'Hospital Chief Executive\'s Office', employeeCount: 0 },
+    { id: 10, departmentName: 'HIRD', description: 'Health Information & Records Department', employeeCount: 0 },
+    { id: 11, departmentName: 'HRC', description: 'Health Resources Centre', employeeCount: 0 },
+    { id: 12, departmentName: 'HRD', description: 'Human Resources Division', employeeCount: 0 },
+    { id: 13, departmentName: 'ICT', description: 'Infection Control Team', employeeCount: 0 },
+    { id: 14, departmentName: 'ITD', description: 'Information Technology Department', employeeCount: 0 },
+    { id: 15, departmentName: 'MED', description: 'Department of Medicine', employeeCount: 0 },
+    { id: 16, departmentName: 'NSD', description: 'Nursing Services Division', employeeCount: 0 },
+    { id: 17, departmentName: 'OPH', description: 'Department of Ophthalmology', employeeCount: 0 },
+    { id: 18, departmentName: 'OSH', description: 'Occupational Safety and Health Team', employeeCount: 0 },
+    { id: 19, departmentName: 'P&CR', description: 'Patient & Community Relations Department', employeeCount: 0 },
+    { id: 20, departmentName: 'Path', description: 'Department of Pathology', employeeCount: 0 },
+    { id: 21, departmentName: 'Pharm', description: 'Pharmacy', employeeCount: 0 },
+    { id: 22, departmentName: 'PMMD', description: 'Procurement & Materials Management Department', employeeCount: 0 },
+    { id: 23, departmentName: 'Q&S', description: 'Quality & Safety Office', employeeCount: 0 },
+    { id: 24, departmentName: 'SOPD', description: 'Specialist Out-patient Department', employeeCount: 0 },
+    { id: 25, departmentName: 'SS', description: 'Supporting Services', employeeCount: 0 }
   ]
   return cloneMockList(_departmentList)
 }
@@ -373,9 +401,9 @@ export function getMockDepartmentList () {
 export function getMockEVParkingList () {
   if (_parkingList) return cloneMockList(_parkingList)
   _parkingList = [
-    { id: 1, slotNumber: 'A-01', location: 'Ground Floor', space: 'A', quantity: 2, type: 'EV', status: 'active' },
-    { id: 2, slotNumber: 'B-01', location: 'Level 1', space: 'B', quantity: 3, type: 'EV', status: 'active' },
-    { id: 3, slotNumber: 'C-01', location: 'Level 2', space: 'C', quantity: 2, type: 'EV', status: 'active' }
+    { id: 1, evSpace: 'A-01', location: 'Ground Floor', status: 'active' },
+    { id: 2, evSpace: 'B-01', location: 'Level 1', status: 'active' },
+    { id: 3, evSpace: 'C-01', location: 'Level 2', status: 'active' }
   ]
   return cloneMockList(_parkingList)
 }
@@ -516,39 +544,39 @@ export function getMockPromptList () {
     },
     {
       id: 8,
-      key: 'account_application_reject_template',
-      name: 'Account Application Reject Template',
-      content: 'Your account application is rejected. Reason: {reason}',
+      key: 'user_application_reject_template',
+      name: 'User Application Reject Template',
+      content: 'Your user application is rejected. Reason: {reason}',
       category: 'reject_template',
       canAdd: true,
-      templateType: 'account_application'
+      templateType: 'user_application'
     },
     {
       id: 12,
-      key: 'account_application_reject_template',
+      key: 'user_application_reject_template',
       name: 'Invalid Contact Phone Number',
-      content: 'Your account application is rejected because the contact telephone number is invalid. Please provide a valid and reachable phone number.',
+      content: 'Your user application is rejected because the contact telephone number is invalid. Please provide a valid and reachable phone number.',
       category: 'reject_template',
       canAdd: true,
-      templateType: 'account_application'
+      templateType: 'user_application'
     },
     {
       id: 13,
-      key: 'account_application_reject_template',
+      key: 'user_application_reject_template',
       name: 'Email Format Invalid',
-      content: 'Your account application is rejected due to invalid email format. Please provide a valid corporate email address.',
+      content: 'Your user application is rejected due to invalid email format. Please provide a valid corporate email address.',
       category: 'reject_template',
       canAdd: true,
-      templateType: 'account_application'
+      templateType: 'user_application'
     },
     {
       id: 14,
-      key: 'account_application_reject_template',
+      key: 'user_application_reject_template',
       name: 'Department Information Missing',
-      content: 'Your account application is rejected because department information is missing or incorrect. Please update and submit again.',
+      content: 'Your user application is rejected because department information is missing or incorrect. Please update and submit again.',
       category: 'reject_template',
       canAdd: true,
-      templateType: 'account_application'
+      templateType: 'user_application'
     },
     {
       id: 15,
@@ -611,10 +639,10 @@ export function getMockLicensePlateList () {
   if (_licensePlateList) return cloneMockList(_licensePlateList)
 
   _licensePlateList = [
-    { id: 1, employeeId: 1, corpId: 'E001', owner: 'John Doe', brand: 'Toyota', type: 'personal', plateNumber: 'SJA1234A', status: 'active' },
-    { id: 2, employeeId: 2, corpId: 'E002', owner: 'Jane Smith', brand: 'Tesla', type: 'company', plateNumber: 'SJB5678B', status: 'active' },
-    { id: 3, employeeId: 6, corpId: 'E006', owner: 'Olivia Chan', brand: 'Honda', type: 'personal', plateNumber: 'SKO9012C', status: 'inactive' },
-    { id: 4, employeeId: 20, corpId: 'E020', owner: 'Ivy Cheong', brand: 'BYD', type: 'company', plateNumber: 'SKP3456D', status: 'active' }
+    { id: 1, employeeId: 1, corpId: 'E001', owner: 'John Doe', plateNumber: 'SJA1234A', status: 'active' },
+    { id: 2, employeeId: 2, corpId: 'E002', owner: 'Jane Smith', plateNumber: 'SJB5678B', status: 'active' },
+    { id: 3, employeeId: 6, corpId: 'E006', owner: 'Olivia Chan', plateNumber: 'SKO9012C', status: 'inactive' },
+    { id: 4, employeeId: 20, corpId: 'E020', owner: 'Ivy Cheong', plateNumber: 'SKP3456D', status: 'active' }
   ]
 
   return cloneMockList(_licensePlateList)
@@ -649,7 +677,15 @@ export function getMockEVManageBookingList () {
     { id: 15, licensePlate: 'GH3456', space: 'B3', date: '20 Feb 2026', time: 'AM (08:30 - 13:00)', bookedOn: '13 Feb 2026', status: 'cancelled', reason: 'Changed to another vehicle' },
     { id: 16, licensePlate: 'AB1234', space: 'B1', date: '30 Mar 2026', time: 'PM (13:45 - 18:15)', bookedOn: '23 Mar 2026', status: 'upcoming' },
     { id: 17, licensePlate: 'YZ4567', space: 'B3', date: '2 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '25 Mar 2026', status: 'upcoming' },
-    { id: 18, licensePlate: 'HK7890', space: 'B2', date: '5 Apr 2026', time: 'Night (19:00 - 23:30)', bookedOn: '28 Mar 2026', status: 'upcoming' }
+    { id: 18, licensePlate: 'HK7891', space: 'B2', date: '5 Apr 2026', time: 'Night (19:00 - 23:30)', bookedOn: '28 Mar 2026', status: 'upcoming' },
+    { id: 19, licensePlate: 'HK7890', space: 'B1', date: '5 Apr 2026', time: 'Night (19:00 - 23:30)', bookedOn: '28 Mar 2026', status: 'upcoming' },
+    { id: 20, licensePlate: 'HK7895', space: 'B3', date: '5 Apr 2026', time: 'Night (19:00 - 23:30)', bookedOn: '28 Mar 2026', status: 'upcoming' },
+    { id: 21, licensePlate: 'HK7892', space: 'B1', date: '5 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '28 Mar 2026', status: 'upcoming' },
+    { id: 22, licensePlate: 'HK7893', space: 'B2', date: '5 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '28 Mar 2026', status: 'upcoming' },
+    { id: 23, licensePlate: 'HK7894', space: 'B3', date: '5 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '28 Mar 2026', status: 'upcoming' },
+    { id: 24, licensePlate: 'HK7895', space: 'B1', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
+    { id: 25, licensePlate: 'HK7896', space: 'B2', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
+    { id: 26, licensePlate: 'HK7897', space: 'B3', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' }
   ]
   return cloneMockList(_evManageBookingList)
 }
@@ -829,6 +865,9 @@ function ensureDisplayConfig () {
   _displayConfig = {
     venueDisplayMode: 'mixed',
     evDisplayMode: 'single',
+    evDisplaySettings: {
+      footerTickerText: '請依照已預約之時段及車位泊車，並於離場前移走車輛。'
+    },
     venueRules: [
       { venueId: 1, displayType: 'merge', mergeGroup: 'Group A', displayName: 'CR1', arrowDirection: 'up-left' },
       { venueId: 2, displayType: 'merge', mergeGroup: 'Group A', displayName: 'CR2', arrowDirection: 'right' },
@@ -836,11 +875,12 @@ function ensureDisplayConfig () {
       { venueId: 4, displayType: 'single', mergeGroup: '', displayName: '', arrowDirection: '' },
       { venueId: 5, displayType: 'single', mergeGroup: 'Group B', displayName: '', arrowDirection: '' },
       { venueId: 6, displayType: 'single', mergeGroup: 'Group B', displayName: '', arrowDirection: '' },
-      { venueId: 7, displayType: 'single', mergeGroup: '', displayName: '', arrowDirection: '' }
+      { venueId: 7, displayType: 'single', mergeGroup: '', displayName: '', arrowDirection: '' },
+      { venueId: null, displayType: 'single', mergeGroup: '', displayName: 'EV', arrowDirection: '' }
     ],
     mergeDisplaySettings: {
       panelTitleText: 'Conference Room | 8/F Ambulatory Care Block\n會議室 | 日間醫療大樓8樓',
-        footerTickerText: 'XXXXX，請在會議期間佩戴外科口罩並儘快就醫。For enquiries regarding Conference Rooms, please contact General Office.',
+        footerTickerText: '如對會議室有任何疑問，請向總務部查詢 (電話：2208 1812)。若感覺身體不適，特別是發燒或咳嗽，請在會議期間佩戴外科口罩並儘快就醫。For enquiries regarding Conference Rooms, please contact General Office (Tel: 2208 1812). If feeling unwell, especially if experiencing a fever or cough, wear a surgical mask during the meeting and seek medical advice as soon as possible.',
         qrCodeImage: ''
     },
     updatedBy: 'System Admin',
@@ -855,6 +895,9 @@ export function getMockDisplayConfig () {
     footerTickerText: '',
     qrCodeImage: ''
   }
+  const evDisplaySettings = _displayConfig.evDisplaySettings || {
+    footerTickerText: ''
+  }
   const fallbackTicker = [mergeDisplaySettings.footerLine1, mergeDisplaySettings.footerLine2]
     .filter(Boolean)
     .join('  |  ')
@@ -865,13 +908,17 @@ export function getMockDisplayConfig () {
     ..._displayConfig,
     venueRules: _displayConfig.venueRules.map(item => ({
       ...item,
+      venueId: item.venueId ?? null,
       displayName: item.displayName ?? '',
-      arrowDirection: item.arrowDirection ?? 'right'
+      arrowDirection: item.arrowDirection ?? ''
     })),
     mergeDisplaySettings: {
       panelTitleText: mergeDisplaySettings.panelTitleText || legacyPanelTitle || '',
       footerTickerText: mergeDisplaySettings.footerTickerText || fallbackTicker || '',
       qrCodeImage: mergeDisplaySettings.qrCodeImage || ''
+    },
+    evDisplaySettings: {
+      footerTickerText: evDisplaySettings.footerTickerText || ''
     }
   }
 }
@@ -881,11 +928,15 @@ export function saveMockDisplayConfig (nextConfig, updatedBy = 'Admin') {
   _displayConfig = {
     venueDisplayMode: nextConfig.venueDisplayMode,
     evDisplayMode: nextConfig.evDisplayMode,
+    evDisplaySettings: {
+      footerTickerText: nextConfig.evDisplaySettings?.footerTickerText || ''
+    },
     venueRules: Array.isArray(nextConfig.venueRules)
       ? nextConfig.venueRules.map(item => ({
         ...item,
+        venueId: item.venueId ?? null,
         displayName: item.displayName ?? '',
-        arrowDirection: item.arrowDirection ?? 'right'
+        arrowDirection: item.arrowDirection ?? ''
       }))
       : [],
     mergeDisplaySettings: {

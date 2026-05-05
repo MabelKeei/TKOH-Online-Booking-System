@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2 class="page-title">Display Management</h2>
-      <div class="header-actions">
+      <div v-if="showSaveConfigButton" class="header-actions">
         <el-button type="default" class="submit-btn" @click="handleSaveConfig">Save Configuration</el-button>
       </div>
     </div>
@@ -20,12 +20,14 @@
                     <div class="display-type-buttons">
                       <button
                         :class="['type-btn', 'type-btn-single', { active: row.displayType === 'single' }]"
+                        :disabled="row.venueId == null"
                         @click="row.displayType = 'single'"
                       >
                         Single
                       </button>
                       <button
                         :class="['type-btn', 'type-btn-merge', { active: row.displayType === 'merge' }]"
+                        :disabled="row.venueId == null"
                         @click="row.displayType = 'merge'"
                       >
                         Merge
@@ -38,12 +40,13 @@
                     <el-input
                       v-model="row.displayName"
                       placeholder="e.g. CR1"
+                      :disabled="row.venueId == null"
                     />
                   </template>
                 </el-table-column>
                 <el-table-column label="Arrow Direction" min-width="170">
                   <template #default="{ row }">
-                    <el-select v-model="row.arrowDirection" placeholder="Direction" style="width: 100%">
+                    <el-select v-model="row.arrowDirection" placeholder="Direction" style="width: 100%" :disabled="row.venueId == null">
                       <el-option
                         v-for="option in arrowDirectionOptions"
                         :key="option.value"
@@ -111,10 +114,9 @@
 
             <el-tab-pane label="Merge" name="merge">
               <div class="table-card">
-                <div class="card-title">Venue Merge Display</div>
+                <div class="card-title">Venue Merge Screen Preview Link</div>
                 <div class="link-list">
                   <div v-for="item in mergedPreviewLinks" :key="item.key" class="link-row merge-link-row">
-                    <span class="link-label">{{ item.title }}</span>
                     <span class="link-detail">{{ item.detail }}</span>
                     <a :href="item.url" target="_blank" rel="noopener noreferrer" class="link-url">{{ item.url }}</a>
                   </div>
@@ -189,17 +191,49 @@
                 </div>
               </div>
             </el-tab-pane>
+
+            <el-tab-pane label="EV" name="ev">
+              <div class="table-card">
+                <div class="card-title">EV Display Board Preview Link</div>
+                <div class="link-list">
+                  <div class="link-row">
+                    <a :href="evPreviewLink.url" target="_blank" rel="noopener noreferrer" class="link-url">{{ evPreviewLink.url }}</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="table-card">
+                <div class="card-title">EV Display Customization</div>
+                <el-form label-width="150px">
+                  <el-form-item label="Footer Ticker Text">
+                    <el-input
+                      v-model.trim="form.evDisplaySettings.footerTickerText"
+                      type="textarea"
+                      :rows="3"
+                      placeholder="e.g. 請依照已預約之時段及車位泊車，並於離場前移走車輛。"
+                    />
+                  </el-form-item>
+                </el-form>
+              </div>
+            </el-tab-pane>
           </el-tabs>
 
         </el-tab-pane>
       </el-tabs>
     </div>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+      <p class="notice-message">{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import { getMockVenueList, getMockDisplayConfig, saveMockDisplayConfig } from '@/mocks/mockData'
 
 const activeTab = ref('rules')
@@ -222,9 +256,25 @@ const arrowDirectionOptions = [
 
 const venueList = getMockVenueList()
 const config = ref(getMockDisplayConfig())
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
+
+const showSaveConfigButton = computed(() => {
+  return activeTab.value === 'rules' || (activeTab.value === 'preview' && ['merge', 'ev'].includes(previewSubTab.value))
+})
 
 const form = ref({
   evDisplayMode: config.value.evDisplayMode,
+  evDisplaySettings: {
+    footerTickerText: config.value.evDisplaySettings?.footerTickerText || ''
+  },
   mergeDisplaySettings: {
     panelTitleText: config.value.mergeDisplaySettings?.panelTitleText || '',
     footerTickerText: config.value.mergeDisplaySettings?.footerTickerText || '',
@@ -238,14 +288,36 @@ const form = ref({
       displayType: matched?.displayType || 'single',
       mergeGroup: matched?.mergeGroup ?? '',
       displayName: matched?.displayName ?? '',
-      arrowDirection: matched?.arrowDirection ?? 'right'
+      arrowDirection: matched?.arrowDirection ?? ''
     }
-  })
+  }).concat(
+    (() => {
+      const extraRules = config.value.venueRules
+        .filter(item => item.venueId == null)
+        .map(item => ({
+          venueId: null,
+          venueName: 'EV',
+          displayType: item.displayType || 'single',
+          mergeGroup: item.mergeGroup ?? '',
+          displayName: item.displayName || 'EV',
+          arrowDirection: item.arrowDirection ?? ''
+        }))
+      if (extraRules.length > 0) return extraRules
+      return [{
+        venueId: null,
+        venueName: 'EV',
+        displayType: 'single',
+        mergeGroup: '',
+        displayName: 'EV',
+        arrowDirection: ''
+      }]
+    })()
+  )
 })
 
 const independentPreviewLinks = computed(() =>
   form.value.venueRules
-    .filter(item => item.displayType === 'single')
+    .filter(item => item.displayType === 'single' && item.venueId != null)
     .map(item => ({
       key: `single-${item.venueId}`,
       label: item.venueName,
@@ -262,7 +334,6 @@ const mergedPreviewLinks = computed(() => {
 
   return [{
     key: 'merge-all',
-    title: 'Merge Display Preview',
     detail: `(${mergedVenues.length} venues): ${mergedVenues.join(', ')}`,
     url: `${baseUrl}/VenueBooking/Display/Merge`
   }]
@@ -296,6 +367,9 @@ watch([rulesTotal, rulesPageSize], () => {
 const teaServicePreviewLink = computed(() => ({
   url: `${baseUrl}/VenueBooking/Display/TeaService`
 }))
+const evPreviewLink = computed(() => ({
+  url: `${baseUrl}/evBooking/Display`
+}))
 
 const mergePreviewQrImage = computed(() => {
   const raw = form.value.mergeDisplaySettings.qrCodeImage
@@ -303,8 +377,9 @@ const mergePreviewQrImage = computed(() => {
 })
 
 const handleSaveConfig = () => {
-  const hasSingle = form.value.venueRules.some(item => item.displayType === 'single')
-  const hasMerge = form.value.venueRules.some(item => item.displayType === 'merge')
+  const editableVenueRules = form.value.venueRules.filter(item => item.venueId != null)
+  const hasSingle = editableVenueRules.some(item => item.displayType === 'single')
+  const hasMerge = editableVenueRules.some(item => item.displayType === 'merge')
   const venueDisplayMode = hasSingle && hasMerge ? 'mixed' : hasMerge ? 'merge' : 'single'
 
   config.value = saveMockDisplayConfig({
@@ -315,23 +390,26 @@ const handleSaveConfig = () => {
       footerTickerText: form.value.mergeDisplaySettings.footerTickerText,
       qrCodeImage: form.value.mergeDisplaySettings.qrCodeImage
     },
+    evDisplaySettings: {
+      footerTickerText: form.value.evDisplaySettings.footerTickerText
+    },
     venueRules: form.value.venueRules.map(item => ({
       venueId: item.venueId,
       displayType: item.displayType,
       mergeGroup: item.mergeGroup ?? '',
-      displayName: (item.displayName ?? '').trim(),
-      arrowDirection: item.arrowDirection ?? 'right'
+      displayName: (item.displayName ?? (item.venueId == null ? 'EV' : '')).trim(),
+      arrowDirection: item.arrowDirection ?? ''
     }))
   }, 'Display Admin')
 
-  ElMessage.success('Display configuration saved')
+  showNotice('Display configuration saved', 'Success')
 }
 
 const handleQrImageChange = (uploadFile) => {
   const rawFile = uploadFile?.raw
   if (!rawFile) return
   if (!rawFile.type.startsWith('image/')) {
-    ElMessage.warning('Please upload an image file')
+    showNotice('Please upload an image file', 'Warning')
     return
   }
   const reader = new FileReader()
@@ -800,6 +878,13 @@ const handleClearQrImage = () => {
   border-color: #2563eb;
   background: #dbeafe;
   color: #2563eb;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
 }
 
 @keyframes fadeInUp {

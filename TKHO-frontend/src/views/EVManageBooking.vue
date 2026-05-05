@@ -361,12 +361,18 @@
         </el-button>
       </template>
     </BookingStyleModal>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+      <p class="notice-message">{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="action-confirm" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 import { getMockEVManageBookingList } from '@/mocks/mockData'
@@ -393,6 +399,14 @@ const columnFilterState = ref({
 })
 const showCancelDialog = ref(false)
 const cancelBookingId = ref(null)
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
 const currentView = ref('card')
 const dateRange = ref(null)
 
@@ -810,7 +824,7 @@ const confirmCancel = () => {
   }
   showCancelDialog.value = false
   cancelBookingId.value = null
-  ElMessage.success('EV booking cancelled successfully!')
+  showNotice('EV booking cancelled successfully!', 'Success')
 }
 
 </script>
@@ -820,6 +834,13 @@ const confirmCancel = () => {
   margin: 0;
   font-size: 15px;
   line-height: 1.55;
+  color: #374151;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
   color: #374151;
 }
 

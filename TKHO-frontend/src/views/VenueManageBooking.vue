@@ -559,14 +559,14 @@
     <BookingStyleModal
       v-model="showHandleDialog"
       title="Handle Booking"
-      max-width="620px"
+      max-width="760px"
       :max-height="handleBookingModalMaxHeight"
     >
-      <el-form :model="handleForm" label-width="130px">
+      <el-form :model="handleForm" label-width="170px" class="handle-booking-form">
         <el-form-item label="Room">
           <el-input v-model="handleForm.room" disabled />
         </el-form-item>
-        <el-form-item label="Topic / Event Name">
+        <el-form-item label="Topic / Event Name" class="no-wrap-label">
           <el-input v-model="handleForm.topic" type="textarea" :rows="2" />
         </el-form-item>
         <el-form-item label="Booking Date">
@@ -618,12 +618,18 @@
         <el-button type="default" class="action-btn action-approve" @click="confirmHandleApprove">Approve</el-button>
       </template>
     </BookingStyleModal>
+
+    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+      <p class="notice-message">{{ noticeMessage }}</p>
+      <template #footer>
+        <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
+      </template>
+    </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 import AppHeader from '../components/AppHeader.vue'
@@ -667,6 +673,14 @@ const dateRange = ref(null)
 const employeeList = ref([])
 const showHandleDialog = ref(false)
 const currentHandleBookingId = ref(null)
+const showNoticeDialog = ref(false)
+const noticeTitle = ref('Notice')
+const noticeMessage = ref('')
+const showNotice = (message, title = 'Notice') => {
+  noticeTitle.value = title
+  noticeMessage.value = message
+  showNoticeDialog.value = true
+}
 const handleForm = ref({
   room: '',
   topic: '',
@@ -1301,7 +1315,7 @@ const confirmCancel = () => {
   }
 
   showCancelDialog.value = false
-  ElMessage.success('Venue booking cancelled successfully!')
+  showNotice('Venue booking cancelled successfully!', 'Success')
 }
 
 const editBooking = (id) => {
@@ -1334,19 +1348,19 @@ const confirmEditBooking = () => {
   const id = currentEditBookingId.value
   if (id == null) return
   if (!editForm.value.topic.trim()) {
-    ElMessage.warning('Please enter Meeting / Event')
+    showNotice('Please enter Meeting / Event', 'Warning')
     return
   }
   if (!editForm.value.date) {
-    ElMessage.warning('Please select Booking Date')
+    showNotice('Please select Booking Date', 'Warning')
     return
   }
   if (!editForm.value.startTime || !editForm.value.endTime) {
-    ElMessage.warning('Please select Start Time and End Time')
+    showNotice('Please select Start Time and End Time', 'Warning')
     return
   }
   if (editForm.value.startTime >= editForm.value.endTime) {
-    ElMessage.warning('End Time must be later than Start Time')
+    showNotice('End Time must be later than Start Time', 'Warning')
     return
   }
   if (
@@ -1357,7 +1371,7 @@ const confirmEditBooking = () => {
       editForm.value.serviceType !== editTeaSelectionSnapshot.value.serviceType
     )
   ) {
-    ElMessage.warning('Near-date bookings cannot change Tea/Water options. You can only cancel Tea Service.')
+    showNotice('Near-date bookings cannot change Tea/Water options. You can only cancel Tea Service.', 'Warning')
     return
   }
   const booking = bookings.value.find(b => b.id === id)
@@ -1383,7 +1397,7 @@ const confirmEditBooking = () => {
   currentEditBookingId.value = null
   currentEditBookingApprovalStatus.value = ''
   editTeaSelectionSnapshot.value = { teaOrWater: 'tea', serviceType: 'pot' }
-  ElMessage.success('Booking updated successfully')
+  showNotice('Booking updated successfully', 'Success')
 }
 
 function openHandleBooking (booking) {
@@ -1428,12 +1442,12 @@ function confirmHandleApprove () {
   }
   showHandleDialog.value = false
   currentHandleBookingId.value = null
-  ElMessage.success('Booking approved successfully')
+  showNotice('Booking approved successfully', 'Success')
 }
 
 function confirmHandleReject () {
   if (!handleForm.value.reason.trim()) {
-    ElMessage.warning('Please provide a reason for rejection')
+    showNotice('Please provide a reason for rejection', 'Warning')
     return
   }
   const id = currentHandleBookingId.value
@@ -1450,7 +1464,7 @@ function confirmHandleReject () {
   }
   showHandleDialog.value = false
   currentHandleBookingId.value = null
-  ElMessage.success('Booking rejected')
+  showNotice('Booking rejected', 'Success')
 }
 
 onMounted(() => {
@@ -2580,7 +2594,18 @@ onUnmounted(() => {
   max-width: 100%;
 }
 
+.handle-booking-form :deep(.no-wrap-label .el-form-item__label) {
+  white-space: nowrap;
+}
+
 .card-footer .btn-action.btn-edit {
   align-self: flex-end;
+}
+
+.notice-message {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
 }
 </style>

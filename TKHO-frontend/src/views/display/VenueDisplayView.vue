@@ -230,11 +230,11 @@ onUnmounted(() => {
   min-width: 50vw;
   min-height: 50vh;
   /* 稍微降低饱和度/亮度的橙色背景，接近原色但不荧光 */
-  background: linear-gradient(180deg, #f7b75a 0%, #f29b3a 100%);
+  background: rgb(255, 153, 0);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Arial Narrow', Arial, sans-serif;
   transform: scale(var(--display-scale, 2));
   transform-origin: top left;
   /* Prevent text selection */
@@ -255,9 +255,7 @@ onUnmounted(() => {
 }
 
 .display-header {
-  padding: 1rem 1.25rem;
-  background: rgba(196, 133, 55, 0.22);
-  border-bottom: 2px solid rgba(0, 0, 0, 0.15);
+  padding: 0.5rem 0.5rem;
   flex-shrink: 0;
   display: flex;
   align-items: flex-start;
@@ -285,8 +283,8 @@ onUnmounted(() => {
 }
 
 .date {
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.6rem;
+  font-weight: 700;
   letter-spacing: 0.5px;
 }
 
@@ -353,7 +351,7 @@ onUnmounted(() => {
 }
 
 .no-events-text-en {
-  font-size: 4rem;
+  font-size: 2rem;
   font-weight: 700;
   line-height: 0.8;
   letter-spacing: 2px;
@@ -362,7 +360,7 @@ onUnmounted(() => {
 }
 
 .no-events-text-zh {
-  font-size: 3rem;
+  font-size: 2rem;
   font-weight: 600;
   line-height: 0.8;
   letter-spacing: 4px;
@@ -370,10 +368,10 @@ onUnmounted(() => {
 }
 
 .display-footer {
-  padding: 0.9rem 1rem;
+  padding: 0.5rem 0.5rem;
   /* 比当前再浅一些、接近原始蓝但不荧光 */
-  background: rgba(90, 170, 220, 0.9);
-  border-top: 2px solid rgba(0, 0, 0, 0.15);
+  background: rgb(240, 240, 240);
+  /* border-top: 2px solid rgba(0, 0, 0, 0.15); */
   text-align: left;
   flex-shrink: 0;
 }
@@ -391,21 +389,21 @@ onUnmounted(() => {
 
 .venue-name,
 .venue-location {
-  font-size: 1.25rem;
+  font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: 0.5px;
 }
 
 .venue-name-zh,
 .venue-location-zh {
-  font-size: 1.1rem;
+  font-size: 1.6rem;
   font-weight: 600;
   letter-spacing: 0.5px;
 }
 
 .separator {
-  margin: 0 0.75rem;
-  font-size: 1.25rem;
+  margin: 0 0.5rem;
+  font-size: 1.5rem;
   font-weight: 700;
 }
 
@@ -457,16 +455,16 @@ onUnmounted(() => {
 
   .venue-name,
   .venue-location {
-    font-size: 1.25rem;
+    font-size: 1.6rem;
   }
 
   .venue-name-zh,
   .venue-location-zh {
-    font-size: 1.125rem;
+    font-size: 1.6rem;
   }
 
   .separator {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     margin: 0 0.5rem;
   }
 
@@ -478,11 +476,11 @@ onUnmounted(() => {
 /* Ensure content fits on very small screens */
 @media (max-height: 600px) {
   .display-header {
-    padding: 0.75rem 1rem;
+    padding: 0.5rem 0.5rem;
   }
 
   .display-footer {
-    padding: 0.7rem 0.8rem;
+    padding: 0.5rem 0.5rem;
   }
 
   .display-content {

@@ -25,7 +25,7 @@
       </el-tabs>
       <el-tabs v-if="activeTab === 'reject'" v-model="rejectSubTab" class="sub-tabs">
         <el-tab-pane label="Meeting Approval" name="meeting_approval" />
-        <el-tab-pane label="Account Application" name="account_application" />
+        <el-tab-pane label="User Application" name="user_application" />
       </el-tabs>
       <div class="table-card">
       <el-table :data="paginatedData" height="100%" border stripe table-layout="auto" style="width: 100%">
@@ -185,6 +185,7 @@
 import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import * as XLSX from 'xlsx'
 import { Editor as WangEditor, Toolbar as WangToolbar } from '@wangeditor/editor-for-vue'
+import { i18nChangeLanguage } from '@wangeditor/editor'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import { getMockPromptList } from '@/mocks/mockData'
 import '@/styles/rich-content.css'
@@ -193,7 +194,7 @@ import '@wangeditor/editor/dist/css/style.css'
 const promptList = ref(getMockPromptList())
 const rejectTemplateTypeOptions = [
   { value: 'meeting_approval', label: 'Meeting Approval Reject Template' },
-  { value: 'account_application', label: 'Account Application Reject Template' }
+  { value: 'user_application', label: 'User Application Reject Template' }
 ]
 const rejectTemplateDefaults = {
   meeting_approval: {
@@ -201,10 +202,10 @@ const rejectTemplateDefaults = {
     name: 'Meeting Approval Reject Template',
     content: 'Your meeting booking request is rejected. Reason: {reason}'
   },
-  account_application: {
-    key: 'account_application_reject_template',
-    name: 'Account Application Reject Template',
-    content: 'Your account application is rejected. Reason: {reason}'
+  user_application: {
+    key: 'user_application_reject_template',
+    name: 'User Application Reject Template',
+    content: 'Your user application is rejected. Reason: {reason}'
   }
 }
 const activeTab = ref('system')
@@ -212,7 +213,7 @@ const rejectSubTab = ref('meeting_approval')
 const searchState = ref({
   system: '',
   meeting_approval: '',
-  account_application: ''
+  user_application: ''
 })
 const activeTabLabel = computed(() => (activeTab.value === 'system' ? 'System Prompt' : 'Reject Template'))
 const currentSearchKey = computed(() => (activeTab.value === 'system' ? 'system' : rejectSubTab.value))
@@ -287,10 +288,10 @@ const toolbarConfig = {
     'bold',
     'italic',
     'underline',
+    // 'fontSize',
     '|',
     'color',
     'bgColor',
-    '|',
     'justifyLeft',
     'justifyCenter',
     'justifyRight',
@@ -303,7 +304,7 @@ const toolbarConfig = {
   ]
 }
 const editorConfig = {
-  placeholder: 'Prompt message content'
+  placeholder: 'Please enter content...'
 }
 const SYSTEM_PROMPT_MODAL_MQ = '(min-width: 1100px) and (max-width: 1599px)'
 const systemPromptEditModalMaxHeight = ref('94vh')
@@ -318,6 +319,7 @@ function updateSystemPromptEditModalMaxHeight () {
 }
 
 onMounted(() => {
+  i18nChangeLanguage('en')
   updateSystemPromptEditModalMaxHeight()
   systemPromptModalMq = window.matchMedia(SYSTEM_PROMPT_MODAL_MQ)
   systemPromptModalMq.addEventListener('change', updateSystemPromptEditModalMaxHeight)
@@ -363,7 +365,7 @@ const handleExport = () => {
 
 const handleAdd = () => {
   if (activeTab.value === 'system') return
-  const defaultType = rejectSubTab.value === 'account_application' ? 'account_application' : 'meeting_approval'
+  const defaultType = rejectSubTab.value === 'user_application' ? 'user_application' : 'meeting_approval'
   const defaultPreset = rejectTemplateDefaults[defaultType]
   formMode.value = 'add'
   formData.value = {

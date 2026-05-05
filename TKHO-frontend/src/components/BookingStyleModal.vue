@@ -291,4 +291,12 @@ onUnmounted(() => {
   top: 50%;
   transform: translateY(-50%);
 }
+
+/* License Plate owner selector:
+ * keep dropdown inside modal (teleported=false) but allow it to overflow body area.
+ * This is scoped by custom-class to avoid affecting other dialogs.
+ */
+.booking-style-modal-root.license-plate-edit-modal .modal-body {
+  overflow: visible;
+}
 </style>

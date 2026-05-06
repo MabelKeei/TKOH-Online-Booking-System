@@ -1,6 +1,7 @@
 <template>
   <div id="app">
     <router-view />
+    <GlobalStatusDialog />
     <FloatingHelpButton v-if="showFloatingHelpButton" />
   </div>
 </template>
@@ -10,6 +11,7 @@ import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from './stores/user'
 import FloatingHelpButton from './components/FloatingHelpButton.vue'
+import GlobalStatusDialog from './components/GlobalStatusDialog.vue'
 
 const userStore = useUserStore()
 const route = useRoute()

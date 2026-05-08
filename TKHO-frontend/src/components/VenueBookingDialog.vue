@@ -124,11 +124,12 @@
                 ></el-input>
               </el-form-item>
 
-              <el-form-item label="No. of participants" prop="attendeeCount" class="no-wrap-label">
+              <el-form-item label="No. of participants" prop="attendeeCount" class="no-wrap-label participants-item">
+                <p class="participants-hint">min: 1, max: {{ participantMax }}</p>
                 <el-input-number
                   v-model="form.attendeeCount"
                   :min="1"
-                  :max="200"
+                  :max="participantMax"
                   controls-position="right"
                   style="width: 100%"
                 />
@@ -143,23 +144,6 @@
               <p v-if="form.teaServiceRequired && isTeaServiceUnavailable" class="tea-service-note">
                 Tea service is unavailable for bookings on today or earlier. Please select a future date.
               </p>
-              <template v-if="form.teaServiceRequired && !isTeaServiceUnavailable">
-                <div class="tea-service-options">
-                  <el-form-item label="Tea or Water" prop="teaOrWater" class="tea-service-line no-wrap-label">
-                    <el-radio-group v-model="form.teaOrWater" class="tea-service-radios">
-                      <el-radio label="tea">Tea</el-radio>
-                      <el-radio label="water">Water</el-radio>
-                    </el-radio-group>
-                  </el-form-item>
-
-                  <el-form-item label=" " prop="serviceType" class="tea-service-line tea-service-followup no-wrap-label">
-                    <el-radio-group v-model="form.serviceType" class="tea-service-radios">
-                      <el-radio label="pot">One Pot</el-radio>
-                      <el-radio label="bottle">One Bottle Per Person</el-radio>
-                    </el-radio-group>
-                  </el-form-item>
-                </div>
-              </template>
             </div>
 
             <div class="paired-right">
@@ -167,8 +151,13 @@
                 <template #label>
                   <span class="service-label-with-icon">
                     Venue Setup
-                    <el-tooltip content="Contact FMD for venue setup." placement="top">
-                      <span class="service-info-trigger" @click.stop="showVenueSetupDialog = true">
+                    <el-tooltip
+                      :content="promptContentByKey.venue_add_booking_setup"
+                      placement="top"
+                      :teleported="false"
+                      popper-class="venue-booking-prompt-tooltip"
+                    >
+                      <span class="service-info-trigger">
                         <el-icon class="service-info-icon"><InfoFilled /></el-icon>
                       </span>
                     </el-tooltip>
@@ -180,24 +169,31 @@
                 <template #label>
                   <span class="service-label-with-icon">
                     Equipment
-                    <el-tooltip content="View equipment details." placement="top">
-                      <span class="service-info-trigger" @click.stop="showEquipmentDialog = true">
+                    <el-tooltip
+                      :content="promptContentByKey.venue_add_booking_equipment"
+                      placement="top"
+                      :teleported="false"
+                      popper-class="venue-booking-prompt-tooltip"
+                    >
+                      <span class="service-info-trigger">
                         <el-icon class="service-info-icon"><InfoFilled /></el-icon>
                       </span>
                     </el-tooltip>
                   </span>
                 </template>
-                <el-button text class="info-btn" @click="showVenueSetupDialog = true">
-                  Contact FMD
-                </el-button>
               </el-form-item>
 
               <el-form-item prop="toolsMaterials" class="service-item service-label-left no-wrap-label">
                 <template #label>
                   <span class="service-label-with-icon">
                     Tools and Materials
-                    <el-tooltip content="View tools and materials details." placement="top">
-                      <span class="service-info-trigger" @click.stop="showToolsDialog = true">
+                    <el-tooltip
+                      :content="promptContentByKey.venue_add_booking_tools_materials"
+                      placement="top"
+                      :teleported="false"
+                      popper-class="venue-booking-prompt-tooltip"
+                    >
+                      <span class="service-info-trigger">
                         <el-icon class="service-info-icon"><InfoFilled /></el-icon>
                       </span>
                     </el-tooltip>
@@ -209,14 +205,55 @@
                 <template #label>
                   <span class="service-label-with-icon">
                     Others / Special Requests
-                    <el-tooltip content="View other and special request details." placement="top">
-                      <span class="service-info-trigger" @click.stop="showSpecialRequestsDialog = true">
+                    <el-tooltip
+                      :content="promptContentByKey.venue_add_booking_others_special_requests"
+                      placement="top"
+                      :teleported="false"
+                      popper-class="venue-booking-prompt-tooltip"
+                    >
+                      <span class="service-info-trigger">
                         <el-icon class="service-info-icon"><InfoFilled /></el-icon>
                       </span>
                     </el-tooltip>
                   </span>
                 </template>
               </el-form-item>
+            </div>
+
+            <div
+              v-if="form.teaServiceRequired && !isTeaServiceUnavailable"
+              class="paired-tea-full-width"
+            >
+              <div class="tea-service-options">
+                <el-form-item label="Tea or Water" prop="teaOrWater" class="tea-service-line no-wrap-label">
+                  <el-radio-group v-model="form.teaOrWater" class="tea-service-radios">
+                    <el-radio label="tea">Tea</el-radio>
+                    <el-radio label="water">Water</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+
+                <el-form-item label=" " prop="serviceType" class="tea-service-line tea-service-followup no-wrap-label">
+                  <el-radio-group v-model="form.serviceType" class="tea-service-radios">
+                    <el-radio label="pot">One Pot</el-radio>
+                    <el-radio label="bottle">One Bottle Per Person</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+
+                <el-form-item
+                  label="Special requests"
+                  prop="teaServiceSpecialRequest"
+                  class="tea-service-line tea-service-special-req no-wrap-label"
+                >
+                  <el-input
+                    v-model="form.teaServiceSpecialRequest"
+                    type="textarea"
+                    :autosize="{ minRows: 2, maxRows: 4 }"
+                    resize="none"
+                    class="tea-service-special-textarea"
+                    placeholder="Optional — e.g. dietary needs, serving time, extra cups"
+                  />
+                </el-form-item>
+              </div>
             </div>
           </div>
 
@@ -269,6 +306,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import { InfoFilled } from '@element-plus/icons-vue'
+import { getMockPromptList } from '@/mocks/mockData'
 
 const props = defineProps({
   visible: {
@@ -286,16 +324,16 @@ const props = defineProps({
   selectedTime: {
     type: Object,
     default: null
+  },
+  venueList: {
+    type: Array,
+    default: () => []
   }
 })
 
 const emit = defineEmits(['confirm', 'close'])
 
 const formRef = ref(null)
-const showVenueSetupDialog = ref(false)
-const showEquipmentDialog = ref(false)
-const showToolsDialog = ref(false)
-const showSpecialRequestsDialog = ref(false)
 const showNoticeDialog = ref(false)
 const noticeTitle = ref('Notice')
 const noticeMessage = ref('')
@@ -305,6 +343,21 @@ const showNotice = (message, title = 'Notice') => {
   noticeMessage.value = message
   showNoticeDialog.value = true
 }
+
+const promptContentByKey = computed(() => {
+  const list = getMockPromptList()
+  const pick = (key) => {
+    const raw = list.find((p) => p.key === key)?.content
+    if (raw == null || raw === '') return ''
+    return String(raw).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  }
+  return {
+    venue_add_booking_setup: pick('venue_add_booking_setup'),
+    venue_add_booking_equipment: pick('venue_add_booking_equipment'),
+    venue_add_booking_tools_materials: pick('venue_add_booking_tools_materials'),
+    venue_add_booking_others_special_requests: pick('venue_add_booking_others_special_requests')
+  }
+})
 
 // 拖拽相关
 const isDragging = ref(false)
@@ -375,6 +428,7 @@ const form = ref({
   attendeeCount: 1,
   teaOrWater: 'tea',
   serviceType: 'pot',
+  teaServiceSpecialRequest: '',
   venueSetup: '',
   equipment: '',
   toolsMaterials: '',
@@ -385,15 +439,22 @@ const form = ref({
   contactEmail: 'karenshen@ha.org.hk'
 })
 
-const availableRooms = [
-  { name: 'Conference Room 1', color: '#3b82f6' },
-  { name: 'Conference Room 2', color: '#10b981' },
-  { name: 'Conference Room 3', color: '#06b6d4' },
-  { name: 'Discussion Room', color: '#f59e0b' },
-  { name: 'Function Room', color: '#ec4899' },
-  { name: 'Lecture Theatre', color: '#6366f1' },
-  { name: 'Auditorium', color: '#8b5cf6' }
-]
+const availableRooms = computed(() => {
+  if (Array.isArray(props.venueList) && props.venueList.length > 0) {
+    return props.venueList.map(room => ({
+      name: room.name,
+      color: room.color,
+      roomCapacity: room.roomCapacity ?? room.capacity ?? null
+    }))
+  }
+  return []
+})
+
+const participantMax = computed(() => {
+  const selected = availableRooms.value.find(room => room.name === form.value.room)
+  const max = Number(selected?.roomCapacity)
+  return Number.isFinite(max) && max >= 1 ? max : 200
+})
 
 /** 与原 el-time-select start/end/step（07:00–21:00，30 分钟）一致；改用 el-select 以支持 :teleported="false"（html zoom 下不误位） */
 function buildHalfHourTimeOptions(start = '07:00', end = '21:00', stepMinutes = 30) {
@@ -444,7 +505,10 @@ function checkAvailability() {
 
 function initializeForm() {
   if (props.booking) {
-    form.value = { ...props.booking }
+    form.value = {
+      teaServiceSpecialRequest: '',
+      ...props.booking
+    }
   } else {
     form.value = {
       room: '',
@@ -457,6 +521,7 @@ function initializeForm() {
       attendeeCount: 1,
       teaOrWater: 'tea',
       serviceType: 'pot',
+      teaServiceSpecialRequest: '',
       venueSetup: '',
       equipment: '',
       toolsMaterials: '',
@@ -483,6 +548,10 @@ function handleConfirm() {
         showNotice('End time must be later than start time', 'Error')
         return
       }
+      if (form.value.attendeeCount < 1 || form.value.attendeeCount > participantMax.value) {
+        showNotice(`No. of participants must be between 1 and ${participantMax.value}`, 'Error')
+        return
+      }
       emit('confirm', { ...form.value, id: props.booking?.id || Date.now() })
       showNotice('Booking submitted successfully!', 'Success')
       handleClose()
@@ -507,6 +576,27 @@ watch(() => props.visible, (val) => {
     dialogX.value = 0
     dialogY.value = 0
   }
+})
+
+watch(() => form.value.room, () => {
+  if (form.value.attendeeCount > participantMax.value) {
+    form.value.attendeeCount = participantMax.value
+  }
+})
+
+watch(() => form.value.attendeeCount, (val) => {
+  if (val == null) return
+  if (val < 1) {
+    form.value.attendeeCount = 1
+    return
+  }
+  if (val > participantMax.value) {
+    form.value.attendeeCount = participantMax.value
+  }
+})
+
+watch(() => form.value.teaServiceRequired, (yes) => {
+  if (!yes) form.value.teaServiceSpecialRequest = ''
 })
 </script>
 
@@ -677,6 +767,13 @@ watch(() => props.visible, (val) => {
   z-index: 100000 !important;
   position: fixed !important;
 }
+
+/* Tooltip 默认挂到 body，scoped 的 :deep(.el-popper) 无法作用到其上，会被 modal-overlay(9999) 挡住 */
+.venue-booking-prompt-tooltip {
+  z-index: 100001 !important;
+  max-width: min(320px, 90vw);
+  word-wrap: break-word;
+}
 </style>
 
 <style scoped>
@@ -701,7 +798,8 @@ watch(() => props.visible, (val) => {
 .paired-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: 1.5rem;
+  column-gap: 1.5rem;
+  row-gap: 0.15rem;
   align-items: start;
 }
 
@@ -711,8 +809,36 @@ watch(() => props.visible, (val) => {
   flex-direction: column;
 }
 
+/* 左侧（茶歇等）较宽内容可能溢出到视觉上的右侧；抬高右列层级并让其在网格行内拉满高度，避免下半区事件落到左列 */
 .paired-left {
   padding-left: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.paired-right {
+  align-self: stretch;
+  position: relative;
+  z-index: 2;
+}
+
+/* 茶歇详细选项跨整行，不局限在左列 */
+.paired-tea-full-width {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+/* 小屏单列：左列 → 茶歇选项 → 右侧服务标签（避免茶歇块跑到 Venue Setup 下面） */
+@media (max-width: 1099px) {
+  .paired-layout > .paired-left {
+    order: 1;
+  }
+  .paired-layout > .paired-tea-full-width {
+    order: 2;
+  }
+  .paired-layout > .paired-right {
+    order: 3;
+  }
 }
 
 .form-row {
@@ -779,9 +905,9 @@ watch(() => props.visible, (val) => {
 
 .tea-service-options {
   background-color: #f9fafb;
-  padding: 0.75rem 0.75rem 0.75rem 0;
+  padding: 0.75rem 1.75rem 0.5rem 1.0rem;
   border-radius: 0.375rem;
-  margin-top: 0.375rem;
+  margin-top: 0.05rem;
 }
 
 .tea-service-line {
@@ -790,6 +916,21 @@ watch(() => props.visible, (val) => {
 
 .tea-service-followup {
   margin-bottom: 0;
+}
+
+.tea-service-special-req {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  align-items: flex-start;
+}
+
+.tea-service-special-req :deep(.el-form-item__label) {
+  padding-top: 0.35rem;
+}
+
+.tea-service-special-textarea :deep(.el-textarea__inner) {
+  line-height: 1.35;
+  font-size: 0.8125rem;
 }
 
 .tea-service-line :deep(.el-form-item__label) {
@@ -804,10 +945,16 @@ watch(() => props.visible, (val) => {
 
 .tea-service-radios {
   display: grid;
-  grid-template-columns: 130px 220px;
-  column-gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1.25rem;
   row-gap: 0;
-  justify-content: start;
+  justify-content: stretch;
+  width: 100%;
+  max-width: 36rem;
+}
+
+.paired-tea-full-width .tea-service-radios {
+  max-width: none;
 }
 
 .tea-service-radios :deep(.el-radio) {
@@ -820,6 +967,17 @@ watch(() => props.visible, (val) => {
   color: #b45309;
   font-size: 0.75rem;
   line-height: 1.4;
+}
+
+.participants-hint {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  line-height: 1.2;
+}
+
+.participants-item :deep(.el-form-item__label) {
+  margin-top: 1rem;
 }
 
 .tea-service-options .form-row {
@@ -839,6 +997,13 @@ watch(() => props.visible, (val) => {
   text-align: left;
   padding-left: 1.25rem;
   overflow: visible;
+  position: relative;
+  z-index: 2;
+}
+
+/* 仅标签、无输入域时左侧 content 仍占 flex 空间，可能挡住同项内靠后的 label/图标命中与 cursor */
+.service-label-left :deep(.el-form-item__content) {
+  pointer-events: none;
 }
 
 .service-label-with-icon {

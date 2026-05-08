@@ -12,7 +12,7 @@
 
     <!-- 系统选择按钮区：在不同屏幕下自适应宽度和间距 -->
     <div class="system-buttons-container w-full max-w-md md:max-w-lg mx-auto mt-6 mb-3 px-4">
-      <p class="system-caption">Please select a system</p>
+      <p class="system-caption">Please select</p>
       <el-form-item prop="system" class="system-buttons-item">
         <div class="system-buttons">
           <button

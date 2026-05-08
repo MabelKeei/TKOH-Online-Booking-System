@@ -214,13 +214,13 @@
                   <span class="card-label">Time</span>
                   <span class="card-value">{{ booking.time }}</span>
                 </div>
-                <div class="card-row">
-                  <span class="card-label application-date-label">Application Date</span>
-                  <span class="card-value">{{ formatApplicationDateForCard(booking.bookedOn) }}</span>
-                </div>
                 <div class="card-row tea-service-row">
                   <span class="card-label tea-service-label">Tea Service</span>
                   <span class="card-value tea-service-value">{{ formatTeaServiceStatus(booking) }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="card-label application-date-label">Application Date</span>
+                  <span class="card-value">{{ formatApplicationDateForCard(booking.bookedOn) }}</span>
                 </div>
               </div>
               <div class="card-footer">
@@ -237,11 +237,11 @@
                   Handle
                 </button>
                 <button
-                  v-else-if="!isAdminAllBookingsView && booking.status === 'upcoming'"
-                  class="btn-cancel"
+                  v-else-if="!isAdminAllBookingsView && canShowToggleBookingButton(booking)"
+                  :class="['btn-cancel', { 'btn-restore': isBookingCanceledStatus(booking.status) }]"
                   @click="cancelBooking(booking.id)"
                 >
-                  Cancel Booking
+                  {{ isBookingCanceledStatus(booking.status) ? 'Restore Booking' : 'Cancel Booking' }}
                 </button>
               </div>
             </div>
@@ -338,7 +338,6 @@
                     </button>
                   </th>
                   <th v-if="availableColumns[9].visible">My Note</th>
-                  <th v-if="availableColumns[10].visible">Cancelled Reason</th>
                   <th class="col-actions">Actions</th>
                 </tr>
               </thead>
@@ -366,7 +365,6 @@
                   </td>
                   <td v-if="availableColumns[8].visible">{{ booking.bookedOn }}</td>
                   <td v-if="availableColumns[9].visible">{{ booking.myNote || '-' }}</td>
-                  <td v-if="availableColumns[10].visible">{{ booking.reason || '-' }}</td>
                   <td class="actions-td">
                     <div class="actions-cell">
                       <template v-if="isAdminAllBookingsView">
@@ -383,8 +381,13 @@
                         <button type="button" class="btn-action btn-edit" @click="editBooking(booking.id)">
                           Edit
                         </button>
-                        <button type="button" class="btn-action btn-cancel-small" @click="cancelBooking(booking.id)">
-                          Cancel
+                        <button
+                          v-if="canShowToggleBookingButton(booking)"
+                          type="button"
+                          :class="['btn-action', 'btn-cancel-small', { 'btn-restore-small': isBookingCanceledStatus(booking.status) }]"
+                          @click="cancelBooking(booking.id)"
+                        >
+                          {{ isBookingCanceledStatus(booking.status) ? 'Restore' : 'Cancel' }}
                         </button>
                       </template>
                     </div>
@@ -436,13 +439,13 @@
     </main>
 
     <!-- Cancel Booking Dialog -->
-    <BookingStyleModal v-model="showCancelDialog" title="Cancel Booking" max-width="540px">
+    <BookingStyleModal v-model="showCancelDialog" :title="cancelDialogTitle" max-width="540px">
       <p class="cancel-confirm-message">
-        Are you sure you want to cancel this venue booking? This action cannot be undone.
+        {{ cancelDialogMessage }}
       </p>
       <template #footer>
         <el-button type="default" class="cancel-btn" @click="showCancelDialog = false">No</el-button>
-        <el-button type="default" class="action-btn action-delete" @click="confirmCancel">Confirm</el-button>
+        <el-button type="default" class="action-btn action-delete" @click="confirmCancel">{{ cancelDialogConfirmLabel }}</el-button>
       </template>
     </BookingStyleModal>
 
@@ -670,6 +673,73 @@ const currentEditBookingApprovalStatus = ref('')
 const editTeaSelectionSnapshot = ref({ teaOrWater: 'tea', serviceType: 'pot' })
 const dateRange = ref(null)
 
+const isBookingCanceledStatus = (status) => ['canceled', 'cancelled'].includes(String(status || '').toLowerCase())
+
+const getBookingStartDateTime = (booking) => {
+  const date = parseDate(booking?.date || '')
+  if (Number.isNaN(date.getTime())) return null
+  const start = String(booking?.time || '').split(' - ')[0] || ''
+  const [h = '0', m = '0'] = start.split(':')
+  date.setHours(Number.parseInt(h, 10) || 0, Number.parseInt(m, 10) || 0, 0, 0)
+  return date
+}
+
+const getBookingEndDateTime = (booking) => {
+  const date = parseDate(booking?.date || '')
+  if (Number.isNaN(date.getTime())) return null
+  const end = String(booking?.time || '').split(' - ')[1] || ''
+  const [h = '0', m = '0'] = end.split(':')
+  date.setHours(Number.parseInt(h, 10) || 0, Number.parseInt(m, 10) || 0, 0, 0)
+  return date
+}
+
+const canToggleBookingStatus = (booking) => {
+  const startAt = getBookingStartDateTime(booking)
+  if (!startAt) return false
+  return startAt.getTime() > Date.now()
+}
+
+const canShowToggleBookingButton = (booking) => {
+  const s = String(booking?.status || '').toLowerCase()
+  return s === 'upcoming' || s === 'canceled' || s === 'cancelled'
+}
+
+const isSameBooker = (a, b) => {
+  if (a?.employeeId != null && b?.employeeId != null) return String(a.employeeId) === String(b.employeeId)
+  if (a?.corpId && b?.corpId) return String(a.corpId) === String(b.corpId)
+  if (a?.email && b?.email) return String(a.email).toLowerCase() === String(b.email).toLowerCase()
+  return String(a?.reservedBy || '').trim().toLowerCase() === String(b?.reservedBy || '').trim().toLowerCase()
+}
+
+const hasRestoreConflictWithOthers = (targetBooking) => {
+  const targetStart = getBookingStartDateTime(targetBooking)
+  const targetEnd = getBookingEndDateTime(targetBooking)
+  if (!targetStart || !targetEnd) return false
+
+  return bookings.value.some((b) => {
+    if (!b || b.id === targetBooking.id) return false
+    if (isBookingCanceledStatus(b.status)) return false
+    if ((b.room || '') !== (targetBooking.room || '')) return false
+    if ((b.date || '') !== (targetBooking.date || '')) return false
+    if (isSameBooker(b, targetBooking)) return false
+    const otherStart = getBookingStartDateTime(b)
+    const otherEnd = getBookingEndDateTime(b)
+    if (!otherStart || !otherEnd) return false
+    return targetStart < otherEnd && targetEnd > otherStart
+  })
+}
+
+const cancelDialogBooking = computed(() => bookings.value.find(b => b.id === cancelBookingId.value) || null)
+const cancelDialogIsRestore = computed(() => isBookingCanceledStatus(cancelDialogBooking.value?.status))
+const cancelDialogTitle = computed(() => (cancelDialogIsRestore.value ? 'Restore Booking' : 'Cancel Booking'))
+const cancelDialogConfirmLabel = computed(() => (cancelDialogIsRestore.value ? 'Restore' : 'Confirm'))
+const cancelDialogMessage = computed(() => {
+  if (cancelDialogIsRestore.value) {
+    return 'You may restore this booking before the meeting start time. System will check time conflict with other bookings.'
+  }
+  return 'You may cancel this booking now and restore it later before the meeting start time.'
+})
+
 const employeeList = ref([])
 const showHandleDialog = ref(false)
 const currentHandleBookingId = ref(null)
@@ -706,7 +776,7 @@ const editForm = ref({
   teaServiceParticipants: 1
 })
 
-/** 与 VenueBookingDialog / mock `teaServiceSummary` 一致：Tea|Water + One Pot|One Bottle Per Person */
+/** ??VenueBookingDialog / mock `teaServiceSummary` ???Tea|Water + One Pot|One Bottle Per Person */
 function buildTeaServiceSummary (teaOrWater, serviceType) {
   const tw = teaOrWater === 'water' ? 'Water' : 'Tea'
   const svc = serviceType === 'bottle' ? 'One Bottle Per Person' : 'One Pot'
@@ -777,7 +847,7 @@ function updateHandleBookingModalMaxHeight () {
   if (typeof window === 'undefined') return
   const isLaptop14 = window.matchMedia(HANDLE_BOOKING_MODAL_MQ).matches
   handleBookingModalMaxHeight.value = isLaptop14 ? '120vh' : '94vh'
-  // 14寸（zoom:0.8）时避免内容溢出，交给 modal body 自身滚动
+  // 14??zoom:0.8????????????modal body ????
   editBookingModalMaxHeight.value = isLaptop14 ? '96vh' : '98vh'
   editPickerOffsetY.value = 0
 }
@@ -802,8 +872,7 @@ const availableColumns = ref([
   { key: 'status', label: 'Status', visible: true, required: false },
   { key: 'approvalStatus', label: 'Approval', visible: true, required: false },
   { key: 'bookedOn', label: 'Application Date', visible: true, required: false },
-  { key: 'myNote', label: 'My Note', visible: true, required: false },
-  { key: 'reason', label: 'Cancelled Reason', visible: true, required: false }
+  { key: 'myNote', label: 'My Note', visible: true, required: false }
 ])
 
 const bookings = ref(getMockVenueManageBookingList())
@@ -813,9 +882,15 @@ const filteredBookings = computed(() => {
 
   // Filter by booking view (admin only)
   if (isAdmin.value && bookingView.value === 'my') {
-    // Show only bookings made by current admin user
+    // ??????id ?????? mock ??? corpId / email
+    const currentUserId = userInfo.value?.id
+    const currentUserCorpId = userInfo.value?.corpId
     const currentUserEmail = userInfo.value?.email || 'karen.shen@ha.org.hk'
-    result = result.filter(b => b.email === currentUserEmail)
+    result = result.filter((b) => {
+      if (currentUserId != null && b.employeeId != null) return String(b.employeeId) === String(currentUserId)
+      if (currentUserCorpId && b.corpId) return String(b.corpId) === String(currentUserCorpId)
+      return (b.email || '') === currentUserEmail
+    })
   }
   // If bookingView is 'all' or user is not admin, show all bookings
 
@@ -991,7 +1066,7 @@ const toggleSort = (key) => {
 const getSortIndicator = (key) => {
   const idx = sortState.value.findIndex(item => item.key === key)
   if (idx === -1) return '↕'
-  const arrow = sortState.value[idx].order === 'asc' ? '▲' : '▼'
+  const arrow = sortState.value[idx].order === 'asc' ? '↑' : '↓'
   return `${arrow}${idx + 1}`
 }
 
@@ -1304,18 +1379,40 @@ const isQuickDateActive = (option) => {
 }
 
 const cancelBooking = (id) => {
+  const booking = bookings.value.find(b => b.id === id)
+  if (!booking) return
+  if (!canToggleBookingStatus(booking)) {
+    showNotice('Only bookings before meeting start time can be cancelled/restored.', 'Warning')
+    return
+  }
   cancelBookingId.value = id
   showCancelDialog.value = true
 }
 
 const confirmCancel = () => {
   const booking = bookings.value.find(b => b.id === cancelBookingId.value)
-  if (booking) {
-    booking.status = 'canceled'
+  if (!booking) return
+  if (!canToggleBookingStatus(booking)) {
+    showCancelDialog.value = false
+    showNotice('Only bookings before meeting start time can be cancelled/restored.', 'Warning')
+    return
   }
 
+  if (isBookingCanceledStatus(booking.status)) {
+    if (hasRestoreConflictWithOthers(booking)) {
+      showCancelDialog.value = false
+      showNotice('Cannot restore this booking because the selected room/time conflicts with another user booking.', 'Warning')
+      return
+    }
+    booking.status = 'upcoming'
+    showCancelDialog.value = false
+    showNotice('Venue booking restored successfully!', 'Success')
+    return
+  }
+
+  booking.status = 'canceled'
   showCancelDialog.value = false
-  showNotice('Venue booking cancelled successfully!', 'Success')
+  showNotice('Venue booking cancelled successfully! You can restore it before meeting start time.', 'Success')
 }
 
 const editBooking = (id) => {
@@ -1868,6 +1965,9 @@ onUnmounted(() => {
   font-weight: 600;
   white-space: nowrap;
   display: inline-block;
+  width: 4.5rem;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 .badge-upcoming {
@@ -1939,7 +2039,7 @@ onUnmounted(() => {
   margin-left: 0.5rem;
 }
 
-/* Edit dialog — tea options aligned with VenueBookingDialog.vue */
+/* Edit dialog ??tea options aligned with VenueBookingDialog.vue */
 .edit-tea-service-note {
   margin: 0 0 0.5rem 0;
   font-size: 0.8125rem;
@@ -2016,6 +2116,14 @@ onUnmounted(() => {
 
 .btn-cancel:hover {
   background-color: #dc2626;
+}
+
+.btn-restore {
+  background: #9ca3af;
+}
+
+.btn-restore:hover {
+  background: #6b7280;
 }
 
 /* Table View */
@@ -2199,6 +2307,14 @@ onUnmounted(() => {
 
 .btn-cancel-small:hover {
   background-color: #dc2626;
+}
+
+.btn-restore-small {
+  background-color: #9ca3af;
+}
+
+.btn-restore-small:hover {
+  background-color: #6b7280;
 }
 
 /* Status Filter */

@@ -1,10 +1,22 @@
 <template>
   <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden" style="padding-top: var(--app-header-height, 64px);">
     <AppHeader />
-    <div class="top-tip-wrapper px-2 md:px-3 lg:px-4 pt-2 pb-0">
+    <div v-if="!showTopTip" class="top-tip-toggle-wrapper">
+      <button
+        type="button"
+        class="top-tip-toggle-btn"
+        aria-label="Show important note"
+        title="Show important note"
+        @click="showTopTip = true"
+      ></button>
+    </div>
+    <div v-if="showTopTip" class="top-tip-wrapper px-2 md:px-3 lg:px-4 pt-2 pb-0">
       <div class="booking-window-tip">
         <span>Important Note: Lecture Theatre is temporarily closed.</span>
         <button type="button" class="read-more-link" @click="noticeDialogVisible = true">Read more...</button>
+        <button type="button" class="tip-close-btn" aria-label="Close important note" @click="showTopTip = false">
+          &times;
+        </button>
       </div>
     </div>
 
@@ -15,7 +27,10 @@
     /> -->
 
     <!-- Main content -->
-    <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 pt-0 pb-1 md:pb-2 overflow-hidden">
+    <main
+      class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 pt-0 pb-1 md:pb-2 overflow-hidden"
+      :class="{ 'tip-collapsed-gap': !showTopTip }"
+    >
       <!-- Top toolbar -->
       <div class="toolbar toolbar-layout mb-1 flex items-center justify-between gap-3">
         <div class="toolbar-left toolbar-left-group flex items-center gap-2">
@@ -50,8 +65,8 @@
               <div class="filter-header">
                 <span class="filter-title">Show rooms:</span>
                 <div class="filter-actions">
-                  <button class="filter-action-btn" @click="selectOtherOnly">Other</button>
-                  <button class="filter-action-btn" @click="selectConferenceOnly">Conference Rooms Only</button>
+                  <button class="filter-action-btn" @click="selectOtherOnly">Other Venues</button>
+                  <button class="filter-action-btn" @click="selectConferenceOnly">Conference / Discussion Rooms</button>
                   <button class="filter-action-btn" @click="selectAllRooms">Select All</button>
                   <button class="filter-action-btn" @click="clearAllRooms">Clear All</button>
                 </div>
@@ -59,7 +74,7 @@
 
               <div class="filter-body">
                 <div class="filter-section">
-                  <h4 class="section-title">Conference Rooms &<br>Discussion Rooms</h4>
+                  <h4 class="section-title">Conference / Discussion Rooms</h4>
                   <div class="room-list">
                     <label v-for="room in conferenceRooms" :key="room.id" class="room-checkbox">
                       <input type="checkbox" v-model="room.selected" />
@@ -228,6 +243,7 @@
       :booking="editingBooking"
       :room-type="roomType"
       :selected-time="selectedTime"
+      :venue-list="venueList"
       @confirm="handleBookingConfirm"
       @close="closeBookingDialog"
     />
@@ -342,6 +358,7 @@ const selectedTime = ref(null)
 const showDatePicker = ref(false)
 const pickerDate = ref(new Date()) // Month/year shown in the date picker
 const showRoomFilter = ref(false)
+const showTopTip = ref(true)
 const showBlockDialog = ref(false)
 const noticeDialogVisible = ref(false)
 const showNoticeDialog = ref(false)
@@ -385,7 +402,12 @@ const venueWindowRange = computed(() => ({
 const conferenceRooms = ref(
   venueList.value
     .filter(room => room.tab === 'conference_discussion')
-    .map((room, idx) => ({ id: room.id, name: room.name, selected: idx < 3, color: room.color }))
+    .map((room) => ({
+      id: room.id,
+      name: room.name,
+      selected: room.name.includes('Conference Room') || room.name.includes('Discussion Room'),
+      color: room.color
+    }))
 )
 
 const otherVenues = ref(
@@ -700,10 +722,10 @@ function handleRoomFilterClickOutside(event) {
   }
 }
 
-// Quick action: conference rooms only
+// Quick action: Conference / Discussion Rooms
 function selectConferenceOnly() {
   conferenceRooms.value.forEach(room => {
-    room.selected = room.name.includes('Conference Room')
+    room.selected = room.name.includes('Conference Room') || room.name.includes('Discussion Room')
   })
   otherVenues.value.forEach(room => {
     room.selected = false
@@ -960,6 +982,10 @@ onUnmounted(() => {
   z-index: 1;
 }
 
+.calendar-main.tip-collapsed-gap {
+  margin-top: 6px;
+}
+
 .toolbar {
   background: #ffffff;
   padding: 1rem;
@@ -1016,6 +1042,75 @@ onUnmounted(() => {
 
 .read-more-link:hover {
   color: #115e59;
+}
+
+.tip-close-btn {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #86efac;
+  border-radius: 9999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.tip-close-btn:hover {
+  background: #bbf7d0;
+  border-color: #4ade80;
+}
+
+.top-tip-toggle-wrapper {
+  position: relative;
+  height: 0;
+  z-index: 30;
+}
+
+.top-tip-toggle-btn {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 18px;
+  border: 1px solid #166534;
+  border-top: none;
+  border-radius: 0 0 16px 16px;
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(22, 101, 52, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.top-tip-toggle-btn::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid #ffffff;
+  opacity: 0.95;
+}
+
+.top-tip-toggle-btn:hover {
+  background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+  transform: translateX(-50%) translateY(1px);
+  box-shadow: 0 3px 10px rgba(22, 101, 52, 0.32);
+}
+
+.top-tip-toggle-btn:focus-visible {
+  outline: 2px solid #bbf7d0;
+  outline-offset: 2px;
 }
 
 .venue-rule-notice-content {

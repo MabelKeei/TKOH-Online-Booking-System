@@ -15,6 +15,7 @@ async function main() {
   const evSlots = seedData.evSlots;
   const evPeriods = seedData.evPeriods;
   const licensePlates = seedData.licensePlates;
+  const prompts = seedData.prompts ?? [];
 
   console.log('[seed] data source: TKHO-backend/prisma/seed-data.ts');
 
@@ -160,8 +161,34 @@ async function main() {
     }
   }
 
+  if (prompts.length > 0) {
+    for (const row of prompts) {
+      const id = BigInt(row.id);
+      await prisma.prompts.upsert({
+        where: { id },
+        update: {
+          prompt_key: row.promptKey,
+          name: row.name,
+          content: row.content,
+          category: row.category,
+          can_add: row.canAdd === true,
+          template_type: row.templateType ?? null,
+        },
+        create: {
+          id,
+          prompt_key: row.promptKey,
+          name: row.name,
+          content: row.content,
+          category: row.category,
+          can_add: row.canAdd === true,
+          template_type: row.templateType ?? null,
+        },
+      });
+    }
+  }
+
   console.log(
-    `[seed] done: employees=${employees.length}, venues=${venues.length}, evSlots=${evSlots.length}, evPeriods=${evPeriods.length}, licensePlates=${licensePlates.length}`,
+    `[seed] done: employees=${employees.length}, venues=${venues.length}, evSlots=${evSlots.length}, evPeriods=${evPeriods.length}, licensePlates=${licensePlates.length}, prompts=${prompts.length}`,
   );
 }
 

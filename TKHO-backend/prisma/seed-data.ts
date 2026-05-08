@@ -52,6 +52,16 @@ export type SeedLicensePlate = {
   status?: string;
 };
 
+export type SeedPrompt = {
+  id: number;
+  promptKey: string;
+  name: string;
+  content: string;
+  category: string;
+  canAdd?: boolean;
+  templateType?: string | null;
+};
+
 const departments = ['ADM', 'CNS', 'D&T', 'HCE', 'ENT', 'GO', 'PMMD', 'SOPD', 'NSD', 'SS'];
 const positions = ['User', 'User_EV', 'User_Venue', 'Admin'];
 
@@ -60,7 +70,7 @@ const employees: SeedEmployee[] = Array.from({ length: 25 }, (_, index) => {
   const isAdmin = i === 1 || i === 16;
   return {
     id: i,
-    corpId: `E${String(i).padStart(3, '0')}`,
+    corpId: i === 1 ? 'Admin-test' : `E${String(i).padStart(3, '0')}`,
     name: `Employee ${i}`,
     department: departments[index % departments.length],
     role: isAdmin ? 'Admin' : 'User',
@@ -75,13 +85,13 @@ const employees: SeedEmployee[] = Array.from({ length: 25 }, (_, index) => {
 });
 
 const venues: SeedVenue[] = [
-  { id: 1, name: 'CR1', nameZh: 'Conference Room 1', tab: 'meeting', type: 'meeting', roomCapacity: 8, color: '#409EFF', location: '1/F', locationZh: '1F', displayType: 'single', image: null, status: 'active' },
-  { id: 2, name: 'CR2', nameZh: 'Conference Room 2', tab: 'meeting', type: 'meeting', roomCapacity: 10, color: '#67C23A', location: '1/F', locationZh: '1F', displayType: 'single', image: null, status: 'active' },
-  { id: 3, name: 'CR3', nameZh: 'Conference Room 3', tab: 'meeting', type: 'meeting', roomCapacity: 12, color: '#E6A23C', location: '2/F', locationZh: '2F', displayType: 'single', image: null, status: 'active' },
-  { id: 4, name: 'CR4', nameZh: 'Conference Room 4', tab: 'meeting', type: 'meeting', roomCapacity: 14, color: '#F56C6C', location: '2/F', locationZh: '2F', displayType: 'single', image: null, status: 'active' },
-  { id: 5, name: 'MPR', nameZh: 'Multi Purpose Room', tab: 'meeting', type: 'meeting', roomCapacity: 20, color: '#909399', location: '3/F', locationZh: '3F', displayType: 'single', image: null, status: 'active' },
-  { id: 6, name: 'Training Room', nameZh: 'Training Room', tab: 'meeting', type: 'meeting', roomCapacity: 16, color: '#8E44AD', location: '3/F', locationZh: '3F', displayType: 'single', image: null, status: 'active' },
-  { id: 7, name: 'Board Room', nameZh: 'Board Room', tab: 'meeting', type: 'meeting', roomCapacity: 18, color: '#16A085', location: '4/F', locationZh: '4F', displayType: 'single', image: null, status: 'active' },
+  { id: 1, name: 'Conference Room 1', nameZh: '會議室1', tab: 'conference_discussion', type: 'conference', roomCapacity: 8, color: '#3b82f6', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'merge', image: null, status: 'active' },
+  { id: 2, name: 'Conference Room 2', nameZh: '會議室2', tab: 'conference_discussion', type: 'conference', roomCapacity: 20, color: '#10b981', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'merge', image: null, status: 'active' },
+  { id: 3, name: 'Conference Room 3', nameZh: '會議室3', tab: 'conference_discussion', type: 'conference', roomCapacity: 40, color: '#06b6d4', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'merge', image: null, status: 'active' },
+  { id: 4, name: 'Discussion Room', nameZh: '討論室', tab: 'conference_discussion', type: 'discussion', roomCapacity: 12, color: '#f59e0b', location: '3F', locationZh: '3樓', displayType: 'single', image: null, status: 'active' },
+  { id: 5, name: 'Function Room', nameZh: '多功能室', tab: 'other_venues', type: 'other', roomCapacity: 60, color: '#ec4899', location: 'Ground Floor', locationZh: '地下', displayType: 'single', image: null, status: 'active' },
+  { id: 6, name: 'Lecture Theatre', nameZh: '演講廳', tab: 'other_venues', type: 'other', roomCapacity: 70, color: '#6366f1', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'single', image: null, status: 'active' },
+  { id: 7, name: 'Auditorium', nameZh: '禮堂', tab: 'other_venues', type: 'other', roomCapacity: 99, color: '#8b5cf6', location: '1F', locationZh: '1樓', displayType: 'single', image: null, status: 'active' },
 ];
 
 const evSlots: SeedEvSlot[] = [
@@ -103,10 +113,203 @@ const licensePlates: SeedLicensePlate[] = [
   { id: 4, employeeId: 4, plateNumber: 'SGD4004D', isDefault: true, status: 'active' },
 ];
 
+const prompts: SeedPrompt[] = [
+  {
+    id: 1,
+    promptKey: 'ev_booking_points_to_note',
+    name: 'EV Booking Points to Note',
+    content: `<p><strong>Points to Note:</strong></p>
+<ol>
+  <li>1. TKOH Car Park Reservation System allows access by nominated staff only.</li>
+  <li>2. Visitors coming to TKOH to attend meeting or to deliver presentation at lecture/seminar/workshop, or to service or technical support should make booking through the nominated staff.</li>
+  <li>3. Booking is not available for visitors coming to attend training, course, seminar or workshop.</li>
+  <li>4. Booking for contractors or suppliers for whatever purpose is not accepted.</li>
+  <li>5. Booking should be made at least 5 working days before the date of parking.</li>
+  <li>6. Confirmation of booking will be announced on the system 5 days before the date of parking.</li>
+  <li>7. Amendment for car registration number or booking details must be notified in advance.</li>
+  <li>8. Reserved parking-space will be allocated to other users if the registered car does not show up one hour after.</li>
+  <li>9. Owing to the limited number of parking-spaces in the Reserved Carpark, acceptance of car park reservation of a parking-space.</li>
+</ol>`,
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
+  },
+  {
+    id: 2,
+    promptKey: 'venue_booking_points_to_note',
+    name: 'Venue Booking Points to Note',
+    content: `<p><strong>Points to Note:</strong></p>
+<ol>
+  <li>1. For reservation of other venues (e.g. Courtyard or Glasshouse), please contact General Office at <strong>2208 1951</strong> directly.</li>
+  <li>2. General Office reserves the right to cancel any booking or reassign another venue under necessary circumstances.</li>
+  <li>3. Should user require the following service for the meeting, please directly contact the respective department in advance for arrangement.</li>
+</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Service/Equipment</th>
+      <th>Subject Department</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Zoom/Video Conferencing</td>
+      <td>Information Technology Dept (Tel: 2208 1830)</td>
+    </tr>
+    <tr>
+      <td>Venue Setting / Furniture on-loan</td>
+      <td>Facility Management Dept (Tel: 2208 1845)</td>
+    </tr>
+    <tr>
+      <td>Equipment on-loan</td>
+      <td>General Office (Tel: 2208 1951)</td>
+    </tr>
+    <tr>
+      <td>Tea Service for Conference Rooms (ad-hoc)</td>
+      <td>General Office (Tel: 2208 1951)</td>
+    </tr>
+    <tr>
+      <td>Tea Service for Other Venue and Rooms</td>
+      <td>Via ADS</td>
+    </tr>
+  </tbody>
+</table>`,
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
+  },
+  {
+    id: 3,
+    promptKey: 'venue_add_booking_setup',
+    name: 'Venue Setup',
+    content: 'Contact FM (Ext. 1845)',
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
+  },
+  {
+    id: 4,
+    promptKey: 'venue_add_booking_equipment',
+    name: 'Equipment',
+    content: 'Contact ITD (Ext. 1830)',
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
+  },
+  {
+    id: 5,
+    promptKey: 'venue_add_booking_tools_materials',
+    name: 'Tools and Materials',
+    content: 'Contact GO (Ext. 1896)',
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
+  },
+  {
+    id: 6,
+    promptKey: 'venue_add_booking_others_special_requests',
+    name: 'Others / Special Requests',
+    content: 'Contact GO (Ext. 1896)',
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
+  },
+  {
+    id: 9,
+    promptKey: 'meeting_approval_reject_template',
+    name: 'Meeting Title Non-compliant',
+    content: 'Your meeting booking request is rejected because the meeting title is not compliant. Please provide a clear and business-related title.',
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'meeting_approval',
+  },
+  {
+    id: 10,
+    promptKey: 'meeting_approval_reject_template',
+    name: 'Insufficient Meeting Details',
+    content: 'Your meeting booking request is rejected due to insufficient meeting details. Please complete the purpose and required information before resubmission.',
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'meeting_approval',
+  },
+  {
+    id: 11,
+    promptKey: 'meeting_approval_reject_template',
+    name: 'Duplicate Time Slot Booking',
+    content: 'Your meeting booking request is rejected because the selected date/time conflicts with an existing booking under your account.',
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'meeting_approval',
+  },
+  {
+    id: 8,
+    promptKey: 'user_application_reject_template',
+    name: 'User Application Reject Template',
+    content: 'Your user application is rejected. Reason: {reason}',
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'user_application',
+  },
+  {
+    id: 12,
+    promptKey: 'user_application_reject_template',
+    name: 'Invalid Contact Phone Number',
+    content: 'Your user application is rejected because the contact telephone number is invalid. Please provide a valid and reachable phone number.',
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'user_application',
+  },
+  {
+    id: 13,
+    promptKey: 'user_application_reject_template',
+    name: 'Email Format Invalid',
+    content: 'Your user application is rejected due to invalid email format. Please provide a valid corporate email address.',
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'user_application',
+  },
+  {
+    id: 14,
+    promptKey: 'user_application_reject_template',
+    name: 'Department Information Missing',
+    content: 'Your user application is rejected because department information is missing or incorrect. Please update and submit again.',
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'user_application',
+  },
+  {
+    id: 15,
+    promptKey: 'ev_booking_rule_update_notice',
+    name: 'EV Booking Rule Update Notice',
+    content: `<p class="attention-line">[ For Attention, please ]</p>
+<p class="main-title">Updates on Booking Rules of EV Charging Facilities</p>
+<p class="section-title">Effective from 01 JAN 2025</p>
+<p class="line-item">a. Booking quota: Change from 2 sessions/week to <span class="change-highlight">1 session/week</span></p>
+<p class="line-item">b. Period of AM session: Change from 09:00hr-13:15hr to <span class="change-highlight">08:30hr-13:00hr</span></p>
+<p class="line-item">c. Period of PM session: Change from 14:00hr-18:15hr to <span class="change-highlight">13:45hr-18:15hr</span></p>
+<p class="section-title">Effective from 13 JAN 2025</p>
+<p class="line-item">d. New booking timeslots releasing time: Change from 00:00hr everyday to <span class="change-highlight">13:00hr everyday</span></p>`,
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
+  },
+  {
+    id: 16,
+    promptKey: 'venue_booking_lecture_theatre_notice',
+    name: 'Venue Booking Lecture Theatre Notice',
+    content: `<p class="venue-notice-line">Lecture Theatre is temporarily closed.</p>
+<p class="venue-notice-line zh">演講廳暫停使用</p>`,
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
+  },
+];
+
 export const seedData = {
   employees,
   venues,
   evSlots,
   evPeriods,
   licensePlates,
+  prompts,
 };

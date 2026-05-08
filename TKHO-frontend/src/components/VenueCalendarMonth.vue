@@ -231,11 +231,14 @@ function getCollapsedVisibleCount(day) {
 
 function getVisibleBookings(day) {
   const all = getBookingsForDay(day)
+  // 6行月份单格高度更小，直接显示完整列表并允许内部滚动
+  if (gridRows.value === 6) return all
   if (isDayExpanded(day)) return all
   return all.slice(0, getCollapsedVisibleCount(day))
 }
 
 function getHiddenBookingCount(day) {
+  if (gridRows.value === 6) return 0
   const allCount = getBookingsForDay(day).length
   const shownCount = getVisibleBookings(day).length
   return Math.max(0, allCount - shownCount)
@@ -419,13 +422,12 @@ watch(
   flex-direction: column;
   gap: 4px;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .month-booking-list.expanded {
   max-height: 100%;
-  overflow-y: auto;
-  padding-right: 2px;
 }
 
 .month-event-bar {

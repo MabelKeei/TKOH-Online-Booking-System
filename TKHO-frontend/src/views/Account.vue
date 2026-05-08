@@ -18,8 +18,8 @@
             <div class="form-grid">
               <div class="form-row">
                 <div class="form-group full-width">
-                  <label class="form-label">First Name + Last Name <span class="required">*</span></label>
-                  <input type="text" v-model="profile.fullName" class="form-input" placeholder="Enter your first name + last name" />
+                  <label class="form-label">Name (e.g. Peter CHAN / TM CHAN)<span class="required">*</span></label>
+                  <input type="text" v-model="profile.fullName" class="form-input" placeholder="Enter your first name + last name" disabled />
                 </div>
               </div>
 
@@ -29,26 +29,26 @@
                   <input type="text" v-model="profile.corpId" class="form-input" disabled />
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Email</label>
+                  <label class="form-label">Email (e.g. xxx@ha.org.hk)</label>
                   <input type="email" v-model="profile.email" class="form-input" disabled />
                 </div>
               </div>
 
               <div class="form-row">
                 <div class="form-group">
-                  <label class="form-label">Contact No. <span class="required">*</span></label>
-                  <input type="text" v-model="profile.phone" class="form-input" placeholder="12345678" />
+                  <label class="form-label">Contact No. (Recommended: Office Tel.)<span class="required">*</span></label>
+                  <input type="text" v-model="profile.phone" class="form-input" placeholder="12345678" disabled />
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Employee No. <span class="required">*</span></label>
-                  <input type="text" v-model="profile.employeeNo" class="form-input" placeholder="123456" />
+                  <label class="form-label">Employee No.<span class="required">*</span></label>
+                  <input type="text" v-model="profile.employeeNo" class="form-input" placeholder="123456" disabled />
                 </div>
               </div>
 
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">Department <span class="required">*</span></label>
-                  <input type="text" v-model="profile.department" class="form-input" placeholder="Enter your department" />
+                  <input type="text" v-model="profile.department" class="form-input" placeholder="Enter your department" disabled />
                 </div>
                 <div class="form-group">
                   <label class="form-label">Assign Roles / Access Level</label>
@@ -64,16 +64,6 @@
               </div>
             </div>
 
-            <div class="form-actions with-border">
-              <button class="btn-save" @click="saveProfile">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                  <polyline points="7 3 7 8 15 8"></polyline>
-                </svg>
-                Save Profile
-              </button>
-            </div>
           </section>
 
           <!-- Change Password Section -->
@@ -178,70 +168,17 @@
                 v-for="(vehicle, index) in sortedVehicles"
                 :key="vehicle.id"
                 class="vehicle-item"
-                :class="{ 'vehicle-default': vehicle.isDefault, 'vehicle-editing': editingVehicleId === vehicle.id }"
+                :class="{ 'vehicle-default': vehicle.isDefault }"
                 @click="setDefaultVehicle(vehicle.id)"
               >
                 <div class="vehicle-number">{{ index + 1 }}</div>
                 <div class="vehicle-info">
                   <div class="vehicle-main">
-                    <input
-                      v-if="editingVehicleId === vehicle.id"
-                      type="text"
-                      v-model="vehicle.plate"
-                      class="vehicle-plate-input editing"
-                      @click.stop
-                      placeholder="License Plate"
-                    />
-                    <div v-else class="vehicle-plate">{{ vehicle.plate }}</div>
+                    <div class="vehicle-plate">{{ vehicle.plate }}</div>
                     <div class="vehicle-badge-group">
                       <div v-if="vehicle.isDefault" class="vehicle-default-badge">Default</div>
                     </div>
                   </div>
-                </div>
-                <div class="vehicle-actions">
-                  <button
-                    v-if="editingVehicleId === vehicle.id"
-                    class="btn-save-vehicle"
-                    @click.stop="saveVehicle(vehicle.id)"
-                    title="Save changes"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                  </button>
-                  <button
-                    v-if="editingVehicleId === vehicle.id"
-                    class="btn-cancel-edit"
-                    @click.stop="cancelEdit(vehicle.id)"
-                    title="Cancel"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
-                  <button
-                    v-else
-                    class="btn-edit"
-                    @click.stop="startEditVehicle(vehicle.id)"
-                    title="Edit vehicle"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                    </svg>
-                  </button>
-                  <button
-                    v-if="editingVehicleId !== vehicle.id"
-                    class="btn-remove"
-                    @click.stop="removeVehicle(vehicle.id)"
-                    title="Remove vehicle"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
                 </div>
               </div>
 
@@ -256,52 +193,6 @@
               </div>
             </div>
 
-            <div class="add-vehicle-section">
-              <button v-if="!showAddForm" class="btn-add-vehicle" @click="showAddForm = true">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                Add License Plate
-              </button>
-
-              <div v-if="showAddForm" class="add-vehicle-form">
-                <div class="form-row-compact">
-                  <input
-                    type="text"
-                    v-model="newVehicle.plate"
-                    class="form-input"
-                    placeholder="License Plate"
-                    @keyup.enter="addVehicle"
-                  />
-                </div>
-                <div class="vehicle-default-option" @click.stop>
-                  <label class="vehicle-default-radio">
-                    <input type="radio" v-model="newVehicle.isDefault" :value="false" />
-                    <span>Non-default</span>
-                  </label>
-                  <label class="vehicle-default-radio">
-                    <input type="radio" v-model="newVehicle.isDefault" :value="true" />
-                    <span>Default</span>
-                  </label>
-                </div>
-                <div class="form-actions-row">
-                  <button class="btn-confirm" @click="addVehicle">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    Confirm
-                  </button>
-                  <button class="btn-cancel" @click="cancelAddVehicle">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
           </section>
         </div>
       </div>
@@ -332,13 +223,10 @@
 import { onMounted, onUnmounted, ref, computed, reactive } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
 import { useUserStore } from '../stores/user'
-import { changePassword as changePasswordApi, updateProfile as updateProfileApi } from '../api/auth'
+import { changePassword as changePasswordApi } from '../api/auth'
 import {
-  createAccountVehicle,
-  deleteAccountVehicle,
   getAccountVehicles,
-  setDefaultAccountVehicle,
-  updateAccountVehicle
+  setDefaultAccountVehicle
 } from '../api/accountVehicle'
 
 const userStore = useUserStore()
@@ -365,15 +253,6 @@ const showPassword = ref({
 })
 
 const vehicles = ref([])
-
-const newVehicle = ref({
-  plate: '',
-  isDefault: false
-})
-
-const showAddForm = ref(false)
-const editingVehicleId = ref(null)
-const vehicleBackup = ref(null)
 const statusDialog = reactive({
   visible: false,
   message: '',
@@ -402,33 +281,6 @@ const notifySuccess = (message) => showStatusDialog(message, 'success')
 const formatQuotaRule = (used, annual) => {
   if (Number(annual) === -1) return `${used ?? 0}/Unlimited`
   return `${used ?? 0}/${annual ?? 0}`
-}
-
-const saveProfile = async () => {
-  if (!profile.value.fullName || !profile.value.phone || !profile.value.employeeNo || !profile.value.department) {
-    notifyError('Please fill in all required fields')
-    return
-  }
-  try {
-    const res = await updateProfileApi({
-      fullName: profile.value.fullName,
-      phone: profile.value.phone,
-      department: profile.value.department,
-      employeeNo: profile.value.employeeNo
-    })
-    if (res?.user) {
-      userStore.userInfo = res.user
-      localStorage.setItem('userInfo', JSON.stringify(res.user))
-      profile.value.fullName = res.user.name || profile.value.fullName
-      profile.value.employeeNo = res.user.account || profile.value.employeeNo
-      profile.value.department = res.user.department || ''
-      profile.value.phone = res.user.contact || ''
-    }
-    notifySuccess(res?.message || 'Profile saved successfully!')
-  } catch (error) {
-    const msg = error?.response?.data?.message || error?.message || 'Failed to save profile'
-    notifyError(msg)
-  }
 }
 
 const updatePassword = async () => {
@@ -475,51 +327,9 @@ const loadVehicles = async () => {
   }))
 }
 
-const addVehicle = async () => {
-  const rawPlate = newVehicle.value.plate ?? ''
-  const trimmedPlate = rawPlate.trim().toUpperCase()
-  const platePattern = /^[A-Z0-9]+$/
-
-  if (!trimmedPlate) {
-    notifyError('Please enter a license plate')
-    return
-  }
-
-  if (!platePattern.test(trimmedPlate)) {
-    notifyError('License plate can only contain letters and numbers (no spaces or symbols)')
-    return
-  }
-
-  try {
-    await createAccountVehicle({ plateNumber: trimmedPlate, isDefault: Boolean(newVehicle.value.isDefault) })
-    await loadVehicles()
-    newVehicle.value = { plate: '', isDefault: false }
-    showAddForm.value = false
-    notifySuccess('Vehicle added successfully!')
-  } catch (error) {
-    const msg = error?.response?.data?.message || error?.message || 'Failed to add vehicle'
-    notifyError(msg)
-  }
-}
-
-const cancelAddVehicle = () => {
-  newVehicle.value = { plate: '', isDefault: false }
-  showAddForm.value = false
-}
-
-const removeVehicle = async (id) => {
-  try {
-    await deleteAccountVehicle(id)
-    await loadVehicles()
-    notifySuccess('Vehicle removed successfully!')
-  } catch (error) {
-    const msg = error?.response?.data?.message || error?.message || 'Failed to remove vehicle'
-    notifyError(msg)
-  }
-}
-
 const setDefaultVehicle = async (id) => {
-  if (editingVehicleId.value === id) return
+  const target = vehicles.value.find((v) => v.id === id)
+  if (!target || target.isDefault) return
   try {
     await setDefaultAccountVehicle(id)
     await loadVehicles()
@@ -528,60 +338,6 @@ const setDefaultVehicle = async (id) => {
     const msg = error?.response?.data?.message || error?.message || 'Failed to update default vehicle'
     notifyError(msg)
   }
-}
-
-const startEditVehicle = (id) => {
-  const vehicle = vehicles.value.find((v) => v.id === id)
-  if (!vehicle) return
-  vehicleBackup.value = {
-    plate: vehicle.plate
-  }
-  editingVehicleId.value = id
-}
-
-const saveVehicle = async (id) => {
-  const vehicle = vehicles.value.find((v) => v.id === id)
-  if (!vehicle) return
-  const trimmedPlate = vehicle.plate.trim().toUpperCase()
-  const platePattern = /^[A-Z0-9]+$/
-
-  if (!trimmedPlate) {
-    notifyError('License plate cannot be empty')
-    return
-  }
-
-  if (!platePattern.test(trimmedPlate)) {
-    notifyError('License plate can only contain letters and numbers (no spaces or symbols)')
-    return
-  }
-
-  const plateExists = vehicles.value.some((v) => v.id !== id && v.plate.toUpperCase() === trimmedPlate)
-  if (plateExists) {
-    notifyError('This license plate already exists')
-    return
-  }
-
-  try {
-    await updateAccountVehicle(id, { plateNumber: trimmedPlate })
-    await loadVehicles()
-    editingVehicleId.value = null
-    vehicleBackup.value = null
-    notifySuccess('Vehicle updated!')
-  } catch (error) {
-    const msg = error?.response?.data?.message || error?.message || 'Failed to update vehicle'
-    notifyError(msg)
-  }
-}
-
-const cancelEdit = (id) => {
-  if (vehicleBackup.value) {
-    const vehicle = vehicles.value.find((v) => v.id === id)
-    if (vehicle) {
-      vehicle.plate = vehicleBackup.value.plate
-    }
-  }
-  editingVehicleId.value = null
-  vehicleBackup.value = null
 }
 
 let __accountResizeTimer = null
@@ -914,6 +670,7 @@ onUnmounted(() => {
   gap: 0.375rem;
   flex-shrink: 0;
 }
+
 
 .vehicle-main {
   display: flex;

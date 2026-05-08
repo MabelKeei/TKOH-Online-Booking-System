@@ -487,7 +487,7 @@ export function getMockPromptList () {
       id: 3,
       key: 'venue_add_booking_setup',
       name: 'Venue Setup',
-      content: 'Specify seating layout and setup details clearly for venue preparation.',
+      content: 'Contact FM (Ext. 1845)',
       category: 'system_fixed',
       canAdd: false
     },
@@ -495,7 +495,7 @@ export function getMockPromptList () {
       id: 4,
       key: 'venue_add_booking_equipment',
       name: 'Equipment',
-      content: 'List all required equipment (projector, microphone, screen, etc.) in advance.',
+      content: 'Contact ITD (Ext. 1830)',
       category: 'system_fixed',
       canAdd: false
     },
@@ -503,7 +503,7 @@ export function getMockPromptList () {
       id: 5,
       key: 'venue_add_booking_tools_materials',
       name: 'Tools and Materials',
-      content: 'Provide tools/materials requirements to ensure support is ready before the event.',
+      content: 'Contact GO (Ext. 1896)',
       category: 'system_fixed',
       canAdd: false
     },
@@ -511,7 +511,7 @@ export function getMockPromptList () {
       id: 6,
       key: 'venue_add_booking_others_special_requests',
       name: 'Others / Special Requests',
-      content: 'State any special arrangements or additional support requests clearly.',
+      content: 'Contact GO (Ext. 1896)',
       category: 'system_fixed',
       canAdd: false
     },
@@ -618,6 +618,7 @@ export function getMockVenueList () {
       color: '#3b82f6',
       location: '8/F Ambulatory Care Block',
       locationZh: '日間醫療大樓8樓',
+      roomCapacity: 8,
       displayType: 'merge',
       image: '',
       blocks: [
@@ -625,12 +626,12 @@ export function getMockVenueList () {
       ],
       status: 'active'
     },
-    { id: 2, name: 'Conference Room 2', nameZh: '會議室2', tab: 'conference_discussion', type: 'conference', color: '#10b981', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'merge', image: '', blocks: [], status: 'active' },
-    { id: 3, name: 'Conference Room 3', nameZh: '會議室3', tab: 'conference_discussion', type: 'conference', color: '#06b6d4', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'merge', image: '', blocks: [], status: 'active' },
-    { id: 4, name: 'Discussion Room', nameZh: '討論室', tab: 'conference_discussion', type: 'discussion', color: '#f59e0b', location: '3F', locationZh: '3樓', displayType: 'single', image: '', blocks: [], status: 'active' },
-    { id: 5, name: 'Function Room', nameZh: '多功能室', tab: 'other_venues', type: 'other', color: '#ec4899', location: 'Ground Floor', locationZh: '地下', displayType: 'single', image: '', blocks: [], status: 'active' },
-    { id: 6, name: 'Lecture Theatre', nameZh: '演講廳', tab: 'other_venues', type: 'other', color: '#6366f1', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'single', image: '', blocks: [], status: 'active' },
-    { id: 7, name: 'Auditorium', nameZh: '禮堂', tab: 'other_venues', type: 'other', color: '#8b5cf6', location: '1F', locationZh: '1樓', displayType: 'single', image: '', blocks: [], status: 'active' }
+    { id: 2, name: 'Conference Room 2', nameZh: '會議室2', tab: 'conference_discussion', type: 'conference', color: '#10b981', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', roomCapacity: 20, displayType: 'merge', image: '', blocks: [], status: 'active' },
+    { id: 3, name: 'Conference Room 3', nameZh: '會議室3', tab: 'conference_discussion', type: 'conference', color: '#06b6d4', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', roomCapacity: 40, displayType: 'merge', image: '', blocks: [], status: 'active' },
+    { id: 4, name: 'Discussion Room', nameZh: '討論室', tab: 'conference_discussion', type: 'discussion', color: '#f59e0b', location: '3F', locationZh: '3樓', roomCapacity: 12, displayType: 'single', image: '', blocks: [], status: 'active' },
+    { id: 5, name: 'Function Room', nameZh: '多功能室', tab: 'other_venues', type: 'other', color: '#ec4899', location: 'Ground Floor', locationZh: '地下', roomCapacity: 60, displayType: 'single', image: '', blocks: [], status: 'active' },
+    { id: 6, name: 'Lecture Theatre', nameZh: '演講廳', tab: 'other_venues', type: 'other', color: '#6366f1', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', roomCapacity: 70, displayType: 'single', image: '', blocks: [], status: 'active' },
+    { id: 7, name: 'Auditorium', nameZh: '禮堂', tab: 'other_venues', type: 'other', color: '#8b5cf6', location: '1F', locationZh: '1樓', roomCapacity: 99, displayType: 'single', image: '', blocks: [], status: 'active' }
   ]
   return cloneMockList(_venueList)
 }
@@ -665,7 +666,7 @@ export function getMockEVManageBookingList () {
     { id: 3, licensePlate: 'AB1234', space: 'B2', date: '12 Feb 2026', time: 'PM (13:45 - 18:15)', bookedOn: '3 Feb 2026', status: 'upcoming' },
     { id: 4, licensePlate: 'HK7890', space: 'B1', date: '7 Feb 2026', time: 'Night (19:00 - 23:30)', bookedOn: '4 Feb 2026', status: 'upcoming' },
     { id: 5, licensePlate: 'YZ4567', space: 'B3', date: '3 Feb 2026', time: 'AM (08:30 - 13:00)', bookedOn: '25 Jan 2026', status: 'past' },
-    { id: 6, licensePlate: 'AB1234', space: 'B2', date: '28 Jan 2026', time: 'PM (13:45 - 18:15)', bookedOn: '20 Jan 2026', status: 'cancelled', reason: 'Changed to another vehicle' },
+    { id: 6, licensePlate: 'AB1234', space: 'B2', date: '28 Jan 2026', time: 'PM (13:45 - 18:15)', bookedOn: '20 Jan 2026', status: 'cancelled' },
     { id: 7, licensePlate: 'CD5678', space: 'B1', date: '15 Mar 2026', time: 'AM (08:30 - 13:00)', bookedOn: '10 Mar 2026', status: 'upcoming' },
     { id: 8, licensePlate: 'EF9012', space: 'B3', date: '18 Mar 2026', time: 'PM (13:45 - 18:15)', bookedOn: '12 Mar 2026', status: 'upcoming' },
     { id: 9, licensePlate: 'GH3456', space: 'B2', date: '22 Mar 2026', time: 'Night (19:00 - 23:30)', bookedOn: '15 Mar 2026', status: 'upcoming' },
@@ -674,7 +675,7 @@ export function getMockEVManageBookingList () {
     { id: 12, licensePlate: 'HK7890', space: 'B3', date: '8 Feb 2026', time: 'AM (08:30 - 13:00)', bookedOn: '1 Feb 2026', status: 'past' },
     { id: 13, licensePlate: 'CD5678', space: 'B1', date: '10 Feb 2026', time: 'Night (19:00 - 23:30)', bookedOn: '3 Feb 2026', status: 'past' },
     { id: 14, licensePlate: 'EF9012', space: 'B2', date: '14 Feb 2026', time: 'PM (13:45 - 18:15)', bookedOn: '7 Feb 2026', status: 'past' },
-    { id: 15, licensePlate: 'GH3456', space: 'B3', date: '20 Feb 2026', time: 'AM (08:30 - 13:00)', bookedOn: '13 Feb 2026', status: 'cancelled', reason: 'Changed to another vehicle' },
+    { id: 15, licensePlate: 'GH3456', space: 'B3', date: '20 Feb 2026', time: 'AM (08:30 - 13:00)', bookedOn: '13 Feb 2026', status: 'cancelled' },
     { id: 16, licensePlate: 'AB1234', space: 'B1', date: '30 Mar 2026', time: 'PM (13:45 - 18:15)', bookedOn: '23 Mar 2026', status: 'upcoming' },
     { id: 17, licensePlate: 'YZ4567', space: 'B3', date: '2 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '25 Mar 2026', status: 'upcoming' },
     { id: 18, licensePlate: 'HK7891', space: 'B2', date: '5 Apr 2026', time: 'Night (19:00 - 23:30)', bookedOn: '28 Mar 2026', status: 'upcoming' },
@@ -685,7 +686,10 @@ export function getMockEVManageBookingList () {
     { id: 23, licensePlate: 'HK7894', space: 'B3', date: '5 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '28 Mar 2026', status: 'upcoming' },
     { id: 24, licensePlate: 'HK7895', space: 'B1', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
     { id: 25, licensePlate: 'HK7896', space: 'B2', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
-    { id: 26, licensePlate: 'HK7897', space: 'B3', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' }
+    { id: 26, licensePlate: 'HK7897', space: 'B3', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
+    { id: 27, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin-test', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B1', date: '8 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '1 Apr 2026', status: 'upcoming' },
+    { id: 28, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin-test', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B2', date: '27 Mar 2026', time: 'PM (13:45 - 18:15)', bookedOn: '20 Mar 2026', status: 'past' },
+    { id: 29, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin-test', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B3', date: '10 Apr 2026', time: 'Night (19:00 - 23:30)', bookedOn: '3 Apr 2026', status: 'cancelled' }
   ]
   return cloneMockList(_evManageBookingList)
 }
@@ -705,7 +709,10 @@ export function getMockVenueManageBookingList () {
     { id: 10, topic: 'HR Policy Update Session', room: 'Lecture Theatre', date: '25 Feb 2026', time: '13:30 - 15:00', bookedOn: '05 Feb 2026 09:05', status: 'upcoming', type: 'venue', reservedBy: 'Linda Tsang', contact: '89012345', email: 'linda.tsang@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '05 Feb 2026 09:05', rejectReason: '' },
     { id: 11, topic: 'Quarterly Business Review', room: 'Conference Room 2', date: '28 Feb 2026', time: '10:00 - 12:00', bookedOn: '06 Feb 2026 14:15', status: 'upcoming', type: 'venue', reservedBy: 'Robert Chan', contact: '90123456', email: 'robert.chan@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '06 Feb 2026 14:15', rejectReason: '' },
     { id: 12, topic: 'Marketing Strategy Meeting', room: 'Discussion Room', date: '15 Jan 2026', time: '11:00 - 12:30', bookedOn: '05 Jan 2026 16:55', status: 'canceled', type: 'venue', reservedBy: 'Jessica Liu', contact: '01234567', email: 'jessica.liu@ha.org.hk', teaServiceRequired: false, approvalStatus: 'rejected', approvedBy: '', approvedAt: '', rejectReason: 'Booking rejected by admin' },
-    { id: 13, topic: 'Vendor Negotiation', room: 'Conference Room 3', date: '03 Mar 2026', time: '14:30 - 16:00', bookedOn: '07 Feb 2026 11:20', status: 'upcoming', type: 'venue', reservedBy: 'Thomas Yip', contact: '11223344', email: 'thomas.yip@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '07 Feb 2026 11:20', rejectReason: '' }
+    { id: 13, topic: 'Vendor Negotiation', room: 'Conference Room 3', date: '03 Mar 2026', time: '14:30 - 16:00', bookedOn: '07 Feb 2026 11:20', status: 'upcoming', type: 'venue', reservedBy: 'Thomas Yip', contact: '11223344', email: 'thomas.yip@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '07 Feb 2026 11:20', rejectReason: '' },
+    { id: 14, employeeId: 1, corpId: 'Admin-test', topic: 'Admin Monthly Operations Sync', room: 'Conference Room 1', date: '12 Apr 2026', time: '10:00 - 11:00', bookedOn: '02 Apr 2026 09:40', status: 'upcoming', type: 'venue', reservedBy: 'Admin-test', contact: '91000000', email: 'employee1@tkho.local', teaServiceRequired: true, teaServiceSummary: 'Tea / One Pot', teaServiceParticipants: 6, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '02 Apr 2026 09:45', rejectReason: '' },
+    { id: 15, employeeId: 1, corpId: 'Admin-test', topic: 'Admin-test System Review', room: 'Discussion Room', date: '22 Mar 2026', time: '15:00 - 16:00', bookedOn: '15 Mar 2026 16:20', status: 'past', type: 'venue', reservedBy: 'Admin-test', contact: '91000000', email: 'employee1@tkho.local', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '15 Mar 2026 16:25', rejectReason: '' },
+    { id: 16, employeeId: 1, corpId: 'Admin-test', topic: 'Admin-test Budget Workshop', room: 'Function Room', date: '18 Apr 2026', time: '14:00 - 16:00', bookedOn: '06 Apr 2026 11:10', status: 'canceled', type: 'venue', reservedBy: 'Admin-test', contact: '91000000', email: 'employee1@tkho.local', teaServiceRequired: true, teaServiceSummary: 'Water / One Bottle Per Person', teaServiceParticipants: 18, approvalStatus: 'rejected', approvedBy: '', approvedAt: '', rejectReason: 'Rescheduled by organizer' }
   ]
   return cloneMockList(_venueManageBookingList)
 }

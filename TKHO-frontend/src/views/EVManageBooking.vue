@@ -191,10 +191,6 @@
                   <span class="card-label">Application Date</span>
                   <span class="card-value">{{ booking.bookedOn }}</span>
                 </div>
-                <div v-if="booking.reason" class="card-row reason-row">
-                  <span class="card-label reason-label">Reason</span>
-                  <span class="card-value reason-text">{{ booking.reason }}</span>
-                </div>
               </div>
               <div class="card-footer">
                 <button v-if="booking.status === 'upcoming'" class="btn-cancel" @click="cancelBooking(booking.id)">
@@ -263,7 +259,6 @@
                       @update:model-value="(v) => updateFilter('status', v)"
                     />
                   </th>
-                  <th>Reason</th>
                   <th class="col-actions">Actions</th>
                 </tr>
               </thead>
@@ -282,7 +277,6 @@
                       {{ formatStatus(booking.status) }}
                     </span>
                   </td>
-                  <td class="reason-cell">{{ booking.reason || '-' }}</td>
                   <td class="actions-td">
                     <div class="actions-cell">
                       <button
@@ -417,7 +411,7 @@ const statusFilters = ref({
   cancelled: false
 })
 
-// Mock booking data（统一从 mockData 管理）
+// Mock booking data（统一�?mockData 管理�?
 const bookings = ref(getMockEVManageBookingList())
 
 const filteredBookings = computed(() => {
@@ -425,9 +419,15 @@ const filteredBookings = computed(() => {
 
   // Filter by booking view (admin only)
   if (isAdmin.value && bookingView.value === 'my') {
-    // Show only bookings made by current admin user
+    // 优先按用�?id 关联；兼容旧 mock 再回退 corpId / email
+    const currentUserId = userInfo.value?.id
+    const currentUserCorpId = userInfo.value?.corpId
     const currentUserEmail = userInfo.value?.email || 'karen.shen@ha.org.hk'
-    result = result.filter(b => b.email === currentUserEmail)
+    result = result.filter((b) => {
+      if (currentUserId != null && b.employeeId != null) return String(b.employeeId) === String(currentUserId)
+      if (currentUserCorpId && b.corpId) return String(b.corpId) === String(currentUserCorpId)
+      return (b.email || '') === currentUserEmail
+    })
   }
   // If bookingView is 'all' or user is not admin, show all bookings
 
@@ -551,7 +551,7 @@ const toggleSort = (key) => {
 const getSortIndicator = (key) => {
   const idx = sortState.value.findIndex(item => item.key === key)
   if (idx === -1) return '↕'
-  const arrow = sortState.value[idx].order === 'asc' ? '▲' : '▼'
+  const arrow = sortState.value[idx].order === 'asc' ? '↑' : '↓'
   return `${arrow}${idx + 1}`
 }
 
@@ -820,7 +820,6 @@ const confirmCancel = () => {
   const booking = bookings.value.find(b => b.id === cancelBookingId.value)
   if (booking) {
     booking.status = 'cancelled'
-    delete booking.reason
   }
   showCancelDialog.value = false
   cancelBookingId.value = null
@@ -1203,6 +1202,9 @@ const confirmCancel = () => {
   font-weight: 600;
   white-space: nowrap;
   display: inline-block;
+  width: 4.5rem;
+  box-sizing: border-box;
+  text-align: center;
   flex-shrink: 0;
 }
 
@@ -1236,35 +1238,15 @@ const confirmCancel = () => {
   font-size: 0.75rem;
 }
 
-.card-row.reason-row {
-  flex-direction: row;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-  padding-top: 0.375rem;
-  border-top: 1px solid #e5e7eb;
-}
-
 .card-label {
   color: #6b7280;
   font-weight: 500;
-}
-
-.reason-label {
-  color: #ef4444;
-  font-weight: 600;
 }
 
 .card-value {
   color: #111827;
   font-weight: 400;
   text-align: right;
-}
-
-.reason-text {
-  color: #ef4444;
-  font-weight: 500;
-  text-align: right;
-  flex: 1;
 }
 
 .card-footer {
@@ -1677,15 +1659,6 @@ const confirmCancel = () => {
 .datetime-cell .time {
   font-size: 0.75rem;
   color: #6b7280;
-}
-
-.reason-cell {
-  color: #ef4444;
-  font-size: 0.75rem;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .actions-cell {

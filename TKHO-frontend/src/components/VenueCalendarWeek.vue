@@ -43,10 +43,7 @@
               @click="selectBooking(day.fullDate)"
             >
               <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-              <div v-if="booking.roomName" class="booking-room">{{ booking.roomName }}</div>
-              <div class="booking-topic">{{ booking.topic || booking.notes }}</div>
-              <div v-if="booking.reservedBy" class="booking-reserved">Reserved By: {{ booking.reservedBy }}</div>
-              <div class="booking-contact">Contact: {{ getBookingContact(booking) }}</div>
+              <div class="booking-reserved">{{ booking.reservedBy || 'N/A' }}</div>
             </div>
           </template>
         </CalendarBookingPopover>
@@ -139,10 +136,6 @@ function getDayBookings(dayDate) {
 function isToday(date) {
   const today = new Date()
   return date.toDateString() === today.toDateString()
-}
-
-function getBookingContact(booking) {
-  return booking.contact ?? booking.contactNumber ?? booking.phone ?? booking.tel ?? 'N/A'
 }
 
 // 计算预订卡片的样式（位置和高度）
@@ -322,38 +315,8 @@ function selectBooking(dayDate) {
   white-space: nowrap;
 }
 
-.booking-room {
-  font-size: 0.7rem;
-  font-weight: 600;
-  opacity: 0.95;
-  margin-bottom: 0.125rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.booking-topic {
-  font-size: 0.75rem;
-  opacity: 0.95;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
 .booking-reserved {
-  font-size: 0.7rem;
-  opacity: 0.9;
-  margin-top: 0.125rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.booking-contact {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   opacity: 0.9;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -371,23 +334,11 @@ function selectBooking(dayDate) {
     min-height: 50px;
   }
 
-  .booking-topic {
-    font-size: 0.65rem;
-  }
-
-  .booking-room {
-    font-size: 0.6rem;
-  }
-
   .booking-time {
     font-size: 0.7rem;
   }
 
   .booking-reserved {
-    font-size: 0.6rem;
-  }
-
-  .booking-contact {
     font-size: 0.6rem;
   }
 }
@@ -403,23 +354,11 @@ function selectBooking(dayDate) {
     min-height: 50px;
   }
 
-  .booking-topic {
-    font-size: 0.65rem;
-  }
-
-  .booking-room {
-    font-size: 0.6rem;
-  }
-
   .booking-time {
     font-size: 0.7rem;
   }
 
   .booking-reserved {
-    font-size: 0.6rem;
-  }
-
-  .booking-contact {
     font-size: 0.6rem;
   }
 }

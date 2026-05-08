@@ -43,9 +43,7 @@
               @click="selectBooking(booking)"
             >
               <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-              <div class="booking-topic">{{ booking.topic || booking.notes }}</div>
-              <div v-if="booking.reservedBy" class="booking-reserved">Reserved By: {{ booking.reservedBy }}</div>
-              <div class="booking-contact">Contact: {{ getBookingContact(booking) }}</div>
+              <div class="booking-reserved">{{ booking.reservedBy || 'N/A' }}</div>
             </div>
           </template>
         </CalendarBookingPopover>
@@ -100,10 +98,6 @@ const dayGridMinWidth = computed(() => {
 // 获取特定房间的预订
 function getRoomBookings(roomName) {
   return props.bookings.filter(booking => booking.roomName === roomName)
-}
-
-function getBookingContact(booking) {
-  return booking.contact ?? booking.contactNumber ?? booking.phone ?? booking.tel ?? 'N/A'
 }
 
 // 计算预订的位置和高度
@@ -284,28 +278,8 @@ function selectBooking(booking) {
   margin-bottom: 0.125rem;
 }
 
-.booking-topic {
-  font-size: 0.75rem;
-  opacity: 0.95;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
 .booking-reserved {
-  font-size: 0.7rem;
-  opacity: 0.9;
-  margin-top: 0.125rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.booking-contact {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   opacity: 0.9;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -326,15 +300,7 @@ function selectBooking(booking) {
     font-size: 0.7rem;
   }
 
-  .booking-topic {
-    font-size: 0.65rem;
-  }
-
   .booking-reserved {
-    font-size: 0.6rem;
-  }
-
-  .booking-contact {
     font-size: 0.6rem;
   }
 }
@@ -353,15 +319,7 @@ function selectBooking(booking) {
     font-size: 0.7rem;
   }
 
-  .booking-topic {
-    font-size: 0.65rem;
-  }
-
   .booking-reserved {
-    font-size: 0.6rem;
-  }
-
-  .booking-contact {
     font-size: 0.6rem;
   }
 }

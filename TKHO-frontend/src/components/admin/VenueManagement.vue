@@ -77,6 +77,11 @@
         </el-table-column>
         <el-table-column prop="location" label="Location" min-width="220" />
         <el-table-column prop="locationZh" label="Location (ZH)" min-width="200" />
+        <el-table-column label="Capacity" min-width="110" align="center">
+          <template #default="{ row }">
+            {{ row.roomCapacity ?? row.capacity ?? '-' }}
+          </template>
+        </el-table-column>
         <el-table-column min-width="150">
           <template #header>
             <SortableFilterHeader
@@ -236,6 +241,16 @@
         </el-form-item>
         <el-form-item label="Location (ZH)">
           <el-input v-model="formData.locationZh" placeholder="位置中文名稱" />
+        </el-form-item>
+        <el-form-item label="Capacity">
+          <el-input-number
+            v-model="formData.roomCapacity"
+            :min="1"
+            :step="1"
+            :precision="0"
+            style="width: 100%"
+            controls-position="right"
+          />
         </el-form-item>
         <el-form-item label="Display Type">
           <div class="display-type-buttons">
@@ -511,6 +526,7 @@ const formData = ref({
   color: '',
   location: '',
   locationZh: '',
+  roomCapacity: null,
   displayType: 'single',
   image: '',
   imageList: [],
@@ -737,6 +753,7 @@ const handleAdd = () => {
     color: '',
     location: '',
     locationZh: '',
+    roomCapacity: null,
     displayType: 'single',
     image: '',
     imageList: [],
@@ -757,6 +774,7 @@ const handleEdit = (row) => {
     displayType: row.displayType || 'single',
     nameZh: row.nameZh || '',
     locationZh: row.locationZh || '',
+    roomCapacity: row.roomCapacity ?? row.capacity ?? null,
     imageList: row.image ? [{ url: row.image }] : []
   }
   showForm.value = true
@@ -778,10 +796,16 @@ const handleSave = () => {
     return
   }
 
+  if (formData.value.roomCapacity == null || Number(formData.value.roomCapacity) < 1) {
+    showNotice('Capacity must be at least 1', 'Warning')
+    return
+  }
+
   const normalizedFormData = {
     ...formData.value,
     tab: activeCategory.value,
     type: formData.value.type,
+    roomCapacity: formData.value.roomCapacity == null ? null : Number(formData.value.roomCapacity),
     image: formData.value.imageList?.[0]?.url || ''
   }
   delete normalizedFormData.imageList

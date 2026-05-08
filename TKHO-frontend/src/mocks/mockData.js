@@ -361,7 +361,7 @@ export function getMockAccessRoleList () {
     { id: 1, roleName: 'Admin', description: 'Admin user who has FULL control withour restructions over the system', AnnualVenueQuota: -1, AnnualEvQuota: -1, employeeCount: 15 },
     { id: 2, roleName: 'User', description: 'Regular user who can access EV and venue bookings', AnnualVenueQuota: 100, AnnualEvQuota: 60, employeeCount: 120 },
     { id: 3, roleName: 'User_EV', description: 'Regular user who can access EV booking ONLY', AnnualVenueQuota: 0, AnnualEvQuota: 60, employeeCount: 35 },
-    { id: 4, roleName: 'User_Veue', description: 'Regular user who can access venue booking ONLY', AnnualVenueQuota: 100, AnnualEvQuota: 0, employeeCount: 8 }
+    { id: 4, roleName: 'User_Venue', description: 'Regular user who can access venue booking ONLY', AnnualVenueQuota: 100, AnnualEvQuota: 0, employeeCount: 8 }
   ]
   return cloneMockList(_accessRoleList)
 }

@@ -10,6 +10,8 @@ function parseTimeHm(value: string): Date {
 }
 
 async function main() {
+  const departmentList = seedData.departmentList ?? [];
+  const accessRoleList = seedData.accessRoleList ?? [];
   const employees = seedData.employees;
   const venues = seedData.venues;
   const evSlots = seedData.evSlots;
@@ -18,6 +20,32 @@ async function main() {
   const prompts = seedData.prompts ?? [];
 
   console.log('[seed] data source: TKHO-backend/prisma/seed-data.ts');
+
+  if (departmentList.length > 0) {
+    await prisma.departments.deleteMany();
+    await prisma.departments.createMany({
+      data: departmentList.map((row) => ({
+        id: BigInt(row.id),
+        department_name: row.departmentName,
+        description: row.description ?? null,
+        employee_count: row.employeeCount ?? 0,
+      })),
+    });
+  }
+
+  if (accessRoleList.length > 0) {
+    await prisma.access_roles.deleteMany();
+    await prisma.access_roles.createMany({
+      data: accessRoleList.map((row) => ({
+        id: BigInt(row.id),
+        role_name: row.roleName,
+        description: row.description ?? null,
+        annual_venue_quota: row.annualVenueQuota ?? 0,
+        annual_ev_quota: row.annualEvQuota ?? 0,
+        employee_count: row.employeeCount ?? 0,
+      })),
+    });
+  }
 
   if (employees.length > 0) {
     for (const row of employees) {
@@ -188,7 +216,7 @@ async function main() {
   }
 
   console.log(
-    `[seed] done: employees=${employees.length}, venues=${venues.length}, evSlots=${evSlots.length}, evPeriods=${evPeriods.length}, licensePlates=${licensePlates.length}, prompts=${prompts.length}`,
+    `[seed] done: departments=${departmentList.length}, accessRoles=${accessRoleList.length}, employees=${employees.length}, venues=${venues.length}, evSlots=${evSlots.length}, evPeriods=${evPeriods.length}, licensePlates=${licensePlates.length}, prompts=${prompts.length}`,
   );
 }
 

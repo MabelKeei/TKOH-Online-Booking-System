@@ -62,24 +62,104 @@ export type SeedPrompt = {
   templateType?: string | null;
 };
 
-const departments = ['ADM', 'CNS', 'D&T', 'HCE', 'ENT', 'GO', 'PMMD', 'SOPD', 'NSD', 'SS'];
-const positions = ['User', 'User_EV', 'User_Venue', 'Admin'];
+export type SeedDepartment = {
+  id: number;
+  departmentName: string;
+  description?: string;
+  employeeCount?: number;
+};
+
+export type SeedAccessRole = {
+  id: number;
+  roleName: string;
+  description?: string;
+  annualVenueQuota?: number;
+  annualEvQuota?: number;
+  employeeCount?: number;
+};
+
+const departmentCodes = [
+  'ADM',
+  'CNS',
+  'D&T',
+  'EMSD',
+  'ENT',
+  'FM',
+  'FM&PHC',
+  'GO',
+  'HCE',
+  'HIRD',
+  'HRC',
+  'HRD',
+  'ICT',
+  'ITD',
+  'MED',
+  'NSD',
+  'OPH',
+  'OSH',
+  'P&CR',
+  'Path',
+  'Pharm',
+  'PMMD',
+  'Q&S',
+  'SOPD',
+  'SS',
+];
+const accessRoles = ['Admin', 'User', 'User_EV', 'User_Venue'];
+
+const departmentList: SeedDepartment[] = [
+  { id: 1, departmentName: 'ADM', description: 'Administrative Services Division', employeeCount: 0 },
+  { id: 2, departmentName: 'CNS', description: 'Community Nursing Services', employeeCount: 0 },
+  { id: 3, departmentName: 'D&T', description: 'Domestic & Transportation', employeeCount: 0 },
+  { id: 4, departmentName: 'EMSD', description: 'Electrical & Mechanical Services Department', employeeCount: 0 },
+  { id: 5, departmentName: 'ENT', description: 'Department of Ear, Nose & Throat', employeeCount: 0 },
+  { id: 6, departmentName: 'FM', description: 'Facility Management', employeeCount: 0 },
+  { id: 7, departmentName: 'FM&PHC', description: 'Department of Family Medicine & Primary Health Care', employeeCount: 0 },
+  { id: 8, departmentName: 'GO', description: 'General Office', employeeCount: 0 },
+  { id: 9, departmentName: 'HCE', description: "Hospital Chief Executive's Office", employeeCount: 0 },
+  { id: 10, departmentName: 'HIRD', description: 'Health Information & Records Department', employeeCount: 0 },
+  { id: 11, departmentName: 'HRC', description: 'Health Resources Centre', employeeCount: 0 },
+  { id: 12, departmentName: 'HRD', description: 'Human Resources Division', employeeCount: 0 },
+  { id: 13, departmentName: 'ICT', description: 'Infection Control Team', employeeCount: 0 },
+  { id: 14, departmentName: 'ITD', description: 'Information Technology Department', employeeCount: 0 },
+  { id: 15, departmentName: 'MED', description: 'Department of Medicine', employeeCount: 0 },
+  { id: 16, departmentName: 'NSD', description: 'Nursing Services Division', employeeCount: 0 },
+  { id: 17, departmentName: 'OPH', description: 'Department of Ophthalmology', employeeCount: 0 },
+  { id: 18, departmentName: 'OSH', description: 'Occupational Safety and Health Team', employeeCount: 0 },
+  { id: 19, departmentName: 'P&CR', description: 'Patient & Community Relations Department', employeeCount: 0 },
+  { id: 20, departmentName: 'Path', description: 'Department of Pathology', employeeCount: 0 },
+  { id: 21, departmentName: 'Pharm', description: 'Pharmacy', employeeCount: 0 },
+  { id: 22, departmentName: 'PMMD', description: 'Procurement & Materials Management Department', employeeCount: 0 },
+  { id: 23, departmentName: 'Q&S', description: 'Quality & Safety Office', employeeCount: 0 },
+  { id: 24, departmentName: 'SOPD', description: 'Specialist Out-patient Department', employeeCount: 0 },
+  { id: 25, departmentName: 'SS', description: 'Supporting Services', employeeCount: 0 },
+];
+
+const accessRoleList: SeedAccessRole[] = [
+  { id: 1, roleName: 'Admin', description: 'Admin user who has FULL control withour restructions over the system', annualVenueQuota: -1, annualEvQuota: -1, employeeCount: 15 },
+  { id: 2, roleName: 'User', description: 'Regular user who can access EV and venue bookings', annualVenueQuota: 100, annualEvQuota: 60, employeeCount: 120 },
+  { id: 3, roleName: 'User_EV', description: 'Regular user who can access EV booking ONLY', annualVenueQuota: 0, annualEvQuota: 60, employeeCount: 35 },
+  { id: 4, roleName: 'User_Venue', description: 'Regular user who can access venue booking ONLY', annualVenueQuota: 100, annualEvQuota: 0, employeeCount: 8 },
+];
 
 const employees: SeedEmployee[] = Array.from({ length: 25 }, (_, index) => {
   const i = index + 1;
   const isAdmin = i === 1 || i === 16;
+  const selectedRole = isAdmin ? 'Admin' : accessRoles[(index % (accessRoles.length - 1)) + 1];
+  const isVenueOnly = selectedRole === 'User_Venue';
+  const isEvOnly = selectedRole === 'User_EV';
   return {
     id: i,
     corpId: i === 1 ? 'Admin-test' : `E${String(i).padStart(3, '0')}`,
     name: `Employee ${i}`,
-    department: departments[index % departments.length],
-    role: isAdmin ? 'Admin' : 'User',
-    position: isAdmin ? 'Admin' : positions[index % positions.length],
+    department: departmentCodes[index % departmentCodes.length],
+    role: selectedRole,
+    position: selectedRole,
     email: `employee${i}@tkho.local`,
     contact: `91${String(i).padStart(6, '0')}`,
-    annualQuotaEV: isAdmin ? -1 : 30,
+    annualQuotaEV: isAdmin ? -1 : isVenueOnly ? 0 : 60,
     usedQuotaEV: (index * 3) % 20,
-    annualQuotaVenue: isAdmin ? -1 : 30,
+    annualQuotaVenue: isAdmin ? -1 : isEvOnly ? 0 : 100,
     usedQuotaVenue: (index * 2) % 10,
   };
 });
@@ -306,6 +386,8 @@ const prompts: SeedPrompt[] = [
 ];
 
 export const seedData = {
+  departmentList,
+  accessRoleList,
   employees,
   venues,
   evSlots,

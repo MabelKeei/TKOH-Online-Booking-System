@@ -33,7 +33,7 @@
           :key="booking.id"
           :booking="booking"
           :current-date="currentDate"
-          default-color="#3b82f6"
+          default-color="#f97316"
           :teleported="false"
         >
           <template #reference>
@@ -121,10 +121,11 @@ function getBookingStyle(booking) {
   const top = offsetSlots * slotHeight
   const height = durationSlots * slotHeight
 
+  const accent = booking.color || '#f97316'
   return {
     top: `${top}px`,
     height: `${height}px`,
-    backgroundColor: booking.color || '#3b82f6'
+    '--booking-accent': accent
   }
 }
 
@@ -254,19 +255,21 @@ function selectBooking(booking) {
   position: absolute;
   left: 2px;
   right: 2px;
-  padding: 0.25rem 0.375rem;
-  border-radius: 0.25rem;
-  color: white;
+  box-sizing: border-box;
+  padding: 3px 6px 3px 7px;
+  border-radius: 3px;
+  border-left: 4px solid var(--booking-accent, #f97316);
+  background-color: color-mix(in srgb, var(--booking-accent, #f97316) 42%, white);
+  color: #111827;
   font-size: 0.7rem;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   z-index: 1;
 }
 
 .booking-block:hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
-  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .booking-time {
@@ -276,11 +279,13 @@ function selectBooking(booking) {
   white-space: nowrap;
   font-size: 0.8125rem;
   margin-bottom: 0.125rem;
+  color: #111827;
 }
 
 .booking-reserved {
   font-size: 0.75rem;
-  opacity: 0.9;
+  font-weight: 500;
+  color: #4b5563;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

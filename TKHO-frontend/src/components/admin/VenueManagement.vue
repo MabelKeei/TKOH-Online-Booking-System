@@ -34,7 +34,7 @@
         <el-table-column prop="name" min-width="240">
           <template #header>
             <SortableFilterHeader
-              label="Venue Name"
+              label="Room / Venue Name"
               :sort-indicator="getSortIndicator('name')"
               :filter-active="columnFilterState.name.length > 0"
               :options="nameOptions"
@@ -692,7 +692,7 @@ onUnmounted(() => {
 const handleExport = () => {
   const exportData = filteredVenueList.value.map(item => {
     const base = {
-      'Venue Name': item.name,
+      'Room / Venue Name': item.name,
       'Name (ZH)': item.nameZh || '',
       'Color': item.color,
       'Location': item.location,

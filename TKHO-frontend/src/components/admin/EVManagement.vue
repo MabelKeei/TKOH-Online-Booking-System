@@ -99,7 +99,7 @@
                 fixed="left"
                 :index="getTimePeriodsRowIndex"
               />
-              <el-table-column prop="period" label="Period" min-width="120" />
+              <el-table-column prop="period" label="Time Period" min-width="120" />
               <el-table-column prop="startTime" label="Start Time" min-width="140" />
               <el-table-column prop="endTime" label="End Time" min-width="140" />
               <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
@@ -412,7 +412,7 @@ const handleExport = () => {
     XLSX.writeFile(wb, `EV_Parking_${new Date().toISOString().split('T')[0]}.xlsx`)
   } else {
     const exportData = timePeriodsList.value.map(item => ({
-      'Period': item.period,
+      'Time Period': item.period,
       'Start Time': item.startTime,
       'End Time': item.endTime,
       'Status': item.status === 'active' ? 'Active' : 'Inactive'

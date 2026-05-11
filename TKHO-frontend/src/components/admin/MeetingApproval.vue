@@ -89,7 +89,7 @@
             <el-table-column prop="venueName" min-width="180">
               <template #header>
                 <SortableFilterHeader
-                  label="Venue"
+                  label="Room / Venue"
                   :sort-indicator="getPendingSortIndicator('venueName')"
                   :filter-active="columnFilterState.pending.venueName.length > 0"
                   :options="pendingVenueOptions"
@@ -119,7 +119,7 @@
                 {{ formatReservedBy(row) }}
               </template>
             </el-table-column>
-            <el-table-column prop="meetingTitle" label="Meeting Title" min-width="200" />
+            <el-table-column prop="meetingTitle" label="Meeting / Event Title" min-width="200" />
             <el-table-column prop="date" min-width="120">
               <template #header>
                 <button type="button" class="th-sort-btn" @click="togglePendingSort('date')">
@@ -196,7 +196,7 @@
             <el-table-column prop="venueName" min-width="180">
               <template #header>
                 <SortableFilterHeader
-                  label="Venue"
+                  label="Room / Venue"
                   :sort-indicator="getApprovedSortIndicator('venueName')"
                   :filter-active="columnFilterState.approved.venueName.length > 0"
                   :options="approvedVenueOptions"
@@ -226,7 +226,7 @@
                 {{ formatReservedBy(row) }}
               </template>
             </el-table-column>
-            <el-table-column prop="meetingTitle" label="Meeting Title" min-width="200" />
+            <el-table-column prop="meetingTitle" label="Meeting / Event Title" min-width="200" />
             <el-table-column prop="date" min-width="120">
               <template #header>
                 <button type="button" class="th-sort-btn" @click="toggleApprovedSort('date')">
@@ -304,7 +304,7 @@
             <el-table-column prop="venueName" min-width="180">
               <template #header>
                 <SortableFilterHeader
-                  label="Venue"
+                  label="Room / Venue"
                   :sort-indicator="getRejectedSortIndicator('venueName')"
                   :filter-active="columnFilterState.rejected.venueName.length > 0"
                   :options="rejectedVenueOptions"
@@ -334,7 +334,7 @@
                 {{ formatReservedBy(row) }}
               </template>
             </el-table-column>
-            <el-table-column prop="meetingTitle" label="Meeting Title" min-width="180" />
+            <el-table-column prop="meetingTitle" label="Meeting / Event Title" min-width="180" />
             <el-table-column prop="date" min-width="120">
               <template #header>
                 <button type="button" class="th-sort-btn" @click="toggleRejectedSort('date')">
@@ -983,10 +983,10 @@ const handleExport = () => {
   const exportData = allData.map(item => ({
     'Booking ID': item.bookingId,
     'Venue ID': item.venueId ?? '',
-    'Venue': item.venueName,
+    'Room / Venue': item.venueName,
     'Reserved By': formatReservedBy(item),
     'Department': item.department || '',
-    'Meeting Title': item.meetingTitle,
+    'Meeting / Event Title': item.meetingTitle,
     'Date': item.date,
     'Time': item.time,
     'Status': item.status,

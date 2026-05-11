@@ -136,7 +136,14 @@
           </el-select>
         </el-form-item>
         <el-form-item label="Plate Number">
-          <el-input v-model="formData.plateNumber" />
+          <el-input
+            :model-value="formData.plateNumber"
+            placeholder="Letters and numbers only"
+            maxlength="20"
+            show-word-limit
+            @update:model-value="onPlateNumberInput"
+          />
+          <div class="field-hint">No spaces or symbols — letters and numbers only.</div>
         </el-form-item>
       </el-form>
 
@@ -329,6 +336,13 @@ const showNotice = (message, title = 'Notice') => {
   showNoticeDialog.value = true
 }
 
+/** Plate number: letters and digits only (no spaces or punctuation). */
+const sanitizePlateNumber = (raw) => String(raw ?? '').replace(/[^A-Za-z0-9]/g, '')
+
+const onPlateNumberInput = (val) => {
+  formData.value.plateNumber = sanitizePlateNumber(val)
+}
+
 const getRowIndex = (index) => (currentPage.value - 1) * pageSize.value + index + 1
 
 const handleExport = () => {
@@ -353,11 +367,19 @@ const handleAdd = () => {
 
 const handleEdit = (row) => {
   formMode.value = 'edit'
-  formData.value = { ...row }
+  formData.value = { ...row, plateNumber: sanitizePlateNumber(row.plateNumber) }
   showForm.value = true
 }
 
 const handleSave = () => {
+  const plate = sanitizePlateNumber(formData.value.plateNumber)
+  formData.value.plateNumber = plate
+
+  if (!plate) {
+    showNotice('Please enter a plate number (letters and digits only; no spaces or symbols).', 'Validation')
+    return
+  }
+
   // Auto-fill corpId based on selected owner from employee list
   const matchedEmployee = employeeList.value.find(u => u.name === formData.value.owner)
   const corpId = matchedEmployee ? matchedEmployee.corpId : ''
@@ -728,6 +750,13 @@ const confirmDelete = () => {
   font-size: 15px;
   color: #374151;
   line-height: 1.6;
+}
+
+.field-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
 }
 
 </style>

@@ -39,7 +39,7 @@
           <template #reference>
             <div
               class="booking-block"
-              :style="getBookingStyle(booking)"
+              :style="getBookingStyle(booking, day.fullDate)"
               @click="selectBooking(day.fullDate)"
             >
               <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
@@ -116,8 +116,12 @@ const weekGridMinWidth = computed(() => {
   return `calc(80px + ${weekDays.value.length} * 120px)`
 })
 
+function dayDateKey (dayDate) {
+  return dayDate.toDateString()
+}
+
 // 获取某一天的所有预订（根据选中的房间过滤）
-function getDayBookings(dayDate) {
+function getDayBookings (dayDate) {
   const dayBookings = props.bookings.filter(booking => {
     const bookingDate = new Date(booking.date)
     return bookingDate.toDateString() === dayDate.toDateString()
@@ -132,20 +136,73 @@ function getDayBookings(dayDate) {
   return dayBookings.filter(booking => selectedRoomNames.includes(booking.roomName))
 }
 
+function parseTimeToMinutes (timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') return 7 * 60
+  const [h, m] = timeStr.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return 7 * 60
+  return h * 60 + m
+}
+
+/**
+ * Outlook 式：同一天内时间重叠的预订均分列宽。
+ * 贪心按开始时间排序，放入第一个「与当前列末尾不重叠」的列；总列数 = 所用列数。
+ */
+function buildDayOverlapLayout (dayBookings) {
+  const layout = new Map()
+  if (!dayBookings.length) return layout
+
+  const items = dayBookings.map(booking => {
+    const startMin = parseTimeToMinutes(booking.startTime)
+    let endMin = parseTimeToMinutes(booking.endTime)
+    if (endMin <= startMin) endMin = startMin + 30
+    return { booking, startMin, endMin }
+  }).sort((a, b) => {
+    if (a.startMin !== b.startMin) return a.startMin - b.startMin
+    if (b.endMin !== a.endMin) return b.endMin - a.endMin
+    return String(a.booking.id).localeCompare(String(b.booking.id))
+  })
+
+  const colMaxEnd = []
+
+  for (const item of items) {
+    let c = 0
+    while (c < colMaxEnd.length && item.startMin < colMaxEnd[c]) {
+      c++
+    }
+    if (c === colMaxEnd.length) colMaxEnd.push(item.endMin)
+    else colMaxEnd[c] = Math.max(colMaxEnd[c], item.endMin)
+
+    item.col = c
+  }
+
+  const totalCols = colMaxEnd.length
+  for (const item of items) {
+    layout.set(item.booking.id, { col: item.col, totalCols })
+  }
+
+  return layout
+}
+
+const weekOverlapLayouts = computed(() => {
+  const byDay = new Map()
+  for (const day of weekDays.value) {
+    const key = dayDateKey(day.fullDate)
+    byDay.set(key, buildDayOverlapLayout(getDayBookings(day.fullDate)))
+  }
+  return byDay
+})
+
 // 判断是否是今天
 function isToday(date) {
   const today = new Date()
   return date.toDateString() === today.toDateString()
 }
 
-// 计算预订卡片的样式（位置和高度）
-function getBookingStyle(booking) {
-  const [startHour, startMinute] = (booking.startTime?.split(':') || ['7', '0']).map(Number)
-  const [endHour, endMinute] = (booking.endTime?.split(':') || ['7', '30']).map(Number)
-
-  // 计算开始和结束时间（以分钟为单位）
-  const startTimeInMinutes = startHour * 60 + startMinute
-  const endTimeInMinutes = endHour * 60 + endMinute
+// 计算预订卡片的样式（位置和高度；横向按重叠列均分宽度）
+function getBookingStyle (booking, dayDate) {
+  const startTimeInMinutes = parseTimeToMinutes(booking.startTime)
+  let endTimeInMinutes = parseTimeToMinutes(booking.endTime)
+  if (endTimeInMinutes <= startTimeInMinutes) endTimeInMinutes = startTimeInMinutes + 30
 
   // 7:00 是起始时间（7 * 60 = 420分钟）
   const dayStartInMinutes = 7 * 60
@@ -159,10 +216,22 @@ function getBookingStyle(booking) {
   const top = offsetSlots * slotHeight
   const height = durationSlots * slotHeight
 
+  const layout = weekOverlapLayouts.value.get(dayDateKey(dayDate))
+  const lay = layout?.get(booking.id)
+  const totalCols = lay?.totalCols ?? 1
+  const col = lay?.col ?? 0
+  const colFrac = 100 / totalCols
+  const gutterPx = 2
+
+  const accent = booking.color || '#f97316'
   return {
     top: `${top}px`,
     height: `${height}px`,
-    backgroundColor: booking.color || '#f97316'
+    left: `calc(${col * colFrac}% + ${gutterPx}px)`,
+    width: `calc(${colFrac}% - ${gutterPx * 2}px)`,
+    right: 'auto',
+    zIndex: 1 + col,
+    '--booking-accent': accent
   }
 }
 
@@ -294,33 +363,35 @@ function selectBooking(dayDate) {
 
 .booking-block {
   position: absolute;
-  left: 2px;
-  right: 2px;
-  padding: 0.25rem 0.375rem;
-  border-radius: 0.25rem;
-  color: white;
+  box-sizing: border-box;
+  padding: 3px 6px 3px 7px;
+  border-radius: 3px;
+  border-left: 4px solid var(--booking-accent, #f97316);
+  background-color: color-mix(in srgb, var(--booking-accent, #f97316) 42%, white);
+  color: #111827;
   font-size: 0.7rem;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  z-index: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .booking-time {
   font-weight: 600;
   font-size: 0.8125rem;
   margin-bottom: 0.125rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.15;
+  color: #111827;
 }
 
 .booking-reserved {
   font-size: 0.75rem;
-  opacity: 0.9;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 500;
+  color: #4b5563;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.15;
 }
 
 @media (max-width: 389px) {

@@ -1449,17 +1449,17 @@ const pendingHandleForm = ref({
   password: DEFAULT_PASSWORD,
   submittedAt: '',
   reason: '',
-  rejectTemplateKey: 'account_application_reject_template',
+  rejectTemplateKey: 'user_application_reject_template',
   rejectReason: ''
 })
 
 const rejectForm = ref({
-  templateKey: 'account_application_reject_template',
+  templateKey: 'user_application_reject_template',
   reason: ''
 })
 const rejectTemplateOptions = computed(() =>
   getMockPromptList().filter(
-    item => item.category === 'reject_template' && item.templateType === 'account_application'
+    item => item.category === 'reject_template' && item.templateType === 'user_application'
   )
 )
 
@@ -1637,7 +1637,7 @@ const handlePending = (row) => {
   pendingHandleForm.value = {
     ...row,
     password: DEFAULT_PASSWORD,
-    rejectTemplateKey: 'account_application_reject_template',
+    rejectTemplateKey: 'user_application_reject_template',
     rejectReason: ''
   }
   handlePendingRejectTemplateChange(pendingHandleForm.value.rejectTemplateKey)
@@ -1739,7 +1739,7 @@ const confirmApprove = () => {
 
 const handleReject = (row) => {
   currentRow.value = row
-  rejectForm.value.templateKey = 'account_application_reject_template'
+  rejectForm.value.templateKey = 'user_application_reject_template'
   rejectForm.value.reason = ''
   handleUserRejectTemplateChange(rejectForm.value.templateKey)
   showRejectDialog.value = true

@@ -41,7 +41,10 @@
                   <span v-if="idx === 0" class="venue-name">{{ venueGroup.venueName }}</span>
                 </div>
 
-                <div class="col-time">{{ request.time }}</div>
+                <div class="col-time">
+                  <span class="period-label">{{ periodLabelZh(request.time) }}</span>
+                  <span class="time-range">{{ request.time }}</span>
+                </div>
 
                 <div class="col-details">
                   {{ formatTeaDetails(request.teaService) }}
@@ -76,7 +79,7 @@
             </template>
           </div>
 
-          <div v-if="dateIdx < groupedByDate.length - 1" class="completed-banner">完</div>
+          <div class="completed-banner">完</div>
         </div>
       </div>
     </div>
@@ -139,6 +142,19 @@ function updateDateTime () {
 function parseStartTime (timeStr) {
   if (!timeStr) return ''
   return timeStr.split('-')[0].trim()
+}
+
+/** 依起始時間區分上午（12:00 前）／下午（12:00 含以後），與展示板一致 */
+function periodLabelZh (timeStr) {
+  const start = parseStartTime(timeStr)
+  if (!start) return ''
+  const m = start.match(/^(\d{1,2}):(\d{2})$/)
+  if (!m) return ''
+  const h = parseInt(m[1], 10)
+  const min = parseInt(m[2], 10)
+  if (Number.isNaN(h) || Number.isNaN(min)) return ''
+  const minutes = h * 60 + min
+  return minutes < 12 * 60 ? '上午' : '下午'
 }
 
 const groupedByDate = computed(() => {
@@ -327,7 +343,7 @@ onUnmounted(() => {
 
 .list-header {
   display: grid;
-  grid-template-columns: 1.2fr 1.5fr 3fr 1fr;
+  grid-template-columns: 1.2fr 2fr 3fr 1fr;
   gap: 0;
   padding: 5px 10px;
   font-size: 1.1rem;
@@ -431,7 +447,7 @@ onUnmounted(() => {
 
 .request-row {
   display: grid;
-  grid-template-columns: 1.2fr 1.5fr 3fr 1fr;
+  grid-template-columns: 1.2fr 2fr 3fr 1fr;
   gap: 0;
   padding: 4px 16px;
   cursor: pointer;
@@ -453,7 +469,21 @@ onUnmounted(() => {
 }
 
 .col-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   font-weight: 600;
+}
+
+.col-time .period-label {
+  flex-shrink: 0;
+  min-width: 2.25em;
+  text-align: right;
+}
+
+.col-time .time-range {
+  flex-shrink: 0;
 }
 
 .col-details {

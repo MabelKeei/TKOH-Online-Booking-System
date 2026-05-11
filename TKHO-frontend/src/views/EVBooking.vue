@@ -2,12 +2,30 @@
   <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden" style="padding-top: var(--app-header-height, 64px);">
     <AppHeader />
 
-    <!-- 主体内容 -->
-    <main class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 py-1 md:py-2 overflow-hidden">
+    <div v-if="!showTopTip" class="top-tip-toggle-wrapper">
+      <button
+        type="button"
+        class="top-tip-toggle-btn"
+        aria-label="显示重要提示"
+        title="显示重要提示"
+        @click="showTopTip = true"
+      ></button>
+    </div>
+    <div v-if="showTopTip" class="top-tip-wrapper px-2 md:px-3 lg:px-4 pt-2 pb-0">
       <div class="booking-window-tip">
         <span>Important Note: Updates on Booking Rules of EV Charging Facilities.</span>
         <button type="button" class="read-more-link" @click="noticeDialogVisible = true">Read more...</button>
+        <button type="button" class="tip-close-btn" aria-label="关闭重要提示" @click="showTopTip = false">
+          &times;
+        </button>
       </div>
+    </div>
+
+    <!-- 主体内容 -->
+    <main
+      class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 pt-0 pb-1 md:pb-2 overflow-hidden"
+      :class="{ 'tip-collapsed-gap': !showTopTip }"
+    >
       <!-- 日历内容区域 -->
       <div class="calendar-container flex-1 overflow-auto">
         <div class="calendar-wrapper">
@@ -93,6 +111,7 @@ import { generateEVBookingsMock, getMockPromptList } from '@/mocks/mockData'
 // 对话框状态
 const dialogVisible = ref(false)
 const noticeDialogVisible = ref(false)
+const showTopTip = ref(true)
 const selectedDate = ref('')
 const selectedPeriod = ref('')
 const statusDialog = ref({
@@ -292,6 +311,10 @@ onMounted(() => {
   z-index: 1;
 }
 
+.calendar-main.tip-collapsed-gap {
+  margin-top: 6px;
+}
+
 .calendar-container {
   background: #ffffff;
   border-radius: 8px;
@@ -336,6 +359,75 @@ onMounted(() => {
 
 .read-more-link:hover {
   color: #115e59;
+}
+
+.tip-close-btn {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #86efac;
+  border-radius: 9999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.tip-close-btn:hover {
+  background: #bbf7d0;
+  border-color: #4ade80;
+}
+
+.top-tip-toggle-wrapper {
+  position: relative;
+  height: 0;
+  z-index: 30;
+}
+
+.top-tip-toggle-btn {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 18px;
+  border: 1px solid #166534;
+  border-top: none;
+  border-radius: 0 0 16px 16px;
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(22, 101, 52, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.top-tip-toggle-btn::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid #ffffff;
+  opacity: 0.95;
+}
+
+.top-tip-toggle-btn:hover {
+  background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+  transform: translateX(-50%) translateY(1px);
+  box-shadow: 0 3px 10px rgba(22, 101, 52, 0.32);
+}
+
+.top-tip-toggle-btn:focus-visible {
+  outline: 2px solid #bbf7d0;
+  outline-offset: 2px;
 }
 
 .ev-rule-notice-content {

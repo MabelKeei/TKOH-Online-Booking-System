@@ -27,7 +27,7 @@
             >
               <div class="period-label-line">
                 <span class="period-name">{{ period.period }}</span>
-                <span class="period-name-zh">{{ periodZhMap[period.period] }}</span>
+                <sup class="period-name-zh">{{ periodZhMap[period.period] }}</sup>
               </div>
               <div class="period-range">{{ period.startTime }}-{{ period.endTime }}</div>
             </div>
@@ -357,10 +357,10 @@ onUnmounted(() => {
 
 .period-name-zh {
   font-size: calc(30px * var(--ui-scale) * var(--text-scale-boost));
-  line-height: 1;
+  line-height: 0;
   font-weight: 400;
   flex-shrink: 0;
-  transform: translateY(calc(-18px * var(--ui-scale)));
+  vertical-align: super;
 }
 
 .period-range {
@@ -446,7 +446,7 @@ onUnmounted(() => {
   margin-bottom: calc(-10px * var(--ui-scale) * var(--space-scale));
   margin-left: calc(-14px * var(--ui-scale) * var(--space-scale));
   background: #8fce4c;
-  color: #f3ffe2;
+  color: black;
   font-size: calc(32px * var(--ui-scale) * var(--text-scale-boost));
   line-height: 1.3;
   font-weight: 700;

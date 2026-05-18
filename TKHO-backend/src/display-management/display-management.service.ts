@@ -74,6 +74,15 @@ export class DisplayManagementService {
     return DISPLAY_CONFIG_DEFAULTS[key] ?? '';
   }
 
+  /** Only persisted file paths; legacy base64 in KV is ignored. */
+  private getMergeQrImagePath(map: SettingsMap): string {
+    const raw = this.getSetting(map, DisplayConfigKey.mergeQrCodeImage);
+    const value = String(raw ?? '').trim();
+    if (!value || value.startsWith('data:')) return '';
+    if (value.startsWith(this.uploadsBasePath)) return value;
+    return '';
+  }
+
   private async ensureDefaultSettings(): Promise<SettingsMap> {
     const map = await this.loadSettingsMap();
     const missing = (Object.keys(DISPLAY_CONFIG_DEFAULTS) as DisplayConfigKeyName[]).filter(
@@ -171,7 +180,7 @@ export class DisplayManagementService {
       mergeDisplaySettings: {
         panelTitleText: this.getSetting(settings, DisplayConfigKey.mergePanelTitleText),
         footerTickerText: this.getSetting(settings, DisplayConfigKey.mergeFooterTickerText),
-        qrCodeImage: this.getSetting(settings, DisplayConfigKey.mergeQrCodeImage),
+        qrCodeImage: this.getMergeQrImagePath(settings),
       },
       evDisplaySettings: {
         footerTickerText: this.getSetting(settings, DisplayConfigKey.evFooterTickerText),
@@ -256,6 +265,12 @@ export class DisplayManagementService {
       throw new BadRequestException('One or more venues not found');
     }
 
+    const settingsBefore = await this.loadSettingsMap();
+    const existingQrPath = this.getMergeQrImagePath(settingsBefore);
+    const nextQrFromDto = this.normalizeQrCodeValueForSave(
+      dto.mergeDisplaySettings?.qrCodeImage,
+    );
+
     await this.prisma.$transaction(async (tx) => {
       for (const rule of editableRules) {
         const venueId = BigInt(String(rule.venueId).trim());
@@ -296,9 +311,7 @@ export class DisplayManagementService {
         },
         {
           key: DisplayConfigKey.mergeQrCodeImage,
-          value: this.normalizeQrCodeValueForSave(
-            dto.mergeDisplaySettings?.qrCodeImage,
-          ),
+          value: nextQrFromDto || existingQrPath,
         },
         {
           key: DisplayConfigKey.evFooterTickerText,

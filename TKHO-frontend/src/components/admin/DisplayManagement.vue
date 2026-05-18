@@ -240,6 +240,7 @@ import {
   uploadMergeQrImage,
   clearMergeQrImage
 } from '@/api/displayManagement'
+import { resolveApiAssetUrl } from '@/utils/apiAsset'
 
 const activeTab = ref('rules')
 const previewSubTab = ref('single')
@@ -374,20 +375,8 @@ const evPreviewLink = computed(() => ({
   url: `${baseUrl}/evBooking/Display`
 }))
 
-const resolveUploadedImageSrc = (raw) => {
-  const value = String(raw ?? '').trim()
-  if (!value) return ''
-  if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) {
-    return value
-  }
-  if (value.startsWith('/')) {
-    return `${baseUrl}${value}`
-  }
-  return value
-}
-
 const mergePreviewQrImage = computed(() => {
-  const resolved = resolveUploadedImageSrc(form.value.mergeDisplaySettings.qrCodeImage)
+  const resolved = resolveApiAssetUrl(form.value.mergeDisplaySettings.qrCodeImage)
   return resolved || defaultMergeQrSrc
 })
 

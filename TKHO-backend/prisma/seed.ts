@@ -10,9 +10,11 @@ function parseTimeHm(value: string): Date {
 }
 
 async function main() {
+  await prisma.user.updateMany({ data: { departmentId: null, accessRoleId: null } });
+
   const departmentList = seedData.departmentList ?? [];
   const accessRoleList = seedData.accessRoleList ?? [];
-  const employees = seedData.employees;
+  const users = seedData.users ?? [];
   const venues = seedData.venues;
   const evSlots = seedData.evSlots;
   const evPeriods = seedData.evPeriods;
@@ -47,18 +49,17 @@ async function main() {
     });
   }
 
-  if (employees.length > 0) {
-    for (const row of employees) {
+  if (users.length > 0) {
+    for (const row of users) {
       const userId = BigInt(row.id);
+      const departmentId = BigInt(row.departmentId);
+      const accessRoleId = BigInt(row.accessRoleId);
       await prisma.user.upsert({
         where: { id: userId },
         update: {
           corpId: row.corpId,
           account: row.corpId,
           name: row.name,
-          department: row.department,
-          role: row.role,
-          position: row.position ?? null,
           email: row.email,
           contact: row.contact,
           annualQuotaEv: row.annualQuotaEV ?? 0,
@@ -66,6 +67,8 @@ async function main() {
           annualQuotaVenue: row.annualQuotaVenue ?? 0,
           usedQuotaVenue: row.usedQuotaVenue ?? 0,
           status: 'Active',
+          departmentId,
+          accessRoleId,
         },
         create: {
           id: userId,
@@ -73,9 +76,6 @@ async function main() {
           account: row.corpId,
           password: bcrypt.hashSync('123456', 10),
           name: row.name,
-          department: row.department,
-          role: row.role,
-          position: row.position ?? null,
           email: row.email,
           contact: row.contact,
           annualQuotaEv: row.annualQuotaEV ?? 0,
@@ -83,6 +83,8 @@ async function main() {
           annualQuotaVenue: row.annualQuotaVenue ?? 0,
           usedQuotaVenue: row.usedQuotaVenue ?? 0,
           status: 'Active',
+          departmentId,
+          accessRoleId,
         },
       });
     }
@@ -216,7 +218,7 @@ async function main() {
   }
 
   console.log(
-    `[seed] done: departments=${departmentList.length}, accessRoles=${accessRoleList.length}, employees=${employees.length}, venues=${venues.length}, evSlots=${evSlots.length}, evPeriods=${evPeriods.length}, licensePlates=${licensePlates.length}, prompts=${prompts.length}`,
+    `[seed] done: departments=${departmentList.length}, accessRoles=${accessRoleList.length}, users=${users.length}, venues=${venues.length}, evSlots=${evSlots.length}, evPeriods=${evPeriods.length}, licensePlates=${licensePlates.length}, prompts=${prompts.length}`,
   );
 }
 

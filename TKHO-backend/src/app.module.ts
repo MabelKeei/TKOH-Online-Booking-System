@@ -9,6 +9,13 @@ import { MetaModule } from './meta/meta.module';
 import { ParkingModule } from './parking/parking.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { VenueManagementModule } from './venue-management/venue-management.module';
+import { AccessRightModule } from './access-right/access-right.module';
+import { EvManagementModule } from './ev-management/ev-management.module';
+import { PromptManagementModule } from './prompt-management/prompt-management.module';
+import { UserManagementModule } from './user-management/user-management.module';
+import { LicensePlateManagementModule } from './license-plate-management/license-plate-management.module';
+import { DisplayManagementModule } from './display-management/display-management.module';
 
 @Module({
   imports: [
@@ -20,6 +27,13 @@ import { RedisModule } from './redis/redis.module';
     HealthModule,
     MetaModule,
     ParkingModule,
+    VenueManagementModule,
+    AccessRightModule,
+    EvManagementModule,
+    PromptManagementModule,
+    UserManagementModule,
+    LicensePlateManagementModule,
+    DisplayManagementModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
 })

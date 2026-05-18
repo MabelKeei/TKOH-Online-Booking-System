@@ -63,6 +63,8 @@ body {
    * html zoom 会与「挂到 body」的浮层（Element Plus 默认 teleported=true 的 Tooltip / Popover 等）
    * 在坐标计算上不一致，出现悬停层整体偏移。与本项目 Start/End Time 的 el-select 相同，
    * 在 zoom 断点下应对受影响的组件使用 :teleported="false"，让浮层留在缩放后的 DOM 树内。
+   * Admin「Pending Approval Details」内 Department/Role 下拉：UserManagement.vue 中
+   * pendingApprovalSelectTeleported 与本断点同步（断点内 false，断点外 true）。
    */
   html {
     zoom: 0.8;  /* 让内容整体缩小（和浏览器缩放一样） */
@@ -101,4 +103,9 @@ body {
   .min-h-screen {
     min-height: var(--zoom-vh) !important;
   }
+}
+
+/* EV 管理编辑弹窗：时间选择器使用 teleported=false，避免 modal-body 裁切下拉 */
+.booking-style-modal-root.ev-management-form-modal .modal-body {
+  overflow: visible;
 }

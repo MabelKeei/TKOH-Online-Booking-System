@@ -30,14 +30,17 @@ export class AuthService {
   }
 
   private normalizeUser(user: any, system: string) {
+    const departmentName = user.department?.department_name ?? null;
+    const roleName = user.access_roles?.role_name ?? null;
     return {
       id: user.id.toString(),
       corpId: user.corpId,
       account: user.account,
       name: user.name,
-      department: user.department,
-      role: user.role,
-      position: user.position,
+      department: departmentName,
+      role: roleName,
+      departmentId: user.departmentId != null ? user.departmentId.toString() : null,
+      accessRoleId: user.accessRoleId != null ? user.accessRoleId.toString() : null,
       email: user.email,
       contact: user.contact,
       annualQuotaEv: user.annualQuotaEv,
@@ -50,6 +53,11 @@ export class AuthService {
       system,
     };
   }
+
+  private readonly userAuthInclude = {
+    department: { select: { department_name: true } },
+    access_roles: { select: { role_name: true } },
+  } as const;
 
   private parseAuthSub(auth: any): bigint {
     const sub = String(auth?.sub ?? '').trim();
@@ -65,6 +73,7 @@ export class AuthService {
       where: {
         OR: [{ account }, { corpId: account }],
       },
+      include: this.userAuthInclude,
     });
 
     if (!user || !this.verifyPassword(dto.password, user.password)) {
@@ -73,7 +82,8 @@ export class AuthService {
     if (user.status !== 'Active') {
       throw new ForbiddenException('Account is not active');
     }
-    if (dto.system === 'admin' && !this.canAccessAdminPortal(user.role)) {
+    const roleName = user.access_roles?.role_name ?? null;
+    if (dto.system === 'admin' && !this.canAccessAdminPortal(roleName)) {
       throw new ForbiddenException('Not authorized for admin portal');
     }
 
@@ -82,7 +92,7 @@ export class AuthService {
       system: dto.system,
       corpId: user.corpId,
       name: user.name,
-      role: user.role,
+      role: roleName,
     });
 
     await this.prisma.user.update({
@@ -97,7 +107,10 @@ export class AuthService {
   }
 
   async getCurrentUser(auth: any) {
-    const user = await this.prisma.user.findUnique({ where: { id: this.parseAuthSub(auth) } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: this.parseAuthSub(auth) },
+      include: this.userAuthInclude,
+    });
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
@@ -113,8 +126,22 @@ export class AuthService {
     const updateData: any = {
       name: dto.fullName.trim(),
       contact: dto.phone.trim(),
-      department: dto.department?.trim() || null,
     };
+
+    if (dto.department !== undefined && dto.department !== null) {
+      const trimmed = dto.department.trim();
+      if (trimmed === '') {
+        updateData.departmentId = null;
+      } else {
+        const dept = await this.prisma.departments.findFirst({
+          where: { department_name: trimmed },
+        });
+        if (!dept) {
+          throw new BadRequestException('Unknown department');
+        }
+        updateData.departmentId = dept.id;
+      }
+    }
 
     if (account) {
       updateData.account = account;
@@ -124,6 +151,7 @@ export class AuthService {
       const user = await this.prisma.user.update({
         where: { id },
         data: updateData,
+        include: this.userAuthInclude,
       });
       return {
         message: 'Profile updated',

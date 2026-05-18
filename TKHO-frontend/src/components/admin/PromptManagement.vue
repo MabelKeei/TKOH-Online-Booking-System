@@ -54,7 +54,7 @@
             <span v-else>{{ row.content }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
+        <el-table-column label="Actions" width="110" fixed="right" class-name="actions-col">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button size="small" class="action-btn action-edit" @click="handleEdit(row)">Edit</el-button>
@@ -187,11 +187,16 @@ import * as XLSX from 'xlsx'
 import { Editor as WangEditor, Toolbar as WangToolbar } from '@wangeditor/editor-for-vue'
 import { i18nChangeLanguage } from '@wangeditor/editor'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
-import { getMockPromptList } from '@/mocks/mockData'
+import {
+  getPrompts,
+  createPrompt,
+  updatePrompt,
+  deletePrompt
+} from '@/api/promptManagement'
 import '@/styles/rich-content.css'
 import '@wangeditor/editor/dist/css/style.css'
 
-const promptList = ref(getMockPromptList())
+const promptList = ref([])
 const rejectTemplateTypeOptions = [
   { value: 'meeting_approval', label: 'Meeting Approval Reject Template' },
   { value: 'user_application', label: 'User Application Reject Template' }
@@ -323,6 +328,7 @@ onMounted(() => {
   updateSystemPromptEditModalMaxHeight()
   systemPromptModalMq = window.matchMedia(SYSTEM_PROMPT_MODAL_MQ)
   systemPromptModalMq.addEventListener('change', updateSystemPromptEditModalMaxHeight)
+  loadPromptList()
 })
 
 onUnmounted(() => {
@@ -345,6 +351,23 @@ function showNotice (message, title = 'Operation Notice') {
   noticeMessage.value = message
   noticeTitle.value = title
   showNoticeDialog.value = true
+}
+
+const getErrorMessage = (error, fallback = 'Operation failed') => {
+  const message = error?.response?.data?.message
+  if (Array.isArray(message)) return message[0] || fallback
+  if (typeof message === 'string' && message.trim()) return message
+  if (typeof error?.message === 'string' && error.message.trim()) return error.message
+  return fallback
+}
+
+const loadPromptList = async () => {
+  try {
+    const data = await getPrompts()
+    promptList.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to load prompts'), 'Error')
+  }
 }
 
 const handleExport = () => {
@@ -433,7 +456,7 @@ function handleEditorChange (editor) {
   formData.value.content = sanitizeHtml(editor.getHtml())
 }
 
-const handleSave = () => {
+const handleSave = async () => {
   if (activeTab.value === 'system' && editorRef.value) {
     formData.value.content = sanitizeHtml(editorRef.value.getHtml())
   }
@@ -441,17 +464,33 @@ const handleSave = () => {
     showNotice('Please fill in all required fields', 'Validation Notice')
     return
   }
-  if (formMode.value === 'add') {
-    promptList.value.push({ ...formData.value, id: Date.now() })
-    showNotice(`${activeTabLabel.value} added successfully`, 'Success')
-  } else {
-    const index = promptList.value.findIndex(item => item.id === formData.value.id)
-    if (index !== -1) {
-      promptList.value[index] = { ...formData.value }
+  try {
+    if (formMode.value === 'add') {
+      await createPrompt({
+        promptKey: String(formData.value.key || '').trim(),
+        name: String(formData.value.name || '').trim(),
+        content: formData.value.content,
+        category: 'reject_template',
+        templateType: formData.value.templateType
+      })
+      showNotice(`${activeTabLabel.value} added successfully`, 'Success')
+    } else if (activeTab.value === 'system') {
+      await updatePrompt(formData.value.id, { content: formData.value.content })
+      showNotice(`${activeTabLabel.value} updated successfully`, 'Success')
+    } else {
+      await updatePrompt(formData.value.id, {
+        promptKey: String(formData.value.key || '').trim(),
+        name: String(formData.value.name || '').trim(),
+        content: formData.value.content,
+        templateType: formData.value.templateType
+      })
       showNotice(`${activeTabLabel.value} updated successfully`, 'Success')
     }
+    showForm.value = false
+    await loadPromptList()
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to save'), 'Error')
   }
-  showForm.value = false
 }
 
 const handleDelete = (row) => {
@@ -459,16 +498,21 @@ const handleDelete = (row) => {
   showDeleteDialog.value = true
 }
 
-const confirmDelete = () => {
-  if (activeTab.value === 'reject') {
-    const index = promptList.value.findIndex(item => item.id === currentRow.value.id)
-    if (index !== -1) {
-      promptList.value.splice(index, 1)
-      showNotice('Deleted successfully', 'Success')
-    }
+const confirmDelete = async () => {
+  if (activeTab.value !== 'reject' || !currentRow.value) {
+    showDeleteDialog.value = false
+    currentRow.value = null
+    return
   }
-  showDeleteDialog.value = false
-  currentRow.value = null
+  try {
+    await deletePrompt(currentRow.value.id)
+    showNotice('Deleted successfully', 'Success')
+    showDeleteDialog.value = false
+    currentRow.value = null
+    await loadPromptList()
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to delete'), 'Error')
+  }
 }
 </script>
 

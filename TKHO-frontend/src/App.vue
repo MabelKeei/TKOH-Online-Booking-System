@@ -16,7 +16,8 @@ import GlobalStatusDialog from './components/GlobalStatusDialog.vue'
 const userStore = useUserStore()
 const route = useRoute()
 const isAdminRoute = computed(() => route.path.startsWith('/admin'))
-const showFloatingHelpButton = computed(() => !isAdminRoute.value)
+const isPublicRegistrationRoute = computed(() => route.path === '/register')
+const showFloatingHelpButton = computed(() => !isAdminRoute.value && !isPublicRegistrationRoute.value)
 
 onMounted(async () => {
   userStore.initUserInfo()

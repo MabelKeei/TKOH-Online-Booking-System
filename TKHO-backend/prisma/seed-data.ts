@@ -1,10 +1,10 @@
-export type SeedEmployee = {
+/** Seeds the `user` table (single account table; legacy `employees` removed). */
+export type SeedUser = {
   id: number;
   corpId: string;
   name: string;
-  department?: string;
-  role?: string;
-  position?: string;
+  departmentId: number;
+  accessRoleId: number;
   email?: string;
   contact?: string;
   annualQuotaEV?: number;
@@ -107,6 +107,21 @@ const departmentCodes = [
 ];
 const accessRoles = ['Admin', 'User', 'User_EV', 'User_Venue'];
 
+function accessRoleIdFromAppRole(role: string): number {
+  switch (role) {
+    case 'Admin':
+      return 1;
+    case 'User':
+      return 2;
+    case 'User_EV':
+      return 3;
+    case 'User_Venue':
+      return 4;
+    default:
+      return 2;
+  }
+}
+
 const departmentList: SeedDepartment[] = [
   { id: 1, departmentName: 'ADM', description: 'Administrative Services Division', employeeCount: 0 },
   { id: 2, departmentName: 'CNS', description: 'Community Nursing Services', employeeCount: 0 },
@@ -142,7 +157,7 @@ const accessRoleList: SeedAccessRole[] = [
   { id: 4, roleName: 'User_Venue', description: 'Regular user who can access venue booking ONLY', annualVenueQuota: 100, annualEvQuota: 0, employeeCount: 8 },
 ];
 
-const employees: SeedEmployee[] = Array.from({ length: 25 }, (_, index) => {
+const users: SeedUser[] = Array.from({ length: 25 }, (_, index) => {
   const i = index + 1;
   const isAdmin = i === 1 || i === 16;
   const selectedRole = isAdmin ? 'Admin' : accessRoles[(index % (accessRoles.length - 1)) + 1];
@@ -152,9 +167,8 @@ const employees: SeedEmployee[] = Array.from({ length: 25 }, (_, index) => {
     id: i,
     corpId: i === 1 ? 'Admin-test' : `E${String(i).padStart(3, '0')}`,
     name: `Employee ${i}`,
-    department: departmentCodes[index % departmentCodes.length],
-    role: selectedRole,
-    position: selectedRole,
+    departmentId: index % departmentCodes.length + 1,
+    accessRoleId: accessRoleIdFromAppRole(selectedRole),
     email: `employee${i}@tkho.local`,
     contact: `91${String(i).padStart(6, '0')}`,
     annualQuotaEV: isAdmin ? -1 : isVenueOnly ? 0 : 60,
@@ -388,7 +402,7 @@ const prompts: SeedPrompt[] = [
 export const seedData = {
   departmentList,
   accessRoleList,
-  employees,
+  users,
   venues,
   evSlots,
   evPeriods,

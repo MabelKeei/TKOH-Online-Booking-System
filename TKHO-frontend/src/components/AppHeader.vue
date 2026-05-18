@@ -173,11 +173,14 @@ onMounted(() => {
   window.addEventListener('resize', updateHeaderHeight, { passive: true })
 
   if (isAdmin.value) {
-    adminStore.fetchPendingCounts()
-    // 每30秒轮询一次
-    pollingInterval = setInterval(() => {
+    const isOnAdminShell = () => route.path === '/admin' || route.path.startsWith('/admin/')
+    if (!isOnAdminShell()) {
       adminStore.fetchPendingCounts()
-    }, 30000)
+      // Admin 布局内由 useAdminPendingUsersSync 统一轮询，避免重复请求
+      pollingInterval = setInterval(() => {
+        if (!isOnAdminShell()) adminStore.fetchPendingCounts()
+      }, 30000)
+    }
   }
 })
 

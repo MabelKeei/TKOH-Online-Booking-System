@@ -272,15 +272,20 @@
         </el-form-item>
         <el-form-item label="Image">
           <el-upload
+            class="venue-image-upload"
+            :class="{ 'venue-image-upload--full': (formData.imageList?.length || 0) >= 1 }"
             v-model:file-list="formData.imageList"
             action="#"
             list-type="picture-card"
             :auto-upload="false"
             :limit="1"
+            accept=".jpg,.jpeg,.png,.webp"
+            :on-change="handleImageChange"
+            :on-remove="handleImageRemove"
             :on-preview="handlePreview"
             :on-exceed="handleExceed"
           >
-            <font-awesome-icon :icon="['fas', 'plus']" />
+            <font-awesome-icon v-if="(formData.imageList?.length || 0) < 1" :icon="['fas', 'plus']" />
           </el-upload>
         </el-form-item>
         <el-form-item label="Active">
@@ -347,13 +352,34 @@
           </el-form-item>
         </el-form>
         <div ref="blockToolbarRef" class="block-toolbar">
-          <el-button type="default" class="submit-btn" @click="handleAddBlockPeriod">Add Block Period</el-button>
+          <span v-if="isBlockTimeRangeInvalid" class="block-range-warning">End datetime must be later than start datetime</span>
+          <el-button type="default" class="submit-btn" :disabled="isBlockTimeRangeInvalid" @click="handleAddBlockPeriod">Add Block Period</el-button>
         </div>
         <div class="block-table-wrap">
           <el-table class="block-table" :data="paginatedBlockData" :max-height="blockTableMaxHeight" border stripe table-layout="fixed" style="width: 100%">
             <el-table-column type="index" label="#" width="70" align="center" />
-            <el-table-column prop="startAt" label="Start" min-width="130" />
-            <el-table-column prop="endAt" label="End" min-width="130" />
+            <el-table-column prop="startAt" label="Start" min-width="110">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="toggleBlockSort('startAt')">
+                  Start
+                  <span class="sort-indicator">{{ getBlockSortIndicator('startAt') }}</span>
+                </button>
+              </template>
+              <template #default="{ row }">
+                {{ formatBlockDateTime(row.startAt) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="endAt" label="End" min-width="110">
+              <template #header>
+                <button type="button" class="th-sort-btn" @click="toggleBlockSort('endAt')">
+                  End
+                  <span class="sort-indicator">{{ getBlockSortIndicator('endAt') }}</span>
+                </button>
+              </template>
+              <template #default="{ row }">
+                {{ formatBlockDateTime(row.endAt) }}
+              </template>
+            </el-table-column>
             <el-table-column prop="reason" label="Reason" min-width="260" />
             <el-table-column label="Actions" width="120" align="center">
               <template #default="{ row }">
@@ -393,7 +419,12 @@
       </template>
     </BookingStyleModal>
 
-    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+    <BookingStyleModal
+      v-model="showNoticeDialog"
+      :title="noticeTitle"
+      max-width="420px"
+      custom-class="venue-notice-modal"
+    >
       <p class="notice-message">{{ noticeMessage }}</p>
       <template #footer>
         <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
@@ -407,18 +438,33 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
-import { getMockVenueList, getMockBookingWindow, publishMockBookingWindow } from '@/mocks/mockData'
+import {
+  getVenueManagementVenues,
+  createVenue,
+  updateVenue,
+  deleteVenue,
+  getVenueBookingWindow,
+  publishVenueBookingWindow,
+  createVenueBlock,
+  deleteVenueBlock,
+  uploadVenueImage
+} from '@/api/venueManagement'
 
-const venueList = ref(getMockVenueList())
+const venueList = ref([])
 const activeMainTab = ref('venueList')
 const activeCategory = ref('conference_discussion')
 
 const currentPage = ref(1)
 const pageSize = ref(20)
-const venueWindow = ref(getMockBookingWindow('venue'))
+const venueWindow = ref({
+  currentStartDate: '',
+  currentEndDate: '',
+  updatedBy: '-',
+  updatedAt: null
+})
 const venueWindowForm = ref({
-  startDate: venueWindow.value.currentStartDate,
-  endDate: venueWindow.value.currentEndDate
+  startDate: '',
+  endDate: ''
 })
 
 const filteredVenueList = computed(() =>
@@ -553,6 +599,46 @@ const showNotice = (message, title = 'Notice') => {
   noticeMessage.value = message
   showNoticeDialog.value = true
 }
+
+const getErrorMessage = (error, fallback = 'Operation failed') => {
+  const message = error?.response?.data?.message
+  if (Array.isArray(message)) return message[0] || fallback
+  if (typeof message === 'string' && message.trim()) return message
+  if (typeof error?.message === 'string' && error.message.trim()) return error.message
+  return fallback
+}
+
+const getSelectedVenueImageFile = () => {
+  const first = formData.value?.imageList?.[0]
+  return first?.raw || null
+}
+
+const loadVenueList = async () => {
+  try {
+    const data = await getVenueManagementVenues()
+    venueList.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to load venue list'), 'Error')
+  }
+}
+
+const loadVenueWindow = async () => {
+  try {
+    const data = await getVenueBookingWindow()
+    venueWindow.value = {
+      currentStartDate: data?.currentStartDate || '',
+      currentEndDate: data?.currentEndDate || '',
+      updatedBy: data?.updatedBy || '-',
+      updatedAt: data?.updatedAt || null
+    }
+    venueWindowForm.value = {
+      startDate: venueWindow.value.currentStartDate,
+      endDate: venueWindow.value.currentEndDate
+    }
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to load booking date range'), 'Error')
+  }
+}
 const blockModalContentRef = ref(null)
 const blockFormSectionRef = ref(null)
 const blockToolbarRef = ref(null)
@@ -620,8 +706,44 @@ const blockDialogMaxHeight = ref('90vh')
 const blockDialogHeight = ref('84vh')
 const blockDialogOverlayPadding = ref('20px 0')
 const blockTableMaxHeight = ref('42vh')
+const blockSortState = ref({ key: '', order: '' })
 
-const blockTotalPages = computed(() => Math.max(1, Math.ceil(currentVenueBlocks.value.length / blockPageSize.value)))
+const parseBlockDateMs = (value) => {
+  if (!value) return Number.NEGATIVE_INFINITY
+  const normalized = typeof value === 'string' ? value.replace(' ', 'T') : value
+  const t = new Date(normalized).getTime()
+  return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t
+}
+
+const parseBlockCreatedMs = (item) => {
+  const createdAtMs = parseBlockDateMs(item?.createdAt)
+  if (createdAtMs !== Number.NEGATIVE_INFINITY) return createdAtMs
+  const idNum = Number(item?.id)
+  return Number.isFinite(idNum) ? idNum : Number.NEGATIVE_INFINITY
+}
+
+const isBlockTimeRangeInvalid = computed(() => {
+  if (!blockForm.value.startAt || !blockForm.value.endAt) return false
+  return parseBlockDateMs(blockForm.value.endAt) <= parseBlockDateMs(blockForm.value.startAt)
+})
+
+const sortedBlockData = computed(() => {
+  const list = currentVenueBlocks.value.slice()
+  const { key, order } = blockSortState.value
+  if (!key || !order) {
+    // 默认：按创建时间倒序（最新创建在前）
+    return list.sort((a, b) => parseBlockCreatedMs(b) - parseBlockCreatedMs(a))
+  }
+  const direction = order === 'asc' ? 1 : -1
+  return list.sort((a, b) => {
+    const av = parseBlockDateMs(a[key])
+    const bv = parseBlockDateMs(b[key])
+    if (av === bv) return String(a.id).localeCompare(String(b.id)) * direction
+    return (av - bv) * direction
+  })
+})
+
+const blockTotalPages = computed(() => Math.max(1, Math.ceil(sortedBlockData.value.length / blockPageSize.value)))
 const blockStartIndex = computed(() => {
   if (currentVenueBlocks.value.length === 0) return 0
   return (blockCurrentPage.value - 1) * blockPageSize.value
@@ -642,8 +764,24 @@ const blockVisiblePages = computed(() => {
 const paginatedBlockData = computed(() => {
   const start = blockStartIndex.value
   const end = start + blockPageSize.value
-  return currentVenueBlocks.value.slice(start, end)
+  return sortedBlockData.value.slice(start, end)
 })
+
+const toggleBlockSort = (key) => {
+  if (blockSortState.value.key !== key) {
+    blockSortState.value = { key, order: 'asc' }
+  } else if (blockSortState.value.order === 'asc') {
+    blockSortState.value = { key, order: 'desc' }
+  } else {
+    blockSortState.value = { key: '', order: '' }
+  }
+  blockCurrentPage.value = 1
+}
+
+const getBlockSortIndicator = (key) => {
+  if (blockSortState.value.key !== key || !blockSortState.value.order) return '↕'
+  return blockSortState.value.order === 'asc' ? '▲' : '▼'
+}
 
 function updateBlockDialogModalSize () {
   if (typeof window === 'undefined') return
@@ -677,7 +815,8 @@ watch(showBlockDialog, (val) => {
   if (val) updateBlockTableMaxHeight()
 })
 
-onMounted(() => {
+onMounted(async () => {
+  await Promise.all([loadVenueList(), loadVenueWindow()])
   updateBlockDialogModalSize()
   blockDialogMq = window.matchMedia(BLOCK_MODAL_MQ)
   blockDialogMq.addEventListener('change', updateBlockDialogModalSize)
@@ -724,7 +863,23 @@ const formatDateTime = (value) => {
   return date.toLocaleString('en-US', { hour12: false })
 }
 
-const handlePublishVenueWindow = () => {
+const formatBlockDateTime = (value) => {
+  if (!value) return '-'
+
+  // 兼容 ISO（2026-05-16T16:00:00.000Z）与本地格式（YYYY-MM-DD HH:mm）
+  const normalized = typeof value === 'string' ? value.replace(' ', 'T') : value
+  const date = new Date(normalized)
+  if (Number.isNaN(date.getTime())) return String(value)
+
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d} ${hh}:${mm}`
+}
+
+const handlePublishVenueWindow = async () => {
   if (!venueWindowForm.value.startDate || !venueWindowForm.value.endDate) {
     showNotice('Please select start and end date', 'Warning')
     return
@@ -734,13 +889,21 @@ const handlePublishVenueWindow = () => {
     return
   }
 
-  venueWindow.value = publishMockBookingWindow({
-    resourceType: 'venue',
-    startDate: venueWindowForm.value.startDate,
-    endDate: venueWindowForm.value.endDate,
-    publishedBy: 'Venue Admin'
-  })
-  showNotice('Venue booking date range published', 'Success')
+  try {
+    const published = await publishVenueBookingWindow({
+      startDate: venueWindowForm.value.startDate,
+      endDate: venueWindowForm.value.endDate
+    })
+    venueWindow.value = {
+      currentStartDate: published?.currentStartDate || venueWindowForm.value.startDate,
+      currentEndDate: published?.currentEndDate || venueWindowForm.value.endDate,
+      updatedBy: published?.updatedBy || 'Venue Admin',
+      updatedAt: published?.updatedAt || new Date().toISOString()
+    }
+    showNotice('Venue booking date range published', 'Success')
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to publish venue booking date range'), 'Error')
+  }
 }
 
 const handleAdd = () => {
@@ -780,7 +943,7 @@ const handleEdit = (row) => {
   showForm.value = true
 }
 
-const handleSave = () => {
+const handleSave = async () => {
   if (!formData.value.color) {
     showNotice('Please select a color for calendar display', 'Warning')
     return
@@ -801,26 +964,66 @@ const handleSave = () => {
     return
   }
 
-  const normalizedFormData = {
-    ...formData.value,
-    tab: activeCategory.value,
-    type: formData.value.type,
-    roomCapacity: formData.value.roomCapacity == null ? null : Number(formData.value.roomCapacity),
-    image: formData.value.imageList?.[0]?.url || ''
-  }
-  delete normalizedFormData.imageList
-
-  if (formMode.value === 'add') {
-    venueList.value.push({ ...normalizedFormData, id: Date.now() })
-    showNotice('Venue added successfully', 'Success')
-  } else {
-    const index = venueList.value.findIndex(item => item.id === formData.value.id)
-    if (index !== -1) {
-      venueList.value[index] = { ...normalizedFormData }
-      showNotice('Venue updated successfully', 'Success')
+  const selectedImageFile = getSelectedVenueImageFile()
+  if (selectedImageFile) {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(selectedImageFile.type)) {
+      showNotice('Image format must be jpg, png, or webp', 'Warning')
+      return
+    }
+    if (selectedImageFile.size > 2 * 1024 * 1024) {
+      showNotice('Image size must be less than 2MB', 'Warning')
+      return
     }
   }
-  showForm.value = false
+
+  const normalizedFormData = {
+    tab: activeCategory.value,
+    name: formData.value.name,
+    nameZh: formData.value.nameZh,
+    type: formData.value.type,
+    color: formData.value.color,
+    location: formData.value.location,
+    locationZh: formData.value.locationZh,
+    roomCapacity: formData.value.roomCapacity == null ? null : Number(formData.value.roomCapacity),
+    displayType: formData.value.displayType,
+    status: formData.value.status,
+    image: selectedImageFile ? (formData.value.image || '') : (formData.value.imageList?.[0]?.url || '')
+  }
+
+  try {
+    let persistedVenue = null
+    if (formMode.value === 'add') {
+      const created = await createVenue(normalizedFormData)
+      persistedVenue = created
+      venueList.value.push(created)
+    } else {
+      const updated = await updateVenue(formData.value.id, normalizedFormData)
+      const index = venueList.value.findIndex(item => String(item.id) === String(formData.value.id))
+      if (index !== -1) {
+        venueList.value[index] = updated
+        persistedVenue = updated
+      }
+    }
+
+    if (selectedImageFile && persistedVenue?.id) {
+      const uploaded = await uploadVenueImage(persistedVenue.id, selectedImageFile)
+      const idx = venueList.value.findIndex(item => String(item.id) === String(persistedVenue.id))
+      if (idx !== -1) {
+        venueList.value[idx] = {
+          ...venueList.value[idx],
+          image: uploaded?.image || venueList.value[idx].image
+        }
+      }
+    }
+
+    showForm.value = false
+    showNotice(formMode.value === 'add' ? 'Venue added successfully' : 'Venue updated successfully', 'Success')
+  } catch (error) {
+    // 保存失败：只提示错误，编辑弹窗保持打开，允许用户继续修改
+    showForm.value = true
+    showNotice(getErrorMessage(error, 'Failed to save venue'), 'Error')
+  }
 }
 
 const handleDelete = (row) => {
@@ -828,14 +1031,19 @@ const handleDelete = (row) => {
   showDeleteDialog.value = true
 }
 
-const confirmDelete = () => {
-  const index = venueList.value.findIndex(item => item.id === currentRow.value.id)
-  if (index !== -1) {
-    venueList.value.splice(index, 1)
-    showNotice('Deleted successfully', 'Success')
+const confirmDelete = async () => {
+  try {
+    await deleteVenue(currentRow.value.id)
+    const index = venueList.value.findIndex(item => String(item.id) === String(currentRow.value.id))
+    if (index !== -1) {
+      venueList.value.splice(index, 1)
+      showNotice('Deleted successfully', 'Success')
+    }
+    showDeleteDialog.value = false
+    currentRow.value = null
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to delete venue'), 'Error')
   }
-  showDeleteDialog.value = false
-  currentRow.value = null
 }
 
 const handleViewImage = (row) => {
@@ -849,6 +1057,20 @@ const handleViewImage = (row) => {
 
 const handleExceed = () => {
   showNotice('Only one image is allowed', 'Warning')
+}
+
+const handleImageChange = (_file, fileList) => {
+  // 强制只保留 1 张：若用户重复选择，保留最后一次选择的文件
+  if (Array.isArray(fileList) && fileList.length > 1) {
+    formData.value.imageList = fileList.slice(-1)
+    return
+  }
+  formData.value.imageList = fileList
+}
+
+const handleImageRemove = () => {
+  formData.value.imageList = []
+  formData.value.image = ''
 }
 
 const resetBlockForm = () => {
@@ -868,7 +1090,7 @@ const handleManageBlocks = (row) => {
   updateBlockTableMaxHeight()
 }
 
-const handleAddBlockPeriod = () => {
+const handleAddBlockPeriod = async () => {
   if (!currentBlockVenue.value) return
   if (!blockForm.value.startAt || !blockForm.value.endAt || !blockForm.value.reason) {
     showNotice('Please fill in Start, End and Reason', 'Warning')
@@ -884,25 +1106,34 @@ const handleAddBlockPeriod = () => {
     showNotice('End datetime must be later than start datetime', 'Warning')
     return
   }
-  currentBlockVenue.value.blocks.push({
-    id: Date.now() + Math.floor(Math.random() * 1000),
-    startAt: blockForm.value.startAt,
-    endAt: blockForm.value.endAt,
-    reason: blockForm.value.reason
-  })
-  blockCurrentPage.value = Math.max(1, Math.ceil(currentBlockVenue.value.blocks.length / blockPageSize.value))
-  resetBlockForm()
-  updateBlockTableMaxHeight()
-  showNotice('Blocked period added', 'Success')
+  try {
+    const created = await createVenueBlock(currentBlockVenue.value.id, {
+      startAt: new Date(blockForm.value.startAt.replace(' ', 'T')).toISOString(),
+      endAt: new Date(blockForm.value.endAt.replace(' ', 'T')).toISOString(),
+      reason: blockForm.value.reason
+    })
+    currentBlockVenue.value.blocks.push(created)
+    blockCurrentPage.value = Math.max(1, Math.ceil(currentBlockVenue.value.blocks.length / blockPageSize.value))
+    resetBlockForm()
+    updateBlockTableMaxHeight()
+    showNotice('Blocked period added', 'Success')
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to add blocked period'), 'Error')
+  }
 }
 
-const handleRemoveBlockPeriod = (blockId) => {
+const handleRemoveBlockPeriod = async (blockId) => {
   if (!currentBlockVenue.value) return
-  const index = currentBlockVenue.value.blocks.findIndex(item => item.id === blockId)
-  if (index !== -1) {
-    currentBlockVenue.value.blocks.splice(index, 1)
-    updateBlockTableMaxHeight()
-    showNotice('Blocked period removed', 'Success')
+  try {
+    await deleteVenueBlock(currentBlockVenue.value.id, blockId)
+    const index = currentBlockVenue.value.blocks.findIndex(item => String(item.id) === String(blockId))
+    if (index !== -1) {
+      currentBlockVenue.value.blocks.splice(index, 1)
+      updateBlockTableMaxHeight()
+      showNotice('Blocked period removed', 'Success')
+    }
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to remove blocked period'), 'Error')
   }
 }
 
@@ -922,7 +1153,7 @@ function updateBlockTableMaxHeight () {
 }
 
 const handlePreview = (file) => {
-  previewImageUrl.value = file.url
+  previewImageUrl.value = file.url || (file.raw ? URL.createObjectURL(file.raw) : '')
   showImagePreview.value = true
 }
 </script>
@@ -1328,9 +1559,18 @@ const handlePreview = (file) => {
 
 .block-toolbar {
   display: flex;
+  align-items: center;
+  gap: 10px;
   justify-content: flex-end;
   margin-top: -10px;
   margin-bottom: 0.6rem;
+}
+
+.block-range-warning {
+  margin-right: auto;
+  color: #b91c1c;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .block-table-wrap {
@@ -1386,6 +1626,11 @@ const handlePreview = (file) => {
 
 .color-input-group :deep(.el-input) {
   flex: 1;
+}
+
+/* 已有一张图时隐藏 picture-card 的触发器空框，不可点击 */
+.venue-image-upload--full :deep(.el-upload.el-upload--picture-card) {
+  display: none !important;
 }
 
 .venue-form :deep(.el-form-item__label) {
@@ -1670,5 +1915,13 @@ const handlePreview = (file) => {
   font-size: 15px;
   color: #374151;
   line-height: 1.6;
+}
+
+:deep(.venue-notice-modal.modal-overlay) {
+  z-index: 12000 !important;
+}
+
+:deep(.venue-notice-modal .booking-dialog-wrapper) {
+  z-index: 12001 !important;
 }
 </style>

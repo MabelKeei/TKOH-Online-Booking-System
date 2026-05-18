@@ -39,7 +39,7 @@
                     fixed="left"
                     :index="getUserRowIndex"
                   />
-                  <el-table-column prop="corpId" min-width="120">
+                  <el-table-column prop="corpId" min-width="120" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
                     <template #header>
                       <button type="button" class="th-sort-btn" @click="toggleSort('user', 'corpId')">
                         Corp ID
@@ -47,7 +47,7 @@
                       </button>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="name" label="Name" min-width="280" />
+                  <el-table-column prop="name" label="Name" min-width="280" class-name="name-col" />
                   <el-table-column prop="department" min-width="100">
                     <template #header>
                       <SortableFilterHeader
@@ -79,7 +79,7 @@
                     </template>
                   </el-table-column>
                   <el-table-column prop="email" label="Email" min-width="220" />
-                  <el-table-column min-width="165">
+                  <el-table-column width="160" class-name="table-nowrap-col quota-col" label-class-name="table-nowrap-col quota-col">
                     <template #header>
                       <button type="button" class="th-sort-btn" @click="toggleSort('user', 'evQuota')">
                         EV Quota
@@ -90,7 +90,7 @@
                       {{ formatQuotaDisplay(row.usedQuotaEV, row.annualQuotaEV) }}
                     </template>
                   </el-table-column>
-                  <el-table-column min-width="110">
+                  <el-table-column width="160" class-name="table-nowrap-col quota-col" label-class-name="table-nowrap-col quota-col">
                     <template #header>
                       <button type="button" class="th-sort-btn" @click="toggleSort('user', 'venueQuota')">
                         Venue Quota
@@ -114,7 +114,7 @@
                       </span>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="lastLoginTime" min-width="180">
+                  <el-table-column prop="lastLoginTime" min-width="180" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
                     <template #header>
                       <button type="button" class="th-sort-btn" @click="toggleSort('user', 'lastLoginTime')">
                         Last login time
@@ -122,7 +122,7 @@
                       </button>
                     </template>
                     <template #default="{ row }">
-                      {{ row.lastLoginTime || '-' }}
+                      {{ formatDateTimeDisplay(row.lastLoginTime) }}
                     </template>
                   </el-table-column>
                   <el-table-column label="Actions" width="230" fixed="right" class-name="actions-col">
@@ -204,7 +204,7 @@
                     fixed="left"
                     :index="getExpiredRowIndex"
                   />
-                  <el-table-column prop="corpId" min-width="120">
+                  <el-table-column prop="corpId" min-width="120" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
                     <template #header>
                       <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'corpId')">
                         Corp ID
@@ -212,7 +212,7 @@
                       </button>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="name" label="Name" min-width="280" />
+                  <el-table-column prop="name" label="Name" min-width="280" class-name="name-col" />
                   <el-table-column prop="department" min-width="100">
                     <template #header>
                       <SortableFilterHeader
@@ -257,7 +257,7 @@
                       </span>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="lastLoginTime" min-width="180">
+                  <el-table-column prop="lastLoginTime" min-width="180" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
                     <template #header>
                       <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'lastLoginTime')">
                         Last login time
@@ -265,10 +265,10 @@
                       </button>
                     </template>
                     <template #default="{ row }">
-                      {{ row.lastLoginTime || '-' }}
+                      {{ formatDateTimeDisplay(row.lastLoginTime) }}
                     </template>
                   </el-table-column>
-                  <el-table-column min-width="165">
+                  <el-table-column width="160" class-name="table-nowrap-col quota-col" label-class-name="table-nowrap-col quota-col">
                     <template #header>
                       <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'evQuota')">
                         EV Quota
@@ -279,7 +279,7 @@
                       {{ formatQuotaDisplay(row.usedQuotaEV, row.annualQuotaEV) }}
                     </template>
                   </el-table-column>
-                  <el-table-column min-width="110">
+                  <el-table-column width="160" class-name="table-nowrap-col quota-col" label-class-name="table-nowrap-col quota-col">
                     <template #header>
                       <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'venueQuota')">
                         Venue Quota
@@ -344,7 +344,12 @@
           <template #label>
             <span>
               Pending Approval
-              <el-badge :value="sortedPendingPendingList.length" :max="99" class="badge-item" />
+              <el-badge
+                :value="sortedPendingPendingList.length"
+                :max="99"
+                :show-zero="false"
+                class="badge-item"
+              />
             </span>
           </template>
 
@@ -371,7 +376,7 @@
                           </button>
                         </template>
                       </el-table-column>
-                      <el-table-column prop="name" label="Name" min-width="360" />
+                      <el-table-column prop="name" label="Name" min-width="360" class-name="name-col" />
                       <el-table-column prop="department" min-width="100">
                         <template #header>
                           <SortableFilterHeader
@@ -403,24 +408,16 @@
                         </template>
                       </el-table-column>
                       <el-table-column prop="email" label="Email" min-width="220" />
-                      <el-table-column prop="lastLoginTime" min-width="180">
-                        <template #header>
-                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingPending', 'lastLoginTime')">
-                            Last login time
-                            <span class="sort-indicator">{{ getSortIndicator('pendingPending', 'lastLoginTime') }}</span>
-                          </button>
-                        </template>
-                        <template #default="{ row }">
-                          {{ row.lastLoginTime || '-' }}
-                        </template>
-                      </el-table-column>
                       <el-table-column prop="reason" label="Application Reason" min-width="240" />
-                      <el-table-column prop="submittedAt" min-width="180">
+                      <el-table-column prop="submittedAt" min-width="180" class-name="submitted-at-col">
                         <template #header>
                           <button type="button" class="th-sort-btn" @click="toggleSort('pendingPending', 'submittedAt')">
                             Submitted At
                             <span class="sort-indicator">{{ getSortIndicator('pendingPending', 'submittedAt') }}</span>
                           </button>
+                        </template>
+                        <template #default="{ row }">
+                          <span class="submitted-at-text">{{ formatDateTimeDisplay(row.submittedAt) }}</span>
                         </template>
                       </el-table-column>
                       <el-table-column label="Actions" width="120" fixed="right" class-name="actions-col">
@@ -483,7 +480,7 @@
                           </button>
                         </template>
                       </el-table-column>
-                      <el-table-column prop="name" label="Name" min-width="360" />
+                      <el-table-column prop="name" label="Name" min-width="360" class-name="name-col" />
                       <el-table-column prop="department" min-width="100">
                         <template #header>
                           <SortableFilterHeader
@@ -515,17 +512,6 @@
                         </template>
                       </el-table-column>
                       <el-table-column prop="email" label="Email" min-width="220" />
-                      <el-table-column prop="lastLoginTime" min-width="180">
-                        <template #header>
-                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingApproved', 'lastLoginTime')">
-                            Last login time
-                            <span class="sort-indicator">{{ getSortIndicator('pendingApproved', 'lastLoginTime') }}</span>
-                          </button>
-                        </template>
-                        <template #default="{ row }">
-                          {{ row.lastLoginTime || '-' }}
-                        </template>
-                      </el-table-column>
                       <el-table-column prop="approvedAt" min-width="180">
                         <template #header>
                           <button type="button" class="th-sort-btn" @click="toggleSort('pendingApproved', 'approvedAt')">
@@ -533,13 +519,19 @@
                             <span class="sort-indicator">{{ getSortIndicator('pendingApproved', 'approvedAt') }}</span>
                           </button>
                         </template>
+                        <template #default="{ row }">
+                          {{ formatDateTimeDisplay(row.approvedAt ?? row.handledAt) }}
+                        </template>
                       </el-table-column>
-                      <el-table-column prop="approvedBy" min-width="140">
+                      <el-table-column prop="approvedBy" min-width="200">
                         <template #header>
                           <button type="button" class="th-sort-btn" @click="toggleSort('pendingApproved', 'approvedBy')">
                             Approved By
                             <span class="sort-indicator">{{ getSortIndicator('pendingApproved', 'approvedBy') }}</span>
                           </button>
+                        </template>
+                        <template #default="{ row }">
+                          {{ row.approvedBy || '-' }}
                         </template>
                       </el-table-column>
                     </el-table>
@@ -595,7 +587,7 @@
                           </button>
                         </template>
                       </el-table-column>
-                      <el-table-column prop="name" label="Name" min-width="360" />
+                      <el-table-column prop="name" label="Name" min-width="360" class-name="name-col" />
                       <el-table-column prop="department" min-width="100">
                         <template #header>
                           <SortableFilterHeader
@@ -627,31 +619,26 @@
                         </template>
                       </el-table-column>
                       <el-table-column prop="email" label="Email" min-width="220" />
-                      <el-table-column prop="lastLoginTime" min-width="180">
-                        <template #header>
-                          <button type="button" class="th-sort-btn" @click="toggleSort('pendingRejected', 'lastLoginTime')">
-                            Last login time
-                            <span class="sort-indicator">{{ getSortIndicator('pendingRejected', 'lastLoginTime') }}</span>
-                          </button>
-                        </template>
-                        <template #default="{ row }">
-                          {{ row.lastLoginTime || '-' }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column prop="rejectedAt" min-width="180">
+                      <el-table-column prop="rejectedAt" min-width="180" class-name="rejected-at-col">
                         <template #header>
                           <button type="button" class="th-sort-btn" @click="toggleSort('pendingRejected', 'rejectedAt')">
                             Rejected At
                             <span class="sort-indicator">{{ getSortIndicator('pendingRejected', 'rejectedAt') }}</span>
                           </button>
                         </template>
+                        <template #default="{ row }">
+                          <span class="rejected-at-text">{{ formatDateTimeDisplay(row.rejectedAt ?? row.handledAt) }}</span>
+                        </template>
                       </el-table-column>
-                      <el-table-column prop="rejectedBy" min-width="140">
+                      <el-table-column prop="rejectedBy" min-width="200">
                         <template #header>
                           <button type="button" class="th-sort-btn" @click="toggleSort('pendingRejected', 'rejectedBy')">
                             Rejected By
                             <span class="sort-indicator">{{ getSortIndicator('pendingRejected', 'rejectedBy') }}</span>
                           </button>
+                        </template>
+                        <template #default="{ row }">
+                          {{ row.rejectedBy || '-' }}
                         </template>
                       </el-table-column>
                       <el-table-column prop="rejectReason" min-width="240">
@@ -660,6 +647,9 @@
                             Reject Reason
                             <span class="sort-indicator">{{ getSortIndicator('pendingRejected', 'rejectReason') }}</span>
                           </button>
+                        </template>
+                        <template #default="{ row }">
+                          {{ row.rejectReason || '-' }}
                         </template>
                       </el-table-column>
                     </el-table>
@@ -742,14 +732,20 @@
         <el-form-item label="Email">
           <el-input v-model="formData.email" type="email" />
         </el-form-item>
-        <el-form-item label="Initial Password">
+        <el-form-item v-if="formMode === 'add'" label="Initial Password">
           <el-input v-model="formData.password" type="text" autocomplete="new-password" />
         </el-form-item>
         <el-form-item label="EV Quota">
-          <el-input-number v-model="formData.annualQuotaEV" :min="0" />
+          <div class="quota-input-row">
+            <el-input-number v-model="formData.annualQuotaEV" :min="0" :disabled="isEvQuotaUnlimited" />
+            <el-checkbox v-model="isEvQuotaUnlimited">Unlimited</el-checkbox>
+          </div>
         </el-form-item>
         <el-form-item label="Venue Quota">
-          <el-input-number v-model="formData.annualQuotaVenue" :min="0" />
+          <div class="quota-input-row">
+            <el-input-number v-model="formData.annualQuotaVenue" :min="0" :disabled="isVenueQuotaUnlimited" />
+            <el-checkbox v-model="isVenueQuotaUnlimited">Unlimited</el-checkbox>
+          </div>
         </el-form-item>
         <el-form-item label="Status">
           <el-select
@@ -831,6 +827,7 @@
       title="Pending Approval Details"
       max-width="650px"
       :max-height="userModalMaxHeight"
+      custom-class="pending-approval-detail-modal"
     >
       <el-form :model="pendingHandleForm" label-width="140px">
         <el-form-item label="Corp ID">
@@ -839,57 +836,52 @@
         <el-form-item label="Name">
           <el-input v-model="pendingHandleForm.name" />
         </el-form-item>
+        <el-form-item label="Email">
+          <el-input v-model="pendingHandleForm.email" disabled />
+        </el-form-item>
         <el-form-item label="Department">
           <el-select
             v-model="pendingHandleForm.department"
-            placeholder="Select department"
+            filterable
+            clearable
+            allow-create
+            default-first-option
             style="width: 100%"
-            :teleported="false"
+            placeholder="Type department name"
+            :teleported="pendingApprovalSelectTeleported"
+            :reserve-keyword="false"
+            :filter-method="handlePendingDepartmentFilter"
+            popper-class="pending-approval-select-popper"
+            :popper-style="pendingApprovalSelectTeleported ? { zIndex: 10100 } : {}"
           >
-            <el-option v-for="dept in departmentOptions" :key="dept" :label="dept" :value="dept" />
+            <el-option
+              v-for="dept in displayedPendingDepartmentOptions"
+              :key="dept.id"
+              :label="dept.departmentName"
+              :value="dept.departmentName"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="Role">
-          <el-input v-model="pendingHandleForm.role" />
-        </el-form-item>
-        <el-form-item label="Email">
-          <el-input v-model="pendingHandleForm.email" disabled />
+          <el-select
+            v-model="pendingHandleForm.role"
+            placeholder="Select role"
+            style="width: 100%"
+            :teleported="pendingApprovalSelectTeleported"
+            popper-class="pending-approval-select-popper"
+            :popper-style="pendingApprovalSelectTeleported ? { zIndex: 10100 } : {}"
+          >
+            <el-option v-for="r in roleOptions" :key="r" :label="r" :value="r" />
+          </el-select>
         </el-form-item>
         <el-form-item label="Initial Password">
           <el-input v-model="pendingHandleForm.password" type="text" autocomplete="new-password" />
         </el-form-item>
         <el-form-item label="Submitted At">
-          <el-input v-model="pendingHandleForm.submittedAt" />
-        </el-form-item>
-        <el-form-item label="Application Reason">
           <el-input
-            v-model="pendingHandleForm.reason"
-            type="textarea"
-            :rows="4"
-          />
-        </el-form-item>
-        <el-form-item label="Reject Template">
-          <el-select
-            v-model="pendingHandleForm.rejectTemplateKey"
-            placeholder="Select reject template"
-            style="width: 100%"
-            :teleported="false"
-            @change="handlePendingRejectTemplateChange"
-          >
-            <el-option
-              v-for="tpl in rejectTemplateOptions"
-              :key="tpl.id"
-              :label="tpl.name"
-              :value="tpl.key"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Reject Reason">
-          <el-input
-            v-model="pendingHandleForm.rejectReason"
-            type="textarea"
-            :rows="4"
-            placeholder="Required only when rejecting"
+            :model-value="formatDateTimeDisplay(pendingHandleForm.submittedAt)"
+            readonly
+            disabled
           />
         </el-form-item>
       </el-form>
@@ -902,42 +894,59 @@
         >Cancel</el-button>
         <el-button
           type="default"
+          class="action-btn action-delete"
+          @click="openRejectDialogFromPendingDetails"
+        >Reject</el-button>
+        <el-button
+          type="default"
           class="action-btn action-approve"
           @click="confirmPendingApprove"
         >Approve</el-button>
-        <el-button
-          type="default"
-          class="action-btn action-delete"
-          @click="confirmPendingReject"
-        >Reject</el-button>
       </template>
     </BookingStyleModal>
 
     <!-- Reject Reason Dialog -->
-    <BookingStyleModal v-model="showRejectDialog" title="Reject Registration" max-width="500px">
-      <el-form :model="rejectForm" label-width="120px">
-        <el-form-item label="Template">
+    <BookingStyleModal
+      v-model="showRejectDialog"
+      title="Reject Registration"
+      max-width="720px"
+      custom-class="reject-registration-modal"
+    >
+      <el-form :model="rejectForm" class="reject-registration-form" label-width="132px">
+        <el-form-item label="Reject Template">
           <el-select
-            v-model="rejectForm.templateKey"
-            placeholder="Select reject template"
+            v-model="rejectForm.selectedTemplateId"
+            filterable
+            clearable
+            default-first-option
             style="width: 100%"
-            :teleported="false"
-            @change="handleUserRejectTemplateChange"
+            placeholder="Type template name"
+            :teleported="pendingApprovalSelectTeleported"
+            :reserve-keyword="false"
+            :filter-method="handleRejectTemplateFilter"
+            popper-class="reject-template-select-popper"
+            :popper-style="pendingApprovalSelectTeleported ? { zIndex: 10100 } : {}"
+            @change="handleRejectTemplateSelectChange"
           >
             <el-option
-              v-for="tpl in rejectTemplateOptions"
-              :key="tpl.key"
+              v-for="tpl in displayedRejectTemplateOptions"
+              :key="tpl.id"
               :label="tpl.name"
-              :value="tpl.key"
+              :value="tpl.id"
             />
           </el-select>
         </el-form-item>
         <el-form-item label="Reject Reason">
-          <el-input v-model="rejectForm.reason" type="textarea" :rows="4" placeholder="Please provide a reason for rejection" />
+          <el-input
+            v-model="rejectForm.reason"
+            type="textarea"
+            :rows="6"
+            placeholder="Optional: reason for rejection"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button type="default" class="cancel-btn" @click="showRejectDialog = false">Cancel</el-button>
+        <el-button type="default" class="cancel-btn" @click="closeRejectRegistrationDialog">Cancel</el-button>
         <el-button type="default" class="action-btn action-delete" @click="confirmReject">Confirm Reject</el-button>
       </template>
     </BookingStyleModal>
@@ -958,15 +967,105 @@ import QRCode from 'qrcode'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
 import { useAdminStore } from '@/stores/admin'
+import { getAccessRoles, getAccessDepartments } from '@/api/accessRight'
 import {
-  getMockEmployeeListNormalized,
-  getMockPendingListNormalized,
-  getMockAccessRoleList,
-  getMockDepartmentList,
-  getMockPromptList
-} from '@/mocks/mockData'
+  listUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  replaceUserPassword,
+  resetUserQuotas,
+  updateUserStatus,
+  listPendingUsers,
+  approvePendingUser,
+  rejectPendingUser
+} from '@/api/userManagement'
+import { getPrompts } from '@/api/promptManagement'
+import { notifyPendingUsersUpdated } from '@/utils/pendingUsersSync'
 
 const adminStore = useAdminStore()
+
+/** 后端字段为 annualQuotaEv；表格与表单沿用 annualQuotaEV */
+function normalizeUserRow (u) {
+  return {
+    ...u,
+    annualQuotaEV: u.annualQuotaEv ?? u.annualQuotaEV ?? 0,
+    usedQuotaEV: u.usedQuotaEv ?? u.usedQuotaEV ?? 0,
+    annualQuotaVenue: u.annualQuotaVenue ?? u.annualQuotaVenue ?? 0,
+    usedQuotaVenue: u.usedQuotaVenue ?? u.usedQuotaVenue ?? 0
+  }
+}
+
+/** 审批人展示：有名字且仍有账号时「姓名 (id)」；账号删除后 FK 为空则仅显示快照姓名 */
+function formatApproverDisplay (row) {
+  const name = row.approverName ?? row.approver_name
+  const id = row.approverUserId ?? row.approver_user_id
+  if (name && id) return `${name} (${id})`
+  if (name) return String(name)
+  if (id) return String(id)
+  return ''
+}
+
+function normalizePendingApprovedRow (p) {
+  const handled = p.handledAt ?? p.handled_at
+  return {
+    ...p,
+    approvedAt: handled,
+    approvedBy: formatApproverDisplay(p)
+  }
+}
+
+function normalizePendingRejectedRow (p) {
+  const handled = p.handledAt ?? p.handled_at
+  const reason = p.rejectReason ?? p.reject_reason
+  return {
+    ...p,
+    rejectedAt: handled,
+    rejectedBy: formatApproverDisplay(p),
+    rejectReason: reason ?? null
+  }
+}
+
+async function loadUsers () {
+  const data = await listUsers()
+  const rows = Array.isArray(data) ? data : []
+  employeeList.value = rows.map(normalizeUserRow)
+}
+
+async function loadPendingUsers () {
+  const [pendingData, approvedData, rejectedData] = await Promise.all([
+    listPendingUsers('pending'),
+    listPendingUsers('approved'),
+    listPendingUsers('rejected')
+  ])
+  pendingList.value = Array.isArray(pendingData) ? pendingData : []
+  pendingApprovedList.value = (Array.isArray(approvedData) ? approvedData : []).map(normalizePendingApprovedRow)
+  pendingRejectedList.value = (Array.isArray(rejectedData) ? rejectedData : []).map(normalizePendingRejectedRow)
+}
+
+async function loadRoleAndDepartmentOptions () {
+  const [rolesRes, deptsRes] = await Promise.all([
+    getAccessRoles(),
+    getAccessDepartments()
+  ])
+  roleOptions.value = (rolesRes || []).map((r) => r.roleName)
+  const depts = Array.isArray(deptsRes) ? deptsRes : []
+  departmentRows.value = depts
+  departmentOptions.value = depts.map((d) => d.departmentName)
+}
+
+/** 来自后端 `prompts`（GET /prompt-management/prompts?category=reject_template） */
+const rejectTemplatePrompts = ref([])
+
+async function loadRejectTemplatePrompts () {
+  try {
+    const data = await getPrompts({ category: 'reject_template' })
+    rejectTemplatePrompts.value = Array.isArray(data) ? data : []
+  } catch (e) {
+    console.error(e)
+    rejectTemplatePrompts.value = []
+  }
+}
 
 const activeTab = ref('list')
 const pendingSubTab = ref('pending')
@@ -983,20 +1082,47 @@ const resetPasswordForm = ref({
   password: DEFAULT_PASSWORD
 })
 
-/** 14" 常见视口宽度约 1100–1599：Add/Edit/Handle 表单弹窗略增高 */
+/** 14" 常见视口宽度约 1100–1599：与 src/style.css 中 html zoom 断点一致 */
 const USER_FORM_MODAL_MQ = '(min-width: 1100px) and (max-width: 1599px)'
 const userModalMaxHeight = ref('94vh')
+/** 该断点下 html zoom 0.8，el-select 若 teleported 挂 body 会与缩放坐标不一致 → 下拉整体偏移；断点外仍挂 body 以免被弹窗裁切 */
+const pendingApprovalSelectTeleported = ref(true)
 
 function updateUserModalMaxHeight () {
   if (typeof window === 'undefined') return
-  userModalMaxHeight.value = window.matchMedia(USER_FORM_MODAL_MQ).matches ? '110vh' : '94vh'
+  const mq = window.matchMedia(USER_FORM_MODAL_MQ)
+  userModalMaxHeight.value = mq.matches ? '110vh' : '94vh'
+  pendingApprovalSelectTeleported.value = !mq.matches
+}
+
+if (typeof window !== 'undefined') {
+  updateUserModalMaxHeight()
 }
 
 let userFormModalMq = null
 
-onMounted(() => {
-  employeeList.value = getMockEmployeeListNormalized()
-  pendingList.value = getMockPendingListNormalized()
+/** Admin 布局收到同步信号后递增 revision，此处仅刷新待审批三张表 */
+watch(
+  () => adminStore.pendingUsersListRevision,
+  () => {
+    loadPendingUsers().catch((e) => console.error(e))
+  }
+)
+
+onMounted(async () => {
+  if (!registrationUrl.value) {
+    registrationUrl.value = `${window.location.origin}/register`
+  }
+  try {
+    await Promise.all([
+      loadRoleAndDepartmentOptions(),
+      loadUsers(),
+      loadPendingUsers(),
+      loadRejectTemplatePrompts()
+    ])
+  } catch (e) {
+    console.error(e)
+  }
   updateUserModalMaxHeight()
   userFormModalMq = window.matchMedia(USER_FORM_MODAL_MQ)
   userFormModalMq.addEventListener('change', updateUserModalMaxHeight)
@@ -1026,15 +1152,27 @@ const expiredList = computed(() =>
   employeeList.value.filter((item) => item.status === 'expired' || item.status === 'inactive')
 )
 
-const roleOptions = computed(() => {
-  const mockRoles = getMockAccessRoleList()
-  return mockRoles.map(r => r.roleName)
+const roleOptions = ref([])
+const departmentOptions = ref([])
+/** 部门完整列表（含 id），供 Pending Approval 下拉与 Add License Owner 同款交互 */
+const departmentRows = ref([])
+const pendingDepartmentKeyword = ref('')
+
+const displayedPendingDepartmentOptions = computed(() => {
+  const keyword = pendingDepartmentKeyword.value.trim().toLowerCase()
+  const source = departmentRows.value
+  if (!keyword) return source.slice(0, 12)
+  return source
+    .filter((d) =>
+      String(d.departmentName || '').toLowerCase().includes(keyword) ||
+      String(d.id || '').toLowerCase().includes(keyword)
+    )
+    .slice(0, 30)
 })
 
-const departmentOptions = computed(() => {
-  const mockDepartments = getMockDepartmentList()
-  return mockDepartments.map(d => d.departmentName)
-})
+const handlePendingDepartmentFilter = (query) => {
+  pendingDepartmentKeyword.value = String(query || '')
+}
 
 const departmentInputKeyword = ref('')
 
@@ -1086,6 +1224,21 @@ const parseDateTimeForSort = (value) => {
   return Number.isNaN(ts) ? 0 : ts
 }
 
+/** ISO / Date → 本地可读：YYYY-MM-DD HH:mm:ss */
+function formatDateTimeDisplay (value) {
+  if (value == null || value === '') return '-'
+  const d = value instanceof Date ? value : new Date(String(value).replace(',', ''))
+  const ts = d.getTime()
+  if (Number.isNaN(ts)) return String(value)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const h = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  const s = String(d.getSeconds()).padStart(2, '0')
+  return `${y}-${m}-${day} ${h}:${min}:${s}`
+}
+
 const getSortValue = (row, key) => {
   switch (key) {
     case 'corpId':
@@ -1103,8 +1256,9 @@ const getSortValue = (row, key) => {
     case 'lastLoginTime':
     case 'submittedAt':
     case 'approvedAt':
+      return parseDateTimeForSort(row.approvedAt ?? row.handledAt ?? row.handled_at)
     case 'rejectedAt':
-      return parseDateTimeForSort(row[key])
+      return parseDateTimeForSort(row.rejectedAt ?? row.handledAt ?? row.handled_at)
     default:
       return ''
   }
@@ -1424,6 +1578,9 @@ const showNotice = (message, title = 'Notice') => {
   showNoticeDialog.value = true
 }
 const formMode = ref('add')
+const isEvQuotaUnlimited = ref(false)
+const isVenueQuotaUnlimited = ref(false)
+
 const formData = ref({
   corpId: '',
   name: '',
@@ -1439,6 +1596,16 @@ const formData = ref({
   status: 'active'
 })
 
+watch(isEvQuotaUnlimited, (checked) => {
+  if (checked) formData.value.annualQuotaEV = -1
+  else if (Number(formData.value.annualQuotaEV) < 0) formData.value.annualQuotaEV = 0
+})
+
+watch(isVenueQuotaUnlimited, (checked) => {
+  if (checked) formData.value.annualQuotaVenue = -1
+  else if (Number(formData.value.annualQuotaVenue) < 0) formData.value.annualQuotaVenue = 0
+})
+
 const pendingHandleForm = ref({
   id: null,
   corpId: '',
@@ -1447,23 +1614,64 @@ const pendingHandleForm = ref({
   role: '',
   email: '',
   password: DEFAULT_PASSWORD,
-  submittedAt: '',
-  reason: '',
-  rejectTemplateKey: 'user_application_reject_template',
-  rejectReason: ''
+  submittedAt: ''
 })
 
+/** 拒绝弹窗是否从「Pending Approval Details」中的 Reject 打开（与列表行拒绝区分） */
+const rejectFromPendingDetails = ref(false)
+
 const rejectForm = ref({
-  templateKey: 'user_application_reject_template',
+  selectedTemplateId: null,
   reason: ''
 })
 const rejectTemplateOptions = computed(() =>
-  getMockPromptList().filter(
-    item => item.category === 'reject_template' && item.templateType === 'user_application'
-  )
+  rejectTemplatePrompts.value.filter((item) => item.templateType === 'user_application')
 )
 
-const registrationUrl = ref('https://tkoh.com/register?token=abc123')
+const rejectTemplateKeyword = ref('')
+
+const displayedRejectTemplateOptions = computed(() => {
+  const keyword = rejectTemplateKeyword.value.trim().toLowerCase()
+  const source = rejectTemplateOptions.value
+  if (!keyword) return source.slice(0, 12)
+  return source
+    .filter((tpl) =>
+      String(tpl.name || '').toLowerCase().includes(keyword) ||
+      String(tpl.key || '').toLowerCase().includes(keyword) ||
+      String(tpl.id ?? '').includes(keyword)
+    )
+    .slice(0, 30)
+})
+
+function handleRejectTemplateFilter (query) {
+  rejectTemplateKeyword.value = String(query || '')
+}
+
+function handleRejectTemplateSelectChange (templateId) {
+  if (templateId == null || templateId === '') {
+    rejectForm.value.reason = ''
+    return
+  }
+  const selectedTemplate = rejectTemplateOptions.value.find(
+    (item) => String(item.id) === String(templateId)
+  )
+  if (!selectedTemplate) {
+    rejectForm.value.reason = ''
+    return
+  }
+  rejectForm.value.reason = selectedTemplate.content || ''
+}
+
+watch(showRejectDialog, async (open) => {
+  if (!open) {
+    rejectFromPendingDetails.value = false
+  } else {
+    rejectTemplateKeyword.value = ''
+    await loadRejectTemplatePrompts()
+  }
+})
+
+const registrationUrl = ref('')
 const qrCanvas = ref(null)
 const qrCodeDataUrl = ref('')
 
@@ -1485,6 +1693,7 @@ watch(showQRCode, async (newVal) => {
     }
   }
 })
+
 
 const downloadQRCode = () => {
   if (!qrCodeDataUrl.value) {
@@ -1536,7 +1745,7 @@ const handleExport = () => {
     'Venue Quota': item.annualQuotaVenue,
     'Used Quota (Venue)': item.usedQuotaVenue,
     'Status': item.status === 'active' ? 'Active' : item.status === 'inactive' ? 'Inactive' : 'Expired',
-    'Last login time': item.lastLoginTime || '-'
+    'Last login time': formatDateTimeDisplay(item.lastLoginTime)
   }))
 
   const ws = XLSX.utils.json_to_sheet(exportData)
@@ -1548,6 +1757,8 @@ const handleExport = () => {
 
 const handleAdd = () => {
   formMode.value = 'add'
+  isEvQuotaUnlimited.value = false
+  isVenueQuotaUnlimited.value = false
   formData.value = {
     corpId: '',
     name: '',
@@ -1567,22 +1778,49 @@ const handleAdd = () => {
 
 const handleEdit = (row) => {
   formMode.value = 'edit'
-  formData.value = { ...row, password: row.password || DEFAULT_PASSWORD }
+  formData.value = { ...row, password: '' }
+  isEvQuotaUnlimited.value = Number(row.annualQuotaEV) === -1
+  isVenueQuotaUnlimited.value = Number(row.annualQuotaVenue) === -1
   showForm.value = true
 }
 
-const handleSave = () => {
-  if (formMode.value === 'add') {
-    employeeList.value.push({ ...formData.value, id: Date.now() })
-    showNotice('User added successfully', 'Success')
-  } else {
-    const index = employeeList.value.findIndex(item => item.id === formData.value.id)
-    if (index !== -1) {
-      employeeList.value[index] = { ...formData.value }
+const handleSave = async () => {
+  try {
+    if (formMode.value === 'add') {
+      await createUser({
+        corpId: formData.value.corpId.trim(),
+        name: formData.value.name.trim(),
+        department: formData.value.department || undefined,
+        role: formData.value.role || undefined,
+        contact: formData.value.contact,
+        email: formData.value.email,
+        password: formData.value.password,
+        annualQuotaEV: isEvQuotaUnlimited.value ? -1 : Number(formData.value.annualQuotaEV ?? 0),
+        annualQuotaVenue: isVenueQuotaUnlimited.value ? -1 : Number(formData.value.annualQuotaVenue ?? 0),
+        status: formData.value.status
+      })
+      showNotice('User added successfully', 'Success')
+    } else {
+      await updateUser(formData.value.id, {
+        corpId: formData.value.corpId,
+        name: formData.value.name,
+        department: formData.value.department || undefined,
+        role: formData.value.role || undefined,
+        contact: formData.value.contact,
+        email: formData.value.email,
+        annualQuotaEV: isEvQuotaUnlimited.value ? -1 : Number(formData.value.annualQuotaEV ?? 0),
+        annualQuotaVenue: isVenueQuotaUnlimited.value ? -1 : Number(formData.value.annualQuotaVenue ?? 0),
+        usedQuotaEV: formData.value.usedQuotaEV,
+        usedQuotaVenue: formData.value.usedQuotaVenue,
+        status: formData.value.status
+      })
       showNotice('User updated successfully', 'Success')
     }
+    await Promise.all([loadUsers(), loadRoleAndDepartmentOptions()])
+    showForm.value = false
+  } catch (e) {
+    console.error(e)
   }
-  showForm.value = false
 }
 
 const handleDelete = (row) => {
@@ -1590,11 +1828,13 @@ const handleDelete = (row) => {
   showDeleteDialog.value = true
 }
 
-const confirmDelete = () => {
-  const index = employeeList.value.findIndex(item => item.id === currentRow.value.id)
-  if (index !== -1) {
-    employeeList.value.splice(index, 1)
+const confirmDelete = async () => {
+  try {
+    await deleteUser(currentRow.value.id)
+    await loadUsers()
     showNotice('Deleted successfully', 'Success')
+  } catch (e) {
+    console.error(e)
   }
   showDeleteDialog.value = false
   currentRow.value = null
@@ -1605,10 +1845,14 @@ const handleResetQuota = (row) => {
   showResetDialog.value = true
 }
 
-const confirmReset = () => {
-  currentRow.value.usedQuotaEV = 0
-  currentRow.value.usedQuotaVenue = 0
-  showNotice('Quota reset successfully', 'Success')
+const confirmReset = async () => {
+  try {
+    await resetUserQuotas(currentRow.value.id)
+    await loadUsers()
+    showNotice('Quota reset successfully', 'Success')
+  } catch (e) {
+    console.error(e)
+  }
   showResetDialog.value = false
   currentRow.value = null
 }
@@ -1620,87 +1864,77 @@ const handleResetPassword = (row) => {
   showResetPasswordDialog.value = true
 }
 
-const confirmResetPassword = () => {
-  currentRow.value.password = resetPasswordForm.value.password
-  showNotice('Password reset successfully', 'Success')
+const confirmResetPassword = async () => {
+  try {
+    await replaceUserPassword(currentRow.value.id, resetPasswordForm.value.password)
+    await loadUsers()
+    showNotice('Password reset successfully', 'Success')
+  } catch (e) {
+    console.error(e)
+  }
   showResetPasswordDialog.value = false
   currentRow.value = null
 }
 
-const handleInactivate = (row) => {
-  row.status = 'inactive'
-  showNotice('Account set to inactive', 'Success')
+const handleInactivate = async (row) => {
+  try {
+    await updateUserStatus(row.id, 'inactive')
+    await loadUsers()
+    showNotice('Account set to inactive', 'Success')
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const handlePending = (row) => {
   currentRow.value = row
   pendingHandleForm.value = {
     ...row,
-    password: DEFAULT_PASSWORD,
-    rejectTemplateKey: 'user_application_reject_template',
-    rejectReason: ''
+    password: DEFAULT_PASSWORD
   }
-  handlePendingRejectTemplateChange(pendingHandleForm.value.rejectTemplateKey)
+  pendingDepartmentKeyword.value = ''
   showPendingHandleDialog.value = true
 }
 
-const confirmPendingApprove = () => {
+const confirmPendingApprove = async () => {
   const data = { ...pendingHandleForm.value }
-  employeeList.value.push({
-    ...data,
-    id: Date.now(),
-    password: data.password || DEFAULT_PASSWORD,
-    annualQuotaEV: 30,
-    usedQuotaEV: 0,
-    annualQuotaVenue: 30,
-    usedQuotaVenue: 0,
-    status: 'active'
-  })
-
-  pendingApprovedList.value.push({
-    ...data,
-    approvedAt: new Date().toLocaleString('en-CA', { hour12: false }).replace(',', ''),
-    approvedBy: 'Admin'
-  })
-
-  const index = pendingList.value.findIndex((item) => item.id === data.id)
-  if (index !== -1) {
-    pendingList.value.splice(index, 1)
-  }
-
-  showNotice('Account created successfully', 'Success')
-  adminStore.fetchPendingCounts()
-  showPendingHandleDialog.value = false
-  currentRow.value = null
-}
-
-const confirmPendingReject = () => {
-  if (!pendingHandleForm.value.rejectReason.trim()) {
-    showNotice('Please provide a reason for rejection', 'Warning')
-    return
-  }
-
-  const data = pendingHandleForm.value
-  pendingRejectedList.value.push({
-    ...data,
-    rejectedAt: new Date().toLocaleString('en-CA', { hour12: false }).replace(',', ''),
-    rejectedBy: 'Admin',
-    rejectReason: pendingHandleForm.value.rejectReason.trim()
-  })
-
-  const index = pendingList.value.findIndex(item => item.id === data.id)
-  if (index !== -1) {
-    pendingList.value.splice(index, 1)
-    showNotice('Registration rejected', 'Success')
+  try {
+    await approvePendingUser(data.id, {
+      password: data.password || DEFAULT_PASSWORD,
+      annualQuotaEV: 30,
+      annualQuotaVenue: 30
+    })
+    await loadUsers()
+    await loadPendingUsers()
     adminStore.fetchPendingCounts()
+    notifyPendingUsersUpdated()
+    showNotice('Account created successfully', 'Success')
+    showPendingHandleDialog.value = false
+    currentRow.value = null
+  } catch (e) {
+    console.error(e)
   }
-  showPendingHandleDialog.value = false
-  currentRow.value = null
 }
 
-const handleActivate = (row) => {
-  row.status = 'active'
-  showNotice('Account activated successfully', 'Success')
+const openRejectDialogFromPendingDetails = () => {
+  rejectFromPendingDetails.value = true
+  rejectForm.value.selectedTemplateId = null
+  rejectForm.value.reason = ''
+  showRejectDialog.value = true
+}
+
+const closeRejectRegistrationDialog = () => {
+  showRejectDialog.value = false
+}
+
+const handleActivate = async (row) => {
+  try {
+    await updateUserStatus(row.id, 'active')
+    await loadUsers()
+    showNotice('Account activated successfully', 'Success')
+  } catch (e) {
+    console.error(e)
+  }
   currentRow.value = null
 }
 
@@ -1709,89 +1943,70 @@ const handleApprove = (row) => {
   showApproveDialog.value = true
 }
 
-const confirmApprove = () => {
-  employeeList.value.push({
-    ...currentRow.value,
-    id: Date.now(),
-    password: DEFAULT_PASSWORD,
-    annualQuotaEV: 30,
-    usedQuotaEV: 0,
-    annualQuotaVenue: 30,
-    usedQuotaVenue: 0,
-    status: 'active'
-  })
-
-  pendingApprovedList.value.push({
-    ...currentRow.value,
-    approvedAt: new Date().toLocaleString('en-CA', { hour12: false }).replace(',', ''),
-    approvedBy: 'Admin'
-  })
-
-  const index = pendingList.value.findIndex(item => item.id === currentRow.value.id)
-  if (index !== -1) {
-    pendingList.value.splice(index, 1)
+const confirmApprove = async () => {
+  try {
+    await approvePendingUser(currentRow.value.id, {
+      password: DEFAULT_PASSWORD,
+      annualQuotaEV: 30,
+      annualQuotaVenue: 30
+    })
+    await loadUsers()
+    await loadPendingUsers()
+    adminStore.fetchPendingCounts()
+    notifyPendingUsersUpdated()
+    showNotice('Account created successfully', 'Success')
+    showApproveDialog.value = false
+    currentRow.value = null
+  } catch (e) {
+    console.error(e)
   }
-  showNotice('Account created successfully', 'Success')
-  adminStore.fetchPendingCounts()
-  showApproveDialog.value = false
-  currentRow.value = null
 }
 
 const handleReject = (row) => {
+  rejectFromPendingDetails.value = false
   currentRow.value = row
-  rejectForm.value.templateKey = 'user_application_reject_template'
+  const defaultTpl = rejectTemplateOptions.value.find((t) => t.key === 'user_application_reject_template')
+  rejectForm.value.selectedTemplateId = defaultTpl?.id ?? null
   rejectForm.value.reason = ''
-  handleUserRejectTemplateChange(rejectForm.value.templateKey)
+  handleRejectTemplateSelectChange(rejectForm.value.selectedTemplateId)
   showRejectDialog.value = true
 }
 
-const handleUserRejectTemplateChange = (templateKey) => {
-  const selectedTemplate = rejectTemplateOptions.value.find(item => item.key === templateKey)
-  if (!selectedTemplate) return
-  rejectForm.value.reason = selectedTemplate.content || ''
-}
-
-const handlePendingRejectTemplateChange = (templateKey) => {
-  const selectedTemplate = rejectTemplateOptions.value.find(item => item.key === templateKey)
-  if (!selectedTemplate) return
-  pendingHandleForm.value.rejectReason = selectedTemplate.content || ''
-}
-
-const confirmReject = () => {
-  if (!rejectForm.value.reason.trim()) {
-    showNotice('Please provide a reason for rejection', 'Warning')
+const confirmReject = async () => {
+  const row = rejectFromPendingDetails.value ? pendingHandleForm.value : currentRow.value
+  if (!row?.id) {
+    showNotice('No pending application selected', 'Warning')
     return
   }
 
-  const data = pendingHandleForm.value.id ? pendingHandleForm.value : currentRow.value
+  const reasonText = rejectForm.value.reason.trim()
+  const rejectReason = reasonText || undefined
+  const fromDetails = rejectFromPendingDetails.value
 
-  pendingRejectedList.value.push({
-    ...data,
-    rejectedAt: new Date().toLocaleString('en-CA', { hour12: false }).replace(',', ''),
-    rejectedBy: 'Admin',
-    rejectReason: rejectForm.value.reason
-  })
-
-  const index = pendingList.value.findIndex(item => item.id === data.id)
-  if (index !== -1) {
-    pendingList.value.splice(index, 1)
-    showNotice('Registration rejected', 'Success')
+  try {
+    await rejectPendingUser(row.id, rejectReason != null ? { rejectReason } : {})
+    await loadPendingUsers()
     adminStore.fetchPendingCounts()
+    notifyPendingUsersUpdated()
+    showNotice('Registration rejected', 'Success')
+  } catch (e) {
+    console.error(e)
+    return
   }
   showRejectDialog.value = false
-  showPendingHandleDialog.value = false
+  if (fromDetails) {
+    showPendingHandleDialog.value = false
+  }
   currentRow.value = null
 }
 </script>
 
 <style scoped>
 .page-container {
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
   height: 100%;
   min-height: 100%;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   animation: fadeInUp 0.4s ease;
@@ -1818,7 +2033,10 @@ const confirmReject = () => {
 }
 
 .page-header {
+  position: relative;
+  overflow: hidden;
   background: #ffffff;
+  color: #111827;
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -2183,7 +2401,8 @@ const confirmReject = () => {
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  padding: 0.75rem;
+  padding: 0.3rem;
+  height: 100%;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -2426,5 +2645,73 @@ const confirmReject = () => {
   font-size: 15px;
   color: #374151;
   line-height: 1.6;
+}
+
+.quota-input-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.submitted-at-text {
+  white-space: nowrap;
+}
+
+.rejected-at-text {
+  white-space: nowrap;
+}
+
+:deep(.submitted-at-col .cell) {
+  white-space: nowrap;
+}
+
+:deep(.rejected-at-col .cell) {
+  white-space: nowrap;
+}
+
+:deep(.name-col .cell) {
+  white-space: nowrap;
+}
+
+:deep(.table-nowrap-col .cell) {
+  white-space: nowrap;
+}
+
+.reject-registration-form :deep(.el-form-item__label) {
+  white-space: nowrap;
+  padding-right: 8px;
+}
+</style>
+
+<!--
+  popper-class 在 EP2 加在 .el-select-dropdown 上，不是外层 popper；
+  z-index 用 popper-style 设在外层 tooltip/popper 上才可靠。
+  max-height 只改内部 .el-select-dropdown__wrap / .el-scrollbar__wrap，勿压在错误节点；
+  当前上限 min(42vh, 300px)，可按需再调。
+-->
+<style>
+.pending-approval-select-popper.el-select-dropdown .el-select-dropdown__wrap {
+  max-height: min(42vh, 300px) !important;
+}
+
+.pending-approval-select-popper.el-select-dropdown .el-scrollbar__wrap {
+  max-height: min(42vh, 300px) !important;
+}
+
+.pending-approval-select-popper.el-select-dropdown .el-select-dropdown__list {
+  padding-bottom: 8px;
+}
+
+/* Reject Registration：模板下拉（teleported 到 body 时需非 scoped） */
+.reject-template-select-popper.el-select-dropdown .el-select-dropdown__wrap {
+  max-height: min(42vh, 300px) !important;
+}
+
+.reject-template-select-popper.el-select-dropdown .el-scrollbar__wrap {
+  max-height: min(42vh, 300px) !important;
+}
+
+.reject-template-select-popper.el-select-dropdown .el-select-dropdown__list {
+  padding-bottom: 8px;
 }
 </style>

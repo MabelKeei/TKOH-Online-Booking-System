@@ -13,9 +13,8 @@ export class MetaService {
         corpId: true,
         account: true,
         name: true,
-        department: true,
-        role: true,
-        position: true,
+        departmentId: true,
+        accessRoleId: true,
         email: true,
         contact: true,
         annualQuotaEv: true,
@@ -25,12 +24,29 @@ export class MetaService {
         status: true,
         lastLoginTime: true,
         createdAt: true,
+        department: { select: { department_name: true } },
+        access_roles: { select: { role_name: true } },
       },
     });
 
     return users.map((user) => ({
-      ...user,
       id: user.id.toString(),
+      corpId: user.corpId,
+      account: user.account,
+      name: user.name,
+      departmentId: user.departmentId != null ? user.departmentId.toString() : null,
+      accessRoleId: user.accessRoleId != null ? user.accessRoleId.toString() : null,
+      department: user.department?.department_name ?? null,
+      role: user.access_roles?.role_name ?? null,
+      email: user.email,
+      contact: user.contact,
+      annualQuotaEv: user.annualQuotaEv,
+      usedQuotaEv: user.usedQuotaEv,
+      annualQuotaVenue: user.annualQuotaVenue,
+      usedQuotaVenue: user.usedQuotaVenue,
+      status: user.status,
+      lastLoginTime: user.lastLoginTime,
+      createdAt: user.createdAt,
     }));
   }
 

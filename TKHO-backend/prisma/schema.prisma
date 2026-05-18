@@ -8,23 +8,25 @@ datasource db {
 }
 
 model User {
-  id               BigInt    @id
-  corpId           String    @unique @map("corp_id")
-  account          String    @unique
+  id               BigInt        @id
+  corpId           String        @unique @map("corp_id")
+  account          String        @unique
   password         String
   name             String
-  department       String?
-  role             String?
-  position         String?
+  accessRoleId     BigInt?       @map("access_role_id")
+  departmentId     BigInt?       @map("department_id")
   email            String?
   contact          String?
-  annualQuotaEv    Int?      @default(0) @map("annual_quota_ev")
-  usedQuotaEv      Int?      @default(0) @map("used_quota_ev")
-  annualQuotaVenue Int?      @default(0) @map("annual_quota_venue")
-  usedQuotaVenue   Int?      @default(0) @map("used_quota_venue")
-  status           String    @default("Active")
-  lastLoginTime    DateTime? @map("last_login_time") @db.Timestamptz(6)
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  annualQuotaEv    Int?          @default(0) @map("annual_quota_ev")
+  usedQuotaEv      Int?          @default(0) @map("used_quota_ev")
+  annualQuotaVenue Int?          @default(0) @map("annual_quota_venue")
+  usedQuotaVenue   Int?          @default(0) @map("used_quota_venue")
+  status           String        @default("Active")
+  lastLoginTime    DateTime?     @map("last_login_time") @db.Timestamptz(6)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  access_roles     access_roles? @relation(fields: [accessRoleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  department       departments?  @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pending_users    pending_users[]
 
   @@map("user")
 }
@@ -43,7 +45,7 @@ model Venues {
   status               String                 @default("active")
   createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   roomCapacity         Int?                   @map("room_capacity")
-  display_venue_rules  display_venue_rules[]
+  display_venue_rules  display_venue_rules?
   meeting_bookings     meeting_bookings[]
   tea_service_requests tea_service_requests[]
   venue_blocks         venue_blocks[]
@@ -96,14 +98,15 @@ model EvBookings {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model access_roles {
-  id                 BigInt      @id
+  id                 BigInt   @id
   role_name          String
   description        String?
-  annual_venue_quota Int?        @default(0)
-  annual_ev_quota    Int?        @default(0)
-  employee_count     Int?        @default(0)
-  created_at         DateTime    @default(now()) @db.Timestamptz(6)
-  employees          employees[]
+  annual_venue_quota Int?     @default(0)
+  annual_ev_quota    Int?     @default(0)
+  employee_count     Int?     @default(0)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  users              User[]
+  pending_users      pending_users[]
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -142,52 +145,23 @@ model departments {
   description     String?
   employee_count  Int?     @default(0)
   created_at      DateTime @default(now()) @db.Timestamptz(6)
+  users           User[]
+  pending_users   pending_users[]
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model display_configs {
-  id                 Int       @id @db.SmallInt
-  venue_display_mode String?
-  ev_display_mode    String?
-  panel_title_text   String?
-  footer_ticker_text String?
-  qr_code_image      String?
-  updated_by         String?
-  updated_at         DateTime? @db.Timestamptz(6)
-  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+model display_config_settings {
+  config_key   String    @id
+  config_value String?
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model display_venue_rules {
-  id              BigInt  @id @default(autoincrement())
-  venue_id        BigInt
-  display_type    String?
+  id              BigInt @id @default(autoincrement())
+  venue_id        BigInt @unique
   merge_group     String?
   display_name    String?
   arrow_direction String?
-  venues          Venues  @relation(fields: [venue_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model employees {
-  id                 BigInt         @id
-  corp_id            String         @unique
-  name               String
-  department         String?
-  role               String?
-  position           String?
-  email              String?
-  contact            String?
-  annual_quota_ev    Int?           @default(0)
-  used_quota_ev      Int?           @default(0)
-  annual_quota_venue Int?           @default(0)
-  used_quota_venue   Int?           @default(0)
-  status             String         @default("active")
-  last_login_time    DateTime?      @db.Timestamptz(6)
-  created_at         DateTime       @default(now()) @db.Timestamptz(6)
-  access_role_id     BigInt?
-  access_roles       access_roles?  @relation(fields: [access_role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user_accounts      user_accounts?
+  venues          Venues @relation(fields: [venue_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -227,17 +201,24 @@ model meeting_bookings {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model pending_users {
-  id              BigInt    @id
-  corp_id         String
-  name            String
-  department      String?
-  department_id   BigInt?
-  role            String?
-  email           String?
-  reason          String?
-  submitted_at    DateTime? @db.Timestamptz(6)
-  last_login_time DateTime? @db.Timestamptz(6)
-  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  id               BigInt        @id
+  corp_id          String
+  name             String
+  department_id    BigInt?
+  access_role_id   BigInt?
+  approver_user_id BigInt?
+  approver_name    String?
+  email            String?
+  contact_no       String?
+  reason           String?
+  reject_reason    String?
+  submitted_at     DateTime?     @db.Timestamptz(6)
+  handled_at       DateTime?     @db.Timestamptz(6)
+  approval_status  String        @default("Pending")
+  created_at       DateTime      @default(now()) @db.Timestamptz(6)
+  departments      departments?  @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  access_roles     access_roles? @relation(fields: [access_role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approver         User?         @relation(fields: [approver_user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -263,21 +244,6 @@ model tea_service_requests {
   completed     Boolean   @default(false)
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   venues        Venues?   @relation(fields: [venue_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model user_accounts {
-  id             BigInt    @id @default(autoincrement())
-  employee_id    BigInt    @unique
-  username       String    @unique
-  password_hash  String
-  system_role    String
-  account_status String    @default("active")
-  last_login_at  DateTime? @db.Timestamptz(6)
-  created_at     DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
-  employees      employees @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments

@@ -71,7 +71,12 @@
           <template #label>
             <span>
               Pending Approval
-              <el-badge :value="columnFilteredPendingList.length" :max="99" class="badge-item" />
+              <el-badge
+                :value="columnFilteredPendingList.length"
+                :max="99"
+                :show-zero="false"
+                class="badge-item"
+              />
             </span>
           </template>
 

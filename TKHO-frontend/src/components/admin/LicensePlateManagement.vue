@@ -110,10 +110,9 @@
       <el-form :model="formData" label-width="140px">
         <el-form-item label="Owner">
           <el-select
-            v-model="formData.owner"
+            v-model="formData.corpId"
             filterable
             clearable
-            allow-create
             default-first-option
             style="width: 100%"
             placeholder="Type owner name / corp ID"
@@ -126,7 +125,7 @@
               v-for="user in displayedEmployeeOptions"
               :key="user.corpId"
               :label="`${user.name} (${user.corpId})`"
-              :value="user.name"
+              :value="user.corpId"
             >
               <div class="owner-option">
                 <span class="owner-option-name">{{ user.name }}</span>
@@ -171,14 +170,49 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
-import { getMockLicensePlateList, getMockEmployeeListNormalized } from '@/mocks/mockData'
+import {
+  listLicensePlates,
+  createLicensePlate,
+  updateLicensePlate,
+  deleteLicensePlate
+} from '@/api/licensePlateManagement'
+import { listUsers } from '@/api/userManagement'
 
-const licensePlateList = ref(getMockLicensePlateList())
-const employeeList = ref(getMockEmployeeListNormalized())
+const licensePlateList = ref([])
+const employeeList = ref([])
+
+function normalizeUserRow (u) {
+  const statusRaw = String(u.status ?? '').toLowerCase()
+  return {
+    id: u.id,
+    corpId: u.corpId,
+    name: u.name,
+    status: statusRaw === 'inactive' ? 'inactive' : statusRaw === 'expired' ? 'expired' : 'active'
+  }
+}
+
+async function loadLicensePlates () {
+  const data = await listLicensePlates()
+  licensePlateList.value = Array.isArray(data) ? data : []
+}
+
+async function loadEmployees () {
+  const data = await listUsers()
+  const rows = Array.isArray(data) ? data : []
+  employeeList.value = rows.map(normalizeUserRow)
+}
+
+onMounted(async () => {
+  try {
+    await Promise.all([loadLicensePlates(), loadEmployees()])
+  } catch (e) {
+    console.error(e)
+  }
+})
 
 const employeeOptions = computed(() => {
   return employeeList.value.filter(u => u.status === 'active')
@@ -319,8 +353,8 @@ const handleOwnerFilter = (query) => {
 const showForm = ref(false)
 const formMode = ref('add')
 const formData = ref({
+  id: null,
   corpId: '',
-  owner: '',
   plateNumber: ''
 })
 
@@ -361,17 +395,33 @@ const handleExport = () => {
 
 const handleAdd = () => {
   formMode.value = 'add'
-  formData.value = { corpId: '', owner: '', plateNumber: '' }
+  ownerKeyword.value = ''
+  formData.value = { id: null, corpId: '', plateNumber: '' }
   showForm.value = true
 }
 
 const handleEdit = (row) => {
   formMode.value = 'edit'
-  formData.value = { ...row, plateNumber: sanitizePlateNumber(row.plateNumber) }
+  ownerKeyword.value = ''
+  formData.value = {
+    id: row.id,
+    corpId: row.corpId || '',
+    plateNumber: sanitizePlateNumber(row.plateNumber)
+  }
   showForm.value = true
 }
 
-const handleSave = () => {
+const buildOwnerPayload = () => {
+  const corpId = String(formData.value.corpId || '').trim()
+  if (!corpId) return null
+  const matched = employeeList.value.find((u) => u.corpId === corpId)
+  return {
+    corpId: matched ? corpId : undefined,
+    ownerName: matched ? undefined : corpId
+  }
+}
+
+const handleSave = async () => {
   const plate = sanitizePlateNumber(formData.value.plateNumber)
   formData.value.plateNumber = plate
 
@@ -380,21 +430,25 @@ const handleSave = () => {
     return
   }
 
-  // Auto-fill corpId based on selected owner from employee list
-  const matchedEmployee = employeeList.value.find(u => u.name === formData.value.owner)
-  const corpId = matchedEmployee ? matchedEmployee.corpId : ''
+  const ownerPayload = buildOwnerPayload()
+  if (!ownerPayload) {
+    showNotice('Please select an owner.', 'Validation')
+    return
+  }
 
-  if (formMode.value === 'add') {
-    licensePlateList.value.push({ ...formData.value, corpId, id: Date.now() })
-    showNotice('License plate added successfully', 'Success')
-  } else {
-    const index = licensePlateList.value.findIndex(item => item.id === formData.value.id)
-    if (index !== -1) {
-      licensePlateList.value[index] = { ...formData.value, corpId }
+  try {
+    if (formMode.value === 'add') {
+      await createLicensePlate({ plateNumber: plate, ...ownerPayload })
+      showNotice('License plate added successfully', 'Success')
+    } else {
+      await updateLicensePlate(formData.value.id, { plateNumber: plate, ...ownerPayload })
       showNotice('License plate updated successfully', 'Success')
     }
+    await loadLicensePlates()
+    showForm.value = false
+  } catch (e) {
+    console.error(e)
   }
-  showForm.value = false
 }
 
 const handleDelete = (row) => {
@@ -402,11 +456,17 @@ const handleDelete = (row) => {
   showDeleteDialog.value = true
 }
 
-const confirmDelete = () => {
-  const index = licensePlateList.value.findIndex(item => item.id === currentRow.value.id)
-  if (index !== -1) {
-    licensePlateList.value.splice(index, 1)
+const confirmDelete = async () => {
+  if (!currentRow.value?.id) {
+    showDeleteDialog.value = false
+    return
+  }
+  try {
+    await deleteLicensePlate(currentRow.value.id)
+    await loadLicensePlates()
     showNotice('Deleted successfully', 'Success')
+  } catch (e) {
+    console.error(e)
   }
   showDeleteDialog.value = false
   currentRow.value = null

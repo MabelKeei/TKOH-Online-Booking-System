@@ -3,6 +3,7 @@ import { useUserStore } from '../stores/user'
 
 function pathRequiresAuth(path) {
   if (path === '/login') return false
+  if (path === '/register') return false
   if (path.startsWith('/VenueBooking/Display')) return false
   if (path.startsWith('/evBooking/Display') || path.startsWith('/EVBooking/Display')) return false
   if (path.startsWith('/admin')) return true
@@ -127,6 +128,14 @@ const routes = [
     component: () => import('../views/Login.vue'),
     meta: {
       title: 'Login'
+    }
+  },
+  {
+    path: '/register',
+    name: 'UserRegistration',
+    component: () => import('../views/UserRegistration.vue'),
+    meta: {
+      title: 'User Registration'
     }
   },
   {

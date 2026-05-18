@@ -40,7 +40,9 @@
 
       <!-- Main Content Area -->
       <main :class="['admin-content', { expanded: isCollapsed }]">
-        <RouterView />
+        <div class="admin-page-view">
+          <RouterView />
+        </div>
       </main>
     </div>
   </div>
@@ -54,12 +56,15 @@ import { useUserStore } from '../stores/user'
 import { useAdminStore } from '../stores/admin'
 import { storeToRefs } from 'pinia'
 import AppHeader from '../components/AppHeader.vue'
+import { useAdminPendingUsersSync } from '@/composables/useAdminPendingUsersSync'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const adminStore = useAdminStore()
 const { pendingBookingsCount, pendingUsersCount } = storeToRefs(adminStore)
+
+useAdminPendingUsersSync()
 
 const isCollapsed = ref(false)
 
@@ -104,10 +109,15 @@ const navigateTo = (path) => {
 
 <style scoped>
 .admin-container {
-  min-height: var(--zoom-vh, 100vh);
-  background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
+  box-sizing: border-box;
+  height: var(--zoom-vh, 100vh);
+  max-height: var(--zoom-vh, 100vh);
   padding-top: var(--app-header-height, 60px);
+  background: linear-gradient(135deg, #f8ecdd 0%, #f5e6d3 50%, #f8ecdd 100%);
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .admin-container::before {
@@ -125,7 +135,10 @@ const navigateTo = (path) => {
 
 .admin-layout {
   display: flex;
-  height: calc(var(--zoom-vh, 100vh) - var(--app-header-height, 60px));
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }
@@ -344,35 +357,65 @@ const navigateTo = (path) => {
 }
 
 .admin-content {
-  flex: 1;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
   margin-left: 220px;
+  width: calc(100% - 220px);
+  max-width: calc(100% - 220px);
   padding: 0.5rem;
-  overflow-y: auto;
+  overflow: hidden;
   background: transparent;
   position: relative;
-  transition: margin-left 0.3s ease;
+  transition: margin-left 0.3s ease, width 0.3s ease, max-width 0.3s ease;
 }
 
 .admin-content.expanded {
   margin-left: 70px;
+  width: calc(100% - 70px);
+  max-width: calc(100% - 70px);
 }
 
-.admin-content::-webkit-scrollbar {
-  width: 8px;
+/* 高度链：admin-content → 子页 .page-container(height:100%) → 内部表格区滚动 */
+.admin-page-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
-.admin-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
+/* 圆角卡片阴影挂在父级，子页保留各自 page-content / table-card 左右间距 */
+.admin-page-view:has(> .page-container) {
+  filter: drop-shadow(0 8px 32px rgba(0, 0, 0, 0.12));
 }
 
-.admin-content::-webkit-scrollbar-thumb {
-  background: rgba(0, 114, 58, 0.3);
-  border-radius: 4px;
+.admin-page-view :deep(.page-container) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  box-shadow: none;
+  filter: none;
+  overflow: hidden;
 }
 
-.admin-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 114, 58, 0.5);
+/* Admin Home 无 page-container，在壳层内滚动且高度不撑破视口 */
+.admin-page-view :deep(.admin-dashboard) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  margin: 0 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 /* phone-small: <= 389px */
@@ -383,6 +426,8 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 170px;
+    width: calc(100% - 170px);
+    max-width: calc(100% - 170px);
     padding: 0.6rem;
   }
 
@@ -420,6 +465,8 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 180px;
+    width: calc(100% - 180px);
+    max-width: calc(100% - 180px);
     padding: 0.6rem;
   }
 
@@ -457,6 +504,8 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 200px;
+    width: calc(100% - 200px);
+    max-width: calc(100% - 200px);
     padding: 0.6rem;
   }
 
@@ -494,6 +543,8 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 220px;
+    width: calc(100% - 220px);
+    max-width: calc(100% - 220px);
     padding: 0.6rem;
   }
 
@@ -531,6 +582,8 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 240px;
+    width: calc(100% - 240px);
+    max-width: calc(100% - 240px);
     padding: 0.85rem;
   }
 
@@ -568,6 +621,8 @@ const navigateTo = (path) => {
 
   .admin-content {
     margin-left: 280px;
+    width: calc(100% - 280px);
+    max-width: calc(100% - 280px);
     padding: 1.05rem;
   }
 

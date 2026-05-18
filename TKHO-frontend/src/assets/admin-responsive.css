@@ -4,7 +4,8 @@
 .page-container {
   background: #ffffff;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  /* 阴影由 AdminManagement 父级 drop-shadow 绘制，避免与 overflow:hidden 同层方角 */
+  box-shadow: none;
   overflow: hidden;
   animation: fadeInUp 0.4s ease;
 }

@@ -178,6 +178,7 @@
       v-model="showForm"
       :title="getFormTitle"
       max-width="500px"
+      custom-class="ev-management-form-modal"
     >
       <el-form :model="formData" label-width="120px">
         <template v-if="activeTab === 'parking'">
@@ -200,6 +201,7 @@
               v-model="formData.startTime"
               format="HH:mm"
               value-format="HH:mm"
+              :teleported="false"
               style="width: 100%"
             />
           </el-form-item>
@@ -208,6 +210,7 @@
               v-model="formData.endTime"
               format="HH:mm"
               value-format="HH:mm"
+              :teleported="false"
               style="width: 100%"
             />
           </el-form-item>
@@ -240,19 +243,35 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
-import { getMockEVParkingList, getMockEVTimePeriods, getMockBookingWindow, publishMockBookingWindow } from '@/mocks/mockData'
+import {
+  getEvParkingSlots,
+  getEvTimePeriods,
+  getEvBookingWindow,
+  createEvParkingSlot,
+  updateEvParkingSlot,
+  deleteEvParkingSlot,
+  createEvTimePeriod,
+  updateEvTimePeriod,
+  deleteEvTimePeriod,
+  publishEvBookingWindow
+} from '@/api/evManagement'
 
 const activeTab = ref('parking')
-const parkingList = ref(getMockEVParkingList())
-const timePeriodsList = ref(getMockEVTimePeriods())
-const evWindow = ref(getMockBookingWindow('ev'))
+const parkingList = ref([])
+const timePeriodsList = ref([])
+const evWindow = ref({
+  currentStartDate: '',
+  currentEndDate: '',
+  updatedBy: '-',
+  updatedAt: null
+})
 const evWindowForm = ref({
-  startDate: evWindow.value.currentStartDate,
-  endDate: evWindow.value.currentEndDate
+  startDate: '',
+  endDate: ''
 })
 
 // Parking pagination
@@ -380,6 +399,47 @@ const showNotice = (message, title = 'Notice') => {
   showNoticeDialog.value = true
 }
 
+const getErrorMessage = (error, fallback = 'Operation failed') => {
+  const message = error?.response?.data?.message
+  if (Array.isArray(message)) return message[0] || fallback
+  if (typeof message === 'string' && message.trim()) return message
+  if (typeof error?.message === 'string' && error.message.trim()) return error.message
+  return fallback
+}
+
+const applyEvWindowFromApi = (win) => {
+  if (!win) return
+  evWindow.value = {
+    currentStartDate: win.currentStartDate || '',
+    currentEndDate: win.currentEndDate || '',
+    updatedBy: win.updatedBy || '-',
+    updatedAt: win.updatedAt ?? null
+  }
+  evWindowForm.value = {
+    startDate: win.currentStartDate || '',
+    endDate: win.currentEndDate || ''
+  }
+}
+
+const loadEvManagementData = async () => {
+  try {
+    const [parking, periods, win] = await Promise.all([
+      getEvParkingSlots(),
+      getEvTimePeriods(),
+      getEvBookingWindow()
+    ])
+    parkingList.value = Array.isArray(parking) ? parking : []
+    timePeriodsList.value = Array.isArray(periods) ? periods : []
+    applyEvWindowFromApi(win)
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to load EV management data'), 'Error')
+  }
+}
+
+onMounted(() => {
+  loadEvManagementData()
+})
+
 const getFormTitle = computed(() => {
   if (activeTab.value === 'parking') {
     return formMode.value === 'add' ? 'Add EV' : 'Edit EV'
@@ -436,7 +496,7 @@ const handleAdd = () => {
   showForm.value = true
 }
 
-const handlePublishEvWindow = () => {
+const handlePublishEvWindow = async () => {
   if (!evWindowForm.value.startDate || !evWindowForm.value.endDate) {
     showNotice('Please select start and end date', 'Warning')
     return
@@ -446,13 +506,16 @@ const handlePublishEvWindow = () => {
     return
   }
 
-  evWindow.value = publishMockBookingWindow({
-    resourceType: 'ev',
-    startDate: evWindowForm.value.startDate,
-    endDate: evWindowForm.value.endDate,
-    publishedBy: 'EV Admin'
-  })
-  showNotice('EV booking date range published', 'Success')
+  try {
+    const data = await publishEvBookingWindow({
+      startDate: evWindowForm.value.startDate,
+      endDate: evWindowForm.value.endDate
+    })
+    applyEvWindowFromApi(data)
+    showNotice('EV booking date range published', 'Success')
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to publish booking date range'), 'Error')
+  }
 }
 
 const applyNext14Days = () => {
@@ -470,31 +533,57 @@ const handleEdit = (row) => {
   showForm.value = true
 }
 
-const handleSave = () => {
-  if (activeTab.value === 'parking') {
-    if (formMode.value === 'add') {
-      parkingList.value.push({ ...formData.value, id: Date.now(), type: 'EV' })
-      showNotice('EV added successfully', 'Success')
-    } else {
-      const index = parkingList.value.findIndex(item => item.id === formData.value.id)
-      if (index !== -1) {
-        parkingList.value[index] = { ...formData.value }
+const handleSave = async () => {
+  try {
+    if (activeTab.value === 'parking') {
+      const evSpace = String(formData.value.evSpace || '').trim()
+      if (!evSpace) {
+        showNotice('Please enter EV space', 'Warning')
+        return
+      }
+      const payload = {
+        evSpace,
+        location: String(formData.value.location || '').trim(),
+        status: formData.value.status || 'active'
+      }
+      if (formMode.value === 'add') {
+        await createEvParkingSlot(payload)
+        showNotice('EV added successfully', 'Success')
+      } else {
+        await updateEvParkingSlot(formData.value.id, payload)
         showNotice('EV updated successfully', 'Success')
       }
-    }
-  } else {
-    if (formMode.value === 'add') {
-      timePeriodsList.value.push({ ...formData.value, id: Date.now() })
-      showNotice('Time period added successfully', 'Success')
     } else {
-      const index = timePeriodsList.value.findIndex(item => item.id === formData.value.id)
-      if (index !== -1) {
-        timePeriodsList.value[index] = { ...formData.value }
+      const period = String(formData.value.period || '').trim()
+      const startTime = formData.value.startTime
+      const endTime = formData.value.endTime
+      if (!period) {
+        showNotice('Please enter time period', 'Warning')
+        return
+      }
+      if (!startTime || !endTime) {
+        showNotice('Please select start and end time', 'Warning')
+        return
+      }
+      const payload = {
+        period,
+        startTime: String(startTime),
+        endTime: String(endTime),
+        status: formData.value.status || 'active'
+      }
+      if (formMode.value === 'add') {
+        await createEvTimePeriod(payload)
+        showNotice('Time period added successfully', 'Success')
+      } else {
+        await updateEvTimePeriod(formData.value.id, payload)
         showNotice('Time period updated successfully', 'Success')
       }
     }
+    showForm.value = false
+    await loadEvManagementData()
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to save'), 'Error')
   }
-  showForm.value = false
 }
 
 const handleDelete = (row) => {
@@ -502,22 +591,21 @@ const handleDelete = (row) => {
   showDeleteDialog.value = true
 }
 
-const confirmDelete = () => {
-  if (activeTab.value === 'parking') {
-    const index = parkingList.value.findIndex(item => item.id === currentRow.value.id)
-    if (index !== -1) {
-      parkingList.value.splice(index, 1)
-      showNotice('Deleted successfully', 'Success')
+const confirmDelete = async () => {
+  if (!currentRow.value) return
+  try {
+    if (activeTab.value === 'parking') {
+      await deleteEvParkingSlot(currentRow.value.id)
+    } else {
+      await deleteEvTimePeriod(currentRow.value.id)
     }
-  } else {
-    const index = timePeriodsList.value.findIndex(item => item.id === currentRow.value.id)
-    if (index !== -1) {
-      timePeriodsList.value.splice(index, 1)
-      showNotice('Deleted successfully', 'Success')
-    }
+    showNotice('Deleted successfully', 'Success')
+    showDeleteDialog.value = false
+    currentRow.value = null
+    await loadEvManagementData()
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to delete'), 'Error')
   }
-  showDeleteDialog.value = false
-  currentRow.value = null
 }
 </script>
 
@@ -565,6 +653,9 @@ const confirmDelete = () => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
   margin: 0.45rem 0.6rem 0.25rem;
+  /* Booking Date Range 无右侧按钮时仍与有按钮标签页同高 */
+  min-height: 3.625rem;
+  box-sizing: border-box;
 }
 
 .page-title {
@@ -674,7 +765,9 @@ const confirmDelete = () => {
 
 .header-actions {
   display: flex;
+  align-items: center;
   gap: 0.75rem;
+  min-height: 2.25rem;
 }
 
 .pagination-bar {

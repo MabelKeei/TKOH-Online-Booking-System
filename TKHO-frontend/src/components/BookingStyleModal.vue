@@ -299,4 +299,21 @@ onUnmounted(() => {
 .booking-style-modal-root.license-plate-edit-modal .modal-body {
   overflow: visible;
 }
+
+/* Pending approval details：部门下拉在弹窗内展开，避免裁切 */
+.booking-style-modal-root.pending-approval-detail-modal .modal-body {
+  overflow: visible;
+}
+
+/* Reject Registration：模板下拉在弹窗内展开；收紧左右留白，减少左侧「空栏」感 */
+.booking-style-modal-root.reject-registration-modal .modal-body {
+  overflow: visible;
+  padding-left: 1rem;
+  padding-right: 1.25rem;
+}
+
+.booking-style-modal-root.reject-registration-modal .modal-footer {
+  padding-left: 1rem;
+  padding-right: 1.25rem;
+}
 </style>

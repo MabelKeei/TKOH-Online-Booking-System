@@ -48,6 +48,9 @@ request.interceptors.request.use(
 
 // 登录页 catch 会再弹一次；拦截器里跳过登录请求的提示，避免重复
 const isLoginRequest = (config) => (config?.url || '').includes('/auth/login')
+/** 公开注册页自行用 ElMessageBox 提示，避免与全局 status 弹窗重复 */
+const isRegistrationSubmitRequest = (config) =>
+  (config?.url || '').includes('/user-management/registration/submit')
 
 // 响应拦截器
 request.interceptors.response.use(
@@ -55,7 +58,7 @@ request.interceptors.response.use(
     const res = response.data
     // 仅当后端显式返回 { code } 信封时按 code 判错（如 200 业务码）
     if (res && typeof res === 'object' && 'code' in res && res.code !== 200) {
-      if (!isLoginRequest(response.config)) {
+      if (!isLoginRequest(response.config) && !isRegistrationSubmitRequest(response.config)) {
         showStatusDialog(res.message || '请求失败', 'error')
       }
       return Promise.reject(new Error(res.message || '请求失败'))
@@ -70,7 +73,7 @@ request.interceptors.response.use(
       return fallback
     }
     const { response, config } = error
-    const skipGlobalDialog = isLoginRequest(config)
+    const skipGlobalDialog = isLoginRequest(config) || isRegistrationSubmitRequest(config)
     if (response) {
       switch (response.status) {
         case 401: {

@@ -133,7 +133,7 @@
                         <el-input
                           v-model="form.mergeDisplaySettings.panelTitleText"
                           type="textarea"
-                          :rows="4"
+                          :rows="3"
                           :placeholder="mergePanelTitlePlaceholder"
                         />
                       </el-form-item>
@@ -141,7 +141,7 @@
                         <el-input
                           v-model.trim="form.mergeDisplaySettings.footerTickerText"
                           type="textarea"
-                          :rows="3"
+                          :rows="4"
                           placeholder="e.g. 請在會議期間佩戴外科口罩並保持安靜。For enquiries regarding Conference Rooms, please contact General Office."
                         />
                       </el-form-item>
@@ -232,9 +232,14 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
-import { getMockVenueList, getMockDisplayConfig, saveMockDisplayConfig } from '@/mocks/mockData'
+import {
+  getDisplayConfig,
+  saveDisplayConfig,
+  uploadMergeQrImage,
+  clearMergeQrImage
+} from '@/api/displayManagement'
 
 const activeTab = ref('rules')
 const previewSubTab = ref('single')
@@ -243,6 +248,7 @@ const defaultMergeQrSrc = `${import.meta.env.BASE_URL}displayQRCode.png`
 const mergePanelTitlePlaceholder = 'Conference Room | 8/F Ambulatory Care Block\n會議室 | 日間醫療大樓8樓'
 const rulesCurrentPage = ref(1)
 const rulesPageSize = ref(20)
+const loading = ref(false)
 const arrowDirectionOptions = [
   { label: 'Up', value: 'up' },
   { label: 'Up Right', value: 'up-right' },
@@ -254,8 +260,7 @@ const arrowDirectionOptions = [
   { label: 'Up Left', value: 'up-left' }
 ]
 
-const venueList = getMockVenueList()
-const config = ref(getMockDisplayConfig())
+const config = ref(null)
 const showNoticeDialog = ref(false)
 const noticeTitle = ref('Notice')
 const noticeMessage = ref('')
@@ -266,53 +271,51 @@ const showNotice = (message, title = 'Notice') => {
   showNoticeDialog.value = true
 }
 
-const showSaveConfigButton = computed(() => {
-  return activeTab.value === 'rules' || (activeTab.value === 'preview' && ['merge', 'ev'].includes(previewSubTab.value))
+function buildFormFromConfig (data) {
+  const rules = Array.isArray(data?.venueRules) ? data.venueRules : []
+  const evRule = rules.find((item) => item.venueId == null)
+  return {
+    evDisplayMode: evRule?.displayType || data?.evDisplayMode || 'single',
+    evDisplaySettings: {
+      footerTickerText: data?.evDisplaySettings?.footerTickerText || ''
+    },
+    mergeDisplaySettings: {
+      panelTitleText: data?.mergeDisplaySettings?.panelTitleText || '',
+      footerTickerText: data?.mergeDisplaySettings?.footerTickerText || '',
+      qrCodeImage: data?.mergeDisplaySettings?.qrCodeImage || ''
+    },
+    venueRules: rules.map((item) => ({
+      venueId: item.venueId != null ? item.venueId : null,
+      venueName: item.venueName || (item.venueId == null ? 'EV' : ''),
+      displayType: item.displayType || 'single',
+      mergeGroup: item.mergeGroup ?? '',
+      displayName: item.displayName ?? (item.venueId == null ? 'EV' : ''),
+      arrowDirection: item.arrowDirection ?? ''
+    }))
+  }
+}
+
+const form = ref(buildFormFromConfig({ venueRules: [] }))
+
+async function loadDisplayConfig () {
+  loading.value = true
+  try {
+    const data = await getDisplayConfig()
+    config.value = data
+    form.value = buildFormFromConfig(data)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  loadDisplayConfig()
 })
 
-const form = ref({
-  evDisplayMode: config.value.evDisplayMode,
-  evDisplaySettings: {
-    footerTickerText: config.value.evDisplaySettings?.footerTickerText || ''
-  },
-  mergeDisplaySettings: {
-    panelTitleText: config.value.mergeDisplaySettings?.panelTitleText || '',
-    footerTickerText: config.value.mergeDisplaySettings?.footerTickerText || '',
-    qrCodeImage: config.value.mergeDisplaySettings?.qrCodeImage || ''
-  },
-  venueRules: venueList.map((venue) => {
-    const matched = config.value.venueRules.find(item => item.venueId === venue.id)
-    return {
-      venueId: venue.id,
-      venueName: venue.name,
-      displayType: matched?.displayType || 'single',
-      mergeGroup: matched?.mergeGroup ?? '',
-      displayName: matched?.displayName ?? '',
-      arrowDirection: matched?.arrowDirection ?? ''
-    }
-  }).concat(
-    (() => {
-      const extraRules = config.value.venueRules
-        .filter(item => item.venueId == null)
-        .map(item => ({
-          venueId: null,
-          venueName: 'EV',
-          displayType: item.displayType || 'single',
-          mergeGroup: item.mergeGroup ?? '',
-          displayName: item.displayName || 'EV',
-          arrowDirection: item.arrowDirection ?? ''
-        }))
-      if (extraRules.length > 0) return extraRules
-      return [{
-        venueId: null,
-        venueName: 'EV',
-        displayType: 'single',
-        mergeGroup: '',
-        displayName: 'EV',
-        arrowDirection: ''
-      }]
-    })()
-  )
+const showSaveConfigButton = computed(() => {
+  return activeTab.value === 'rules' || (activeTab.value === 'preview' && ['merge', 'ev'].includes(previewSubTab.value))
 })
 
 const independentPreviewLinks = computed(() =>
@@ -371,20 +374,33 @@ const evPreviewLink = computed(() => ({
   url: `${baseUrl}/evBooking/Display`
 }))
 
+const resolveUploadedImageSrc = (raw) => {
+  const value = String(raw ?? '').trim()
+  if (!value) return ''
+  if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) {
+    return value
+  }
+  if (value.startsWith('/')) {
+    return `${baseUrl}${value}`
+  }
+  return value
+}
+
 const mergePreviewQrImage = computed(() => {
-  const raw = form.value.mergeDisplaySettings.qrCodeImage
-  return raw && String(raw).trim() ? raw : defaultMergeQrSrc
+  const resolved = resolveUploadedImageSrc(form.value.mergeDisplaySettings.qrCodeImage)
+  return resolved || defaultMergeQrSrc
 })
 
-const handleSaveConfig = () => {
-  const editableVenueRules = form.value.venueRules.filter(item => item.venueId != null)
-  const hasSingle = editableVenueRules.some(item => item.displayType === 'single')
-  const hasMerge = editableVenueRules.some(item => item.displayType === 'merge')
+const buildSavePayload = () => {
+  const editableVenueRules = form.value.venueRules.filter((item) => item.venueId != null)
+  const hasSingle = editableVenueRules.some((item) => item.displayType === 'single')
+  const hasMerge = editableVenueRules.some((item) => item.displayType === 'merge')
   const venueDisplayMode = hasSingle && hasMerge ? 'mixed' : hasMerge ? 'merge' : 'single'
+  const evRule = form.value.venueRules.find((item) => item.venueId == null)
 
-  config.value = saveMockDisplayConfig({
+  return {
     venueDisplayMode,
-    evDisplayMode: form.value.evDisplayMode,
+    evDisplayMode: evRule?.displayType || form.value.evDisplayMode,
     mergeDisplaySettings: {
       panelTitleText: form.value.mergeDisplaySettings.panelTitleText,
       footerTickerText: form.value.mergeDisplaySettings.footerTickerText,
@@ -393,34 +409,52 @@ const handleSaveConfig = () => {
     evDisplaySettings: {
       footerTickerText: form.value.evDisplaySettings.footerTickerText
     },
-    venueRules: form.value.venueRules.map(item => ({
+    venueRules: form.value.venueRules.map((item) => ({
       venueId: item.venueId,
+      venueName: item.venueName,
       displayType: item.displayType,
       mergeGroup: item.mergeGroup ?? '',
       displayName: (item.displayName ?? (item.venueId == null ? 'EV' : '')).trim(),
       arrowDirection: item.arrowDirection ?? ''
     }))
-  }, 'Display Admin')
-
-  showNotice('Display configuration saved', 'Success')
+  }
 }
 
-const handleQrImageChange = (uploadFile) => {
+const handleSaveConfig = async () => {
+  try {
+    const data = await saveDisplayConfig(buildSavePayload())
+    config.value = data
+    form.value = buildFormFromConfig(data)
+    showNotice('Display configuration saved', 'Success')
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const handleQrImageChange = async (uploadFile) => {
   const rawFile = uploadFile?.raw
   if (!rawFile) return
   if (!rawFile.type.startsWith('image/')) {
     showNotice('Please upload an image file', 'Warning')
     return
   }
-  const reader = new FileReader()
-  reader.onload = () => {
-    form.value.mergeDisplaySettings.qrCodeImage = typeof reader.result === 'string' ? reader.result : ''
+  try {
+    const result = await uploadMergeQrImage(rawFile)
+    form.value.mergeDisplaySettings.qrCodeImage = result?.qrCodeImage || ''
+    showNotice('QR image uploaded successfully', 'Success')
+  } catch (e) {
+    console.error(e)
   }
-  reader.readAsDataURL(rawFile)
 }
 
-const handleClearQrImage = () => {
-  form.value.mergeDisplaySettings.qrCodeImage = ''
+const handleClearQrImage = async () => {
+  try {
+    await clearMergeQrImage()
+    form.value.mergeDisplaySettings.qrCodeImage = ''
+    showNotice('QR image cleared', 'Success')
+  } catch (e) {
+    console.error(e)
+  }
 }
 </script>
 

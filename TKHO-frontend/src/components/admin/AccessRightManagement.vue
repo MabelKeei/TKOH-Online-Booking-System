@@ -241,17 +241,26 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
-import { getMockAccessRoleList, getMockDepartmentList } from '@/mocks/mockData'
+import {
+  getAccessRoles,
+  getAccessDepartments,
+  createAccessRole,
+  updateAccessRole,
+  deleteAccessRole,
+  createAccessDepartment,
+  updateAccessDepartment,
+  deleteAccessDepartment
+} from '@/api/accessRight'
 
 const activeTab = ref('role')
 
-const roleList = ref(getMockAccessRoleList())
+const roleList = ref([])
 
-const departmentList = ref(getMockDepartmentList())
+const departmentList = ref([])
 
 const roleCurrentPage = ref(1)
 const rolePageSize = ref(20)
@@ -455,6 +464,28 @@ const showNotice = (message, title = 'Notice') => {
   showNoticeDialog.value = true
 }
 
+const getErrorMessage = (error, fallback = 'Operation failed') => {
+  const message = error?.response?.data?.message
+  if (Array.isArray(message)) return message[0] || fallback
+  if (typeof message === 'string' && message.trim()) return message
+  if (typeof error?.message === 'string' && error.message.trim()) return error.message
+  return fallback
+}
+
+const loadAccessLists = async () => {
+  try {
+    const [roles, depts] = await Promise.all([getAccessRoles(), getAccessDepartments()])
+    roleList.value = Array.isArray(roles) ? roles : []
+    departmentList.value = Array.isArray(depts) ? depts : []
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to load access right data'), 'Error')
+  }
+}
+
+onMounted(() => {
+  loadAccessLists()
+})
+
 const getRoleRowIndex = (index) => (roleCurrentPage.value - 1) * rolePageSize.value + index + 1
 const getDepartmentRowIndex = (index) => (departmentCurrentPage.value - 1) * departmentPageSize.value + index + 1
 
@@ -513,81 +544,75 @@ const handleEdit = (row) => {
   showForm.value = true
 }
 
-const handleSave = () => {
-  if (activeTab.value === 'role') {
-    const rolePayload = {
-      ...formData.value,
-      AnnualVenueQuota: isVenueUnlimited.value ? -1 : Number(formData.value.AnnualVenueQuota ?? 0),
-      AnnualEvQuota: isEvUnlimited.value ? -1 : Number(formData.value.AnnualEvQuota ?? 0)
-    }
-    if (formMode.value === 'add') {
-      roleList.value.push({
-        ...rolePayload,
-        id: Date.now(),
-        roleName: formData.value.name,
-        employeeCount: 0
-      })
-      showNotice('Role added successfully', 'Success')
-    } else {
-      const index = roleList.value.findIndex(item => item.id === formData.value.id)
-      if (index !== -1) {
-        roleList.value[index] = {
-          ...rolePayload,
-          roleName: formData.value.name,
-          employeeCount: roleList.value[index].employeeCount
-        }
+const handleSave = async () => {
+  try {
+    if (activeTab.value === 'role') {
+      const rolePayload = {
+        roleName: String(formData.value.name || '').trim(),
+        description: String(formData.value.description || '').trim(),
+        annualVenueQuota: isVenueUnlimited.value ? -1 : Number(formData.value.AnnualVenueQuota ?? 0),
+        annualEvQuota: isEvUnlimited.value ? -1 : Number(formData.value.AnnualEvQuota ?? 0)
+      }
+      if (!rolePayload.roleName) {
+        showNotice('Please enter a role name', 'Warning')
+        return
+      }
+      if (formMode.value === 'add') {
+        await createAccessRole(rolePayload)
+        showNotice('Role added successfully', 'Success')
+      } else {
+        await updateAccessRole(formData.value.id, rolePayload)
         showNotice('Role updated successfully', 'Success')
       }
-    }
-  } else {
-    if (formMode.value === 'add') {
-      departmentList.value.push({
-        ...formData.value,
-        id: Date.now(),
-        departmentName: formData.value.name,
-        employeeCount: 0
-      })
-      showNotice('Department added successfully', 'Success')
     } else {
-      const index = departmentList.value.findIndex(item => item.id === formData.value.id)
-      if (index !== -1) {
-        departmentList.value[index] = {
-          ...formData.value,
-          departmentName: formData.value.name,
-          employeeCount: departmentList.value[index].employeeCount
-        }
+      const deptPayload = {
+        departmentName: String(formData.value.name || '').trim(),
+        description: String(formData.value.description || '').trim()
+      }
+      if (!deptPayload.departmentName) {
+        showNotice('Please enter a department name', 'Warning')
+        return
+      }
+      if (formMode.value === 'add') {
+        await createAccessDepartment(deptPayload)
+        showNotice('Department added successfully', 'Success')
+      } else {
+        await updateAccessDepartment(formData.value.id, deptPayload)
         showNotice('Department updated successfully', 'Success')
       }
     }
+    showForm.value = false
+    await loadAccessLists()
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to save'), 'Error')
   }
-  showForm.value = false
 }
 
 const handleDelete = (row) => {
   if (row.employeeCount > 0) {
-    showNotice(`Cannot delete ${activeTab.value} with assigned employees`, 'Warning')
+    showNotice(`Cannot delete ${activeTab.value} with assigned users`, 'Warning')
     return
   }
   currentRow.value = row
   showDeleteDialog.value = true
 }
 
-const confirmDelete = () => {
-  if (activeTab.value === 'role') {
-    const index = roleList.value.findIndex(item => item.id === currentRow.value.id)
-    if (index !== -1) {
-      roleList.value.splice(index, 1)
+const confirmDelete = async () => {
+  if (!currentRow.value) return
+  try {
+    if (activeTab.value === 'role') {
+      await deleteAccessRole(currentRow.value.id)
+      showNotice('Deleted successfully', 'Success')
+    } else {
+      await deleteAccessDepartment(currentRow.value.id)
       showNotice('Deleted successfully', 'Success')
     }
-  } else {
-    const index = departmentList.value.findIndex(item => item.id === currentRow.value.id)
-    if (index !== -1) {
-      departmentList.value.splice(index, 1)
-      showNotice('Deleted successfully', 'Success')
-    }
+    showDeleteDialog.value = false
+    currentRow.value = null
+    await loadAccessLists()
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to delete'), 'Error')
   }
-  showDeleteDialog.value = false
-  currentRow.value = null
 }
 </script>
 

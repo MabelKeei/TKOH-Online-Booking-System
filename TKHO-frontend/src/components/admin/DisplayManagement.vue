@@ -173,8 +173,15 @@
                     <div class="preview-title">Merge Screen Preview</div>
                     <div class="preview-top">
                       <div class="preview-header-text merge-preview-title">{{ form.mergeDisplaySettings.panelTitleText || 'Name & location preview' }}</div>
+                      <ApiProtectedImg
+                        v-if="form.mergeDisplaySettings.qrCodeImage"
+                        :src="form.mergeDisplaySettings.qrCodeImage"
+                        alt="QR Code Preview"
+                        class="preview-qr"
+                      />
                       <img
-                        :src="mergePreviewQrImage"
+                        v-else
+                        :src="defaultMergeQrSrc"
                         alt="QR Code Preview"
                         class="preview-qr"
                       />
@@ -240,7 +247,7 @@ import {
   uploadMergeQrImage,
   clearMergeQrImage
 } from '@/api/displayManagement'
-import { resolveApiAssetUrl } from '@/utils/apiAsset'
+import ApiProtectedImg from '@/components/ApiProtectedImg.vue'
 
 const activeTab = ref('rules')
 const previewSubTab = ref('single')
@@ -374,11 +381,6 @@ const teaServicePreviewLink = computed(() => ({
 const evPreviewLink = computed(() => ({
   url: `${baseUrl}/evBooking/Display`
 }))
-
-const mergePreviewQrImage = computed(() => {
-  const resolved = resolveApiAssetUrl(form.value.mergeDisplaySettings.qrCodeImage)
-  return resolved || defaultMergeQrSrc
-})
 
 const buildSavePayload = () => {
   const editableVenueRules = form.value.venueRules.filter((item) => item.venueId != null)

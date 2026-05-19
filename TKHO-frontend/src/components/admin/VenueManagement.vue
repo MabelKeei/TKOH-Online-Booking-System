@@ -449,7 +449,7 @@ import {
   deleteVenueBlock,
   uploadVenueImage
 } from '@/api/venueManagement'
-import { resolveApiAssetUrl } from '@/utils/apiAsset'
+import { loadProtectedAssetUrl } from '@/utils/apiAsset'
 
 const venueList = ref([])
 const activeMainTab = ref('venueList')
@@ -927,9 +927,10 @@ const handleAdd = () => {
   showForm.value = true
 }
 
-const handleEdit = (row) => {
+const handleEdit = async (row) => {
   formMode.value = 'edit'
   if (!Array.isArray(row.blocks)) row.blocks = []
+  const previewUrl = row.image ? await loadProtectedAssetUrl(row.image) : ''
   formData.value = {
     ...row,
     tab: row.tab ?? row.category ?? activeCategory.value,
@@ -939,7 +940,7 @@ const handleEdit = (row) => {
     nameZh: row.nameZh || '',
     locationZh: row.locationZh || '',
     roomCapacity: row.roomCapacity ?? row.capacity ?? null,
-    imageList: row.image ? [{ url: resolveApiAssetUrl(row.image) }] : []
+    imageList: previewUrl ? [{ url: previewUrl }] : []
   }
   showForm.value = true
 }
@@ -1047,9 +1048,9 @@ const confirmDelete = async () => {
   }
 }
 
-const handleViewImage = (row) => {
+const handleViewImage = async (row) => {
   if (row.image) {
-    previewImageUrl.value = resolveApiAssetUrl(row.image)
+    previewImageUrl.value = await loadProtectedAssetUrl(row.image)
     showImagePreview.value = true
   } else {
     showNotice('No image available', 'Notice')

@@ -1,5 +1,4 @@
-# API / 静态上传文件 → ngrok → 本机 Nest（须写在 SPA 兜底规则之前）
-/api/*  https://sampling-triceps-unbent.ngrok-free.dev/api/:splat  200!
+# 仅代理静态上传（须在 SPA 规则之前）；JSON API 不走此规则
+/api/uploads/*  https://sampling-triceps-unbent.ngrok-free.dev/api/uploads/:splat  200!
 
-# Vue SPA
 /*  /index.html  200

@@ -3,18 +3,9 @@ import { useUserStore } from '../stores/user'
 import { useStatusDialogStore } from '../stores/statusDialog'
 import router from '../router'
 
-// 本地 `vite`：始终走 `/api`，由 Vite 代理到本机后端（默认 localhost:4001）。
-// 生产：`vite build` 时 DEV=false，使用 VITE_API_ORIGIN（建议只放在 .env.production 或 Netlify）。
-// 若本地前端也要直连远程 ngrok：.env.development 设 VITE_DEV_USE_REMOTE_API=true 并写上 VITE_API_ORIGIN。
-const apiOrigin = import.meta.env.VITE_API_ORIGIN?.replace(/\/+$/, '') || ''
-const useLocalDevProxy =
-  import.meta.env.DEV && import.meta.env.VITE_DEV_USE_REMOTE_API !== 'true'
+import { getApiBaseURL, shouldAttachNgrokHeader } from '@/utils/apiConfig'
 
-const apiBaseURL = useLocalDevProxy
-  ? '/api'
-  : apiOrigin
-    ? `${apiOrigin}/api`
-    : '/api'
+const apiBaseURL = getApiBaseURL()
 
 const showStatusDialog = (message, type = 'error') => {
   useStatusDialogStore().show(message, type)
@@ -33,7 +24,7 @@ const request = axios.create({
 request.interceptors.request.use(
   (config) => {
     const userStore = useUserStore()
-    if (typeof config.baseURL === 'string' && config.baseURL.startsWith('https://')) {
+    if (shouldAttachNgrokHeader(config.baseURL)) {
       config.headers['ngrok-skip-browser-warning'] = 'true'
     }
     if (userStore.token) {

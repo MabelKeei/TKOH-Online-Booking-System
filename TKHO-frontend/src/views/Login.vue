@@ -78,22 +78,30 @@
       </el-form>
     </div>
 
-    <!-- 底部说明区域：仅在选中有说明的系统后显示 -->
-    <section v-if="currentPointsToNoteContent" class="login-notes w-full mt-6 py-3 px-0">
+    <!-- 底部说明：EV / Venue 切换时显示对应 Points to Note（后台 system_fixed） -->
+    <section v-if="showPointsToNoteSection" class="login-notes w-full mt-6 py-3 px-0">
       <div class="w-full">
-        <div class="notes-content" v-html="currentPointsToNoteContent"></div>
+        <p v-if="pointsToNoteLoading" class="notes-content notes-loading">Loading...</p>
+        <div
+          v-else-if="currentPointsToNoteContent"
+          class="notes-content rich-content"
+          v-html="currentPointsToNoteContent"
+        ></div>
       </div>
     </section>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, reactive } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { useStatusDialogStore } from '@/stores/statusDialog'
 import { login as loginApi } from '../api/auth'
+import { getPublicPointsToNote } from '@/api/promptManagement'
 import { getMockPromptList } from '@/mocks/mockData'
+import { formatPointsToNoteForDisplay } from '@/utils/pointsToNoteHtml'
+import '@/styles/rich-content.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -115,15 +123,52 @@ const systemOptions = [
   { label: 'Admin Management', value: 'admin', icon: 'user-gear' }
 ]
 
-const promptList = getMockPromptList()
-const pointsToNoteKeyBySystem = {
+const POINTS_TO_NOTE_KEYS = {
   parking: 'ev_booking_points_to_note',
   room: 'venue_booking_points_to_note'
 }
+
+const pointsToNoteByKey = ref({
+  [POINTS_TO_NOTE_KEYS.parking]: '',
+  [POINTS_TO_NOTE_KEYS.room]: ''
+})
+const pointsToNoteLoading = ref(false)
+
+function applyPointsToNoteList (list) {
+  const findContent = (key) =>
+    list.find((item) => item.key === key)?.content || ''
+  pointsToNoteByKey.value = {
+    [POINTS_TO_NOTE_KEYS.parking]: findContent(POINTS_TO_NOTE_KEYS.parking),
+    [POINTS_TO_NOTE_KEYS.room]: findContent(POINTS_TO_NOTE_KEYS.room)
+  }
+}
+
+const loadPointsToNote = async () => {
+  pointsToNoteLoading.value = true
+  try {
+    const data = await getPublicPointsToNote()
+    const list = Array.isArray(data) ? data : []
+    applyPointsToNoteList(list)
+  } catch {
+    applyPointsToNoteList(getMockPromptList())
+  } finally {
+    pointsToNoteLoading.value = false
+  }
+}
+
+const showPointsToNoteSection = computed(
+  () => loginForm.system === 'parking' || loginForm.system === 'room'
+)
+
 const currentPointsToNoteContent = computed(() => {
-  const targetKey = pointsToNoteKeyBySystem[loginForm.system]
+  const targetKey = POINTS_TO_NOTE_KEYS[loginForm.system]
   if (!targetKey) return ''
-  return promptList.find(item => item.key === targetKey)?.content || ''
+  const raw = pointsToNoteByKey.value[targetKey] || ''
+  return formatPointsToNoteForDisplay(raw)
+})
+
+onMounted(() => {
+  void loadPointsToNote()
 })
 
 const loginRules = {
@@ -554,6 +599,33 @@ const handleLogin = async () => {
   color: #2d4a32;
   text-align: left;
   box-shadow: 0 -2px 12px rgba(0, 114, 58, 0.08);
+}
+
+.notes-loading {
+  margin: 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.notes-content {
+  font-synthesis: style;
+}
+
+.notes-content :deep(em),
+.notes-content :deep(i),
+.notes-content :deep([style*='font-style: italic']),
+.notes-content :deep([style*='font-style:italic']) {
+  font-style: italic !important;
+}
+
+.notes-content :deep(strong),
+.notes-content :deep(b) {
+  font-weight: 700;
+  color: inherit;
+}
+
+.notes-content :deep(u) {
+  text-decoration: underline;
 }
 
 .notes-content :deep(p) {

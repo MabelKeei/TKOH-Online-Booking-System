@@ -14,7 +14,7 @@ export class HealthService {
     return {
       status: 'ok',
       postgres: db[0]?.now || null,
-      redis: this.redisService.getClient().status === 'ready' ? 'connected' : 'disconnected',
+      redis: this.redisService.isReady() ? 'connected' : 'disconnected',
     };
   }
 }

@@ -46,7 +46,7 @@ export type SeedEvPeriod = {
 
 export type SeedLicensePlate = {
   id: number;
-  employeeId?: number | null;
+  userId?: number | null;
   plateNumber: string;
   isDefault?: boolean;
   status?: string;
@@ -195,35 +195,28 @@ const evSlots: SeedEvSlot[] = [
 ];
 
 const evPeriods: SeedEvPeriod[] = [
-  { id: 1, period: '08:00-12:00', startTime: '08:00', endTime: '12:00', status: 'active' },
-  { id: 2, period: '12:00-16:00', startTime: '12:00', endTime: '16:00', status: 'active' },
-  { id: 3, period: '16:00-20:00', startTime: '16:00', endTime: '20:00', status: 'active' },
+  { id: 1, period: 'AM', startTime: '08:30', endTime: '13:00', status: 'active' },
+  { id: 2, period: 'PM', startTime: '13:45', endTime: '18:15', status: 'active' },
+  { id: 3, period: 'Night', startTime: '19:00', endTime: '23:30', status: 'active' },
 ];
 
-const licensePlates: SeedLicensePlate[] = [
-  { id: 1, employeeId: 1, plateNumber: 'SGA1001A', isDefault: true, status: 'active' },
-  { id: 2, employeeId: 2, plateNumber: 'SGB2002B', isDefault: true, status: 'active' },
-  { id: 3, employeeId: 3, plateNumber: 'SGC3003C', isDefault: true, status: 'active' },
-  { id: 4, employeeId: 4, plateNumber: 'SGD4004D', isDefault: true, status: 'active' },
-];
+const licensePlates: SeedLicensePlate[] = Array.from({ length: 25 }, (_, index) => {
+  const i = index + 1;
+  return {
+    id: i,
+    userId: i,
+    plateNumber: `SEED${String(i).padStart(3, '0')}A`,
+    isDefault: true,
+    status: 'active',
+  };
+});
 
 const prompts: SeedPrompt[] = [
   {
     id: 1,
     promptKey: 'ev_booking_points_to_note',
     name: 'EV Booking Points to Note',
-    content: `<p><strong>Points to Note:</strong></p>
-<ol>
-  <li>1. TKOH Car Park Reservation System allows access by nominated staff only.</li>
-  <li>2. Visitors coming to TKOH to attend meeting or to deliver presentation at lecture/seminar/workshop, or to service or technical support should make booking through the nominated staff.</li>
-  <li>3. Booking is not available for visitors coming to attend training, course, seminar or workshop.</li>
-  <li>4. Booking for contractors or suppliers for whatever purpose is not accepted.</li>
-  <li>5. Booking should be made at least 5 working days before the date of parking.</li>
-  <li>6. Confirmation of booking will be announced on the system 5 days before the date of parking.</li>
-  <li>7. Amendment for car registration number or booking details must be notified in advance.</li>
-  <li>8. Reserved parking-space will be allocated to other users if the registered car does not show up one hour after.</li>
-  <li>9. Owing to the limited number of parking-spaces in the Reserved Carpark, acceptance of car park reservation of a parking-space.</li>
-</ol>`,
+    content: `<p><strong>Points to Note:</strong></p><ol><li>TKOH Car Park Reservation System allows access by nominated staff only.</li><li>Visitors coming to TKOH to attend meeting or to deliver presentation at lecture/seminar/workshop, or to service or technical support should make booking through the nominated staff.</li><li>Booking is not available for visitors coming to attend training, course, seminar or workshop.</li><li>Booking for contractors or suppliers for whatever purpose is not accepted.</li><li>Booking should be made at least 5 working days before the date of parking.</li><li>Confirmation of booking will be announced on the system 5 days before the date of parking.</li><li>Amendment for car registration number or booking details must be notified in advance.</li><li>Reserved parking-space will be allocated to other users if the registered car does not show up one hour after.</li><li>Owing to the limited number of parking-spaces in the Reserved Carpark, acceptance of car park reservation of a parking-space.</li></ol>`,
     category: 'system_fixed',
     canAdd: false,
     templateType: null,
@@ -232,42 +225,7 @@ const prompts: SeedPrompt[] = [
     id: 2,
     promptKey: 'venue_booking_points_to_note',
     name: 'Venue Booking Points to Note',
-    content: `<p><strong>Points to Note:</strong></p>
-<ol>
-  <li>1. For reservation of other venues (e.g. Courtyard or Glasshouse), please contact General Office at <strong>2208 1951</strong> directly.</li>
-  <li>2. General Office reserves the right to cancel any booking or reassign another venue under necessary circumstances.</li>
-  <li>3. Should user require the following service for the meeting, please directly contact the respective department in advance for arrangement.</li>
-</ol>
-<table>
-  <thead>
-    <tr>
-      <th>Service/Equipment</th>
-      <th>Subject Department</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Zoom/Video Conferencing</td>
-      <td>Information Technology Dept (Tel: 2208 1830)</td>
-    </tr>
-    <tr>
-      <td>Venue Setting / Furniture on-loan</td>
-      <td>Facility Management Dept (Tel: 2208 1845)</td>
-    </tr>
-    <tr>
-      <td>Equipment on-loan</td>
-      <td>General Office (Tel: 2208 1951)</td>
-    </tr>
-    <tr>
-      <td>Tea Service for Conference Rooms (ad-hoc)</td>
-      <td>General Office (Tel: 2208 1951)</td>
-    </tr>
-    <tr>
-      <td>Tea Service for Other Venue and Rooms</td>
-      <td>Via ADS</td>
-    </tr>
-  </tbody>
-</table>`,
+    content: `<p><strong>Points to Note:</strong></p><ol><li>For reservation of other venues (e.g. Courtyard or Glasshouse), please contact General Office at <strong>2208 1951</strong> directly.</li><li>General Office reserves the right to cancel any booking or reassign another venue under necessary circumstances.</li><li>Should user require the following service for the meeting, please directly contact the respective department in advance for arrangement.</li></ol><table style="width: auto"><tbody><tr><th colspan="1" rowspan="1" width="388.48">Service/Equipment</th><th colspan="1" rowspan="1" width="416.65">Subject Department</th></tr><tr><td colspan="1" rowspan="1" width="auto">Zoom/Video Conferencing</td><td colspan="1" rowspan="1" width="auto">Information Technology Dept (Tel: 2208 1830)</td></tr><tr><td colspan="1" rowspan="1" width="auto">Venue Setting / Furniture on-loan</td><td colspan="1" rowspan="1" width="auto">Facility Management Dept (Tel: 2208 1845)</td></tr><tr><td colspan="1" rowspan="1" width="auto">Equipment on-loan</td><td colspan="1" rowspan="1" width="auto">General Office (Tel: 2208 1951)</td></tr><tr><td colspan="1" rowspan="1" width="auto">Tea Service for Conference Rooms (ad-hoc)</td><td colspan="1" rowspan="1" width="auto">General Office (Tel: 2208 1951)</td></tr><tr><td colspan="1" rowspan="1" width="auto">Tea Service for Other Venue and Rooms</td><td colspan="1" rowspan="1" width="auto">Via ADS</td></tr></tbody></table><p><br></p>`,
     category: 'system_fixed',
     canAdd: false,
     templateType: null,
@@ -309,34 +267,25 @@ const prompts: SeedPrompt[] = [
     templateType: null,
   },
   {
-    id: 9,
-    promptKey: 'meeting_approval_reject_template',
-    name: 'Meeting Title Non-compliant',
-    content: 'Your meeting booking request is rejected because the meeting title is not compliant. Please provide a clear and business-related title.',
-    category: 'reject_template',
-    canAdd: true,
-    templateType: 'meeting_approval',
-  },
-  {
-    id: 10,
-    promptKey: 'meeting_approval_reject_template',
-    name: 'Insufficient Meeting Details',
-    content: 'Your meeting booking request is rejected due to insufficient meeting details. Please complete the purpose and required information before resubmission.',
-    category: 'reject_template',
-    canAdd: true,
-    templateType: 'meeting_approval',
-  },
-  {
-    id: 11,
-    promptKey: 'meeting_approval_reject_template',
-    name: 'Duplicate Time Slot Booking',
-    content: 'Your meeting booking request is rejected because the selected date/time conflicts with an existing booking under your account.',
-    category: 'reject_template',
-    canAdd: true,
-    templateType: 'meeting_approval',
+    id: 7,
+    promptKey: 'ev_booking_rule_update_notice',
+    name: 'EV Booking Rule Update Notice',
+    content: `<p style="text-align: center"><span style="color: rgb(225, 60, 57)"><strong>[ For Attention, please ]</strong></span></p><p style="text-align: center"><span style="color: rgb(225, 60, 57)"><strong>Updates on Booking Rules of EV Charging Facilities</strong></span></p><p><u><strong>Effective from 01 JAN 2025</strong></u></p><p>a. Booking quota: Change from 2 sessions/week to <span style="color: rgb(225, 60, 57)">1 session/week</span></p><p>b. Period of AM session: Change from 09:00hr-13:15hr to<span style="color: rgb(225, 60, 57)"> 08:30hr-13:00hr</span></p><p>c. Period of PM session: Change from 14:00hr-18:15hr to <span style="color: rgb(225, 60, 57)">13:45hr-18:15hr</span></p><p><u><strong>Effective from 13 JAN 2025</strong></u></p><p>d. New booking timeslots releasing time: Change from 00:00hr everyday to <span style="color: rgb(225, 60, 57)">13:00hr everyday</span></p>`,
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
   },
   {
     id: 8,
+    promptKey: 'venue_booking_rule_update_notice',
+    name: 'Venue Booking Rule Update Notice',
+    content: `<p class="venue-notice-line">Lecture Theatre is temporarily closed.</p><p class="venue-notice-line zh">演講廳暫停使用</p>`,
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
+  },
+  {
+    id: 9,
     promptKey: 'user_application_reject_template',
     name: 'User Application Reject Template',
     content: 'Your user application is rejected. Reason: {reason}',
@@ -345,19 +294,37 @@ const prompts: SeedPrompt[] = [
     templateType: 'user_application',
   },
   {
-    id: 12,
-    promptKey: 'user_application_reject_template',
-    name: 'Invalid Contact Phone Number',
-    content: 'Your user application is rejected because the contact telephone number is invalid. Please provide a valid and reachable phone number.',
+    id: 10,
+    promptKey: 'meeting_approval_reject_template',
+    name: 'Meeting Title Non-compliant',
+    content: `Your meeting booking request is rejected because the meeting title is not compliant. Please provide a clear and business-related title.`,
     category: 'reject_template',
     canAdd: true,
-    templateType: 'user_application',
+    templateType: 'meeting_approval',
+  },
+  {
+    id: 11,
+    promptKey: 'meeting_approval_reject_template',
+    name: 'Insufficient Meeting Details',
+    content: `Your meeting booking request is rejected due to insufficient meeting details. Please complete the purpose and required information before resubmission.`,
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'meeting_approval',
+  },
+  {
+    id: 12,
+    promptKey: 'meeting_approval_reject_template',
+    name: 'Duplicate Time Slot Booking',
+    content: `Your meeting booking request is rejected because the selected date/time conflicts with an existing booking under your account.`,
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'meeting_approval',
   },
   {
     id: 13,
     promptKey: 'user_application_reject_template',
-    name: 'Email Format Invalid',
-    content: 'Your user application is rejected due to invalid email format. Please provide a valid corporate email address.',
+    name: 'Invalid Contact Phone Number',
+    content: `Your user application is rejected because the contact telephone number is invalid. Please provide a valid and reachable phone number.`,
     category: 'reject_template',
     canAdd: true,
     templateType: 'user_application',
@@ -365,37 +332,38 @@ const prompts: SeedPrompt[] = [
   {
     id: 14,
     promptKey: 'user_application_reject_template',
-    name: 'Department Information Missing',
-    content: 'Your user application is rejected because department information is missing or incorrect. Please update and submit again.',
+    name: 'Email Format Invalid',
+    content: `Your user application is rejected due to invalid email format. Please provide a valid corporate email address.`,
     category: 'reject_template',
     canAdd: true,
     templateType: 'user_application',
   },
   {
     id: 15,
-    promptKey: 'ev_booking_rule_update_notice',
-    name: 'EV Booking Rule Update Notice',
-    content: `<p class="attention-line">[ For Attention, please ]</p>
-<p class="main-title">Updates on Booking Rules of EV Charging Facilities</p>
-<p class="section-title">Effective from 01 JAN 2025</p>
-<p class="line-item">a. Booking quota: Change from 2 sessions/week to <span class="change-highlight">1 session/week</span></p>
-<p class="line-item">b. Period of AM session: Change from 09:00hr-13:15hr to <span class="change-highlight">08:30hr-13:00hr</span></p>
-<p class="line-item">c. Period of PM session: Change from 14:00hr-18:15hr to <span class="change-highlight">13:45hr-18:15hr</span></p>
-<p class="section-title">Effective from 13 JAN 2025</p>
-<p class="line-item">d. New booking timeslots releasing time: Change from 00:00hr everyday to <span class="change-highlight">13:00hr everyday</span></p>`,
-    category: 'system_fixed',
-    canAdd: false,
-    templateType: null,
+    promptKey: 'user_application_reject_template',
+    name: 'Department Information Missing',
+    content: `Your user application is rejected because department information is missing or incorrect. Please update and submit again.`,
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'user_application',
   },
   {
     id: 16,
-    promptKey: 'venue_booking_lecture_theatre_notice',
-    name: 'Venue Booking Lecture Theatre Notice',
-    content: `<p class="venue-notice-line">Lecture Theatre is temporarily closed.</p>
-<p class="venue-notice-line zh">演講廳暫停使用</p>`,
-    category: 'system_fixed',
-    canAdd: false,
-    templateType: null,
+    promptKey: 'user_application_reject_template',
+    name: 'User Application Reject Template',
+    content: 'Your user application is rejected. Reason: {222222222222222}',
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'user_application',
+  },
+  {
+    id: 17,
+    promptKey: 'user_application_reject_template',
+    name: 'User Application Reject Template',
+    content: 'Your user application is rejected. Reason: {33333333333333333}',
+    category: 'reject_template',
+    canAdd: true,
+    templateType: 'user_application',
   },
 ];
 

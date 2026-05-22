@@ -2,7 +2,7 @@
   <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden" style="padding-top: var(--app-header-height, 64px);">
     <AppHeader />
 
-    <div v-if="!showTopTip" class="top-tip-toggle-wrapper">
+    <div v-if="hasEvRuleNotice && !showTopTip" class="top-tip-toggle-wrapper">
       <button
         type="button"
         class="top-tip-toggle-btn"
@@ -11,9 +11,9 @@
         @click="showTopTip = true"
       ></button>
     </div>
-    <div v-if="showTopTip" class="top-tip-wrapper px-2 md:px-3 lg:px-4 pt-2 pb-0">
+    <div v-if="hasEvRuleNotice && showTopTip" class="top-tip-wrapper px-2 md:px-3 lg:px-4 pt-2 pb-0">
       <div class="booking-window-tip">
-        <span>Important Note: Updates on Booking Rules of EV Charging Facilities.</span>
+        <span>Important Note: {{ evRuleNoticeBannerText }}</span>
         <button type="button" class="read-more-link" @click="noticeDialogVisible = true">Read more...</button>
         <button type="button" class="tip-close-btn" aria-label="关闭重要提示" @click="showTopTip = false">
           &times;
@@ -23,8 +23,11 @@
 
     <!-- 主体内容 -->
     <main
-      class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 pt-0 pb-1 md:pb-2 overflow-hidden"
-      :class="{ 'tip-collapsed-gap': !showTopTip }"
+      class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 pb-1 md:pb-2 overflow-hidden"
+      :class="{
+        'tip-collapsed-gap': hasEvRuleNotice && !showTopTip,
+        'calendar-main-header-gap': !hasEvRuleNotice
+      }"
     >
       <!-- 日历内容区域 -->
       <div class="calendar-container flex-1 overflow-auto">
@@ -34,7 +37,10 @@
             <div class="week-header">
               {{ week.dateRange }}
             </div>
-            <div class="week-grid">
+            <div
+              class="week-grid"
+              :class="{ 'is-partial-week': week.days.length < 7 }"
+            >
               <!-- 表头 -->
               <div class="grid-header">
                 <div v-for="day in week.days" :key="day.date" class="day-header" :class="{ 'is-today': day.isToday }">
@@ -45,7 +51,7 @@
 
               <!-- 时间段行 -->
               <div v-for="period in timePeriods" :key="period.id" class="time-row">
-                <div class="time-label">{{ period.label }}</div>
+                <div class="time-label">{{ period.period }}</div>
                 <div
                   v-for="day in week.days"
                   :key="`${day.date}-${period.id}`"
@@ -53,7 +59,7 @@
                   :class="getAvailabilityClass(day.date, period.id)"
                   @click="selectTimeSlot(day.date, period.id)"
                 >
-                  <div class="availability">{{ getAvailabilityText(day.date, period.id, period.label) }}</div>
+                  <div class="availability">{{ getAvailabilityText(day.date, period.id, period.period) }}</div>
                 </div>
               </div>
             </div>
@@ -67,34 +73,46 @@
       :visible="dialogVisible"
       :selected-date="selectedDate"
       :selected-period="selectedPeriod"
+      :time-periods="timePeriods"
       :available-slots="bookings"
+      :booking-window-start="evBookingWindow.currentStartDate"
+      :booking-window-end="evBookingWindow.currentEndDate"
+      :submitting="bookingSubmitting"
+      :refresh-calendar-availability="loadCalendarAvailability"
       @close="closeDialog"
       @confirm="handleBookingConfirm"
     />
     <BookingStyleModal
+      v-if="hasEvRuleNotice"
       v-model="noticeDialogVisible"
       title="Important Note"
-      max-width="720px"
+      max-width="820px"
       custom-class="important-note-modal"
     >
-      <div class="ev-rule-notice-content" v-html="evRuleNoticeContent"></div>
+      <div v-if="evRuleNoticeLoading" class="ev-rule-notice-content">Loading...</div>
+      <div
+        v-else-if="evRuleNoticeContent"
+        class="ev-rule-notice-content rich-content"
+        v-html="evRuleNoticeContent"
+      ></div>
+      <div v-else class="ev-rule-notice-content ev-rule-notice-empty">No content available.</div>
     </BookingStyleModal>
 
-    <div v-if="statusDialog.visible" class="status-modal-overlay" @click.self="statusDialog.visible = false">
+    <div v-if="statusDialog.visible" class="status-modal-overlay" @click.self="dismissBookingStatusDialog">
       <div class="status-modal-wrapper">
         <div class="status-modal-header">
           <span class="status-modal-title">Reminder</span>
-          <button type="button" class="status-modal-close" @click="statusDialog.visible = false">
+          <button type="button" class="status-modal-close" @click="dismissBookingStatusDialog">
             <svg viewBox="0 0 24 24" class="status-close-icon">
               <path d="M18 6L6 18M6 6l12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
         </div>
         <div class="status-modal-body">
-          <p class="status-dialog-message">{{ statusDialog.message }}</p>
+          <p :class="['status-dialog-message', statusDialog.type]">{{ statusDialog.message }}</p>
         </div>
         <div class="status-modal-footer">
-          <el-button class="status-confirm-btn" type="default" @click="statusDialog.visible = false">OK</el-button>
+          <el-button class="status-confirm-btn" type="default" @click="dismissBookingStatusDialog">OK</el-button>
         </div>
       </div>
     </div>
@@ -102,68 +120,201 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import {
+  EV_BOOKING_WINDOW_BC_NAME,
+  EV_BOOKING_WINDOW_SYNC_LS_KEY,
+  parseEvBookingWindowSyncPayload
+} from '@/utils/evBookingWindowSync'
 import AppHeader from '../components/AppHeader.vue'
 import EVBookingDialog from '../components/EVBookingDialog.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
-import { generateEVBookingsMock, getMockPromptList } from '@/mocks/mockData'
+import { useEvBookingRuleNotice } from '@/composables/useEvBookingRuleNotice'
+import { getEvCalendarAvailability, createEvBooking } from '@/api/parking'
+import { fetchActiveEvTimePeriods } from '@/utils/evTimePeriods'
+import { fetchEvBookingWindow } from '@/utils/evBookingWindow'
+import { createDateAtMidnight, isEvSlotPast } from '@/utils/evSlotPast'
+import '@/styles/rich-content.css'
 
 // 对话框状态
 const dialogVisible = ref(false)
 const noticeDialogVisible = ref(false)
 const showTopTip = ref(true)
+const {
+  evRuleNoticeContent,
+  evRuleNoticeBannerText,
+  evRuleNoticeLoading,
+  hasEvRuleNotice,
+  loadEvRuleNotice
+} = useEvBookingRuleNotice()
 const selectedDate = ref('')
 const selectedPeriod = ref('')
 const statusDialog = ref({
   visible: false,
-  message: ''
+  message: '',
+  type: ''
 })
 const DAY_MS = 24 * 60 * 60 * 1000
-const createDateAtMidnight = (baseDate = new Date()) => {
-  const date = new Date(baseDate)
-  date.setHours(0, 0, 0, 0)
-  return date
-}
 const formatDateToYmd = (date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
-const getDynamicEvBookingWindow = () => {
-  const today = createDateAtMidnight()
-  const start = new Date(today.getTime() + DAY_MS)
-  const end = new Date(today.getTime() + 14 * DAY_MS)
-  return {
-    currentStartDate: formatDateToYmd(start),
-    currentEndDate: formatDateToYmd(end)
-  }
-}
-const evBookingWindow = ref(getDynamicEvBookingWindow())
-const promptList = getMockPromptList()
-const evRuleNoticeContent = computed(() => {
-  return promptList.find(item => item.key === 'ev_booking_rule_update_notice')?.content || ''
+const evBookingWindow = ref({
+  currentStartDate: '',
+  currentEndDate: ''
 })
+
+const loadEvBookingWindow = async () => {
+  evBookingWindow.value = await fetchEvBookingWindow()
+}
+
 const evWindowRange = computed(() => ({
   start: new Date(`${evBookingWindow.value.currentStartDate}T00:00:00`),
   end: new Date(`${evBookingWindow.value.currentEndDate}T23:59:59`)
 }))
 
-// 时间段定义
-const timePeriods = [
-  { id: 'am', label: 'AM' },
-  { id: 'pm', label: 'PM' },
-  { id: 'night', label: 'Night' }
-]
+const timePeriods = ref([])
 
-// 预订数据（示例）
 const bookings = ref({})
+const totalParkingSpaces = ref(0)
+/** 首次可用性 API 返回前为 false，避免 total=0 时误判为 Full */
+const availabilityLoaded = ref(false)
+
+/** 跨标签即时更新日期（不 await，避免后台标签卡住） */
+function applyEvWindowFromSyncDetail (detail) {
+  if (!detail?.currentStartDate || !detail?.currentEndDate) return false
+  const cur = evBookingWindow.value
+  if (
+    cur.currentStartDate === detail.currentStartDate &&
+    cur.currentEndDate === detail.currentEndDate
+  ) {
+    return false
+  }
+  evBookingWindow.value = {
+    currentStartDate: detail.currentStartDate,
+    currentEndDate: detail.currentEndDate
+  }
+  availabilityLoaded.value = false
+  return true
+}
+
+/** 后台标签页降频；Admin 发布仍靠 BroadcastChannel / storage 即时同步 */
+const WINDOW_POLL_MS = 60_000
+/** 日历余量自动刷新（标签可见时），他人抢订后网格可变为 Full */
+const CALENDAR_POLL_MS = 10_000
+let windowPollTimer = null
+let calendarPollTimer = null
+let windowPollInFlight = false
+let calendarPollInFlight = false
+let windowSyncChannel = null
+
+async function pollEvBookingWindowFromServer () {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    return
+  }
+  if (windowPollInFlight) return
+  windowPollInFlight = true
+  try {
+    const next = await fetchEvBookingWindow()
+    const rangeChanged = applyEvWindowFromSyncDetail({
+      currentStartDate: next?.currentStartDate || '',
+      currentEndDate: next?.currentEndDate || ''
+    })
+    if (rangeChanged) {
+      await loadCalendarAvailability()
+    }
+  } catch {
+    /* 下一轮轮询重试 */
+  } finally {
+    windowPollInFlight = false
+  }
+}
+
+function onRemoteWindowPublish (detail) {
+  if (!detail) return
+  const changed = applyEvWindowFromSyncDetail(detail)
+  if (changed) {
+    void loadCalendarAvailability()
+  }
+}
+
+function onWindowStorageSync (e) {
+  if (e.key !== EV_BOOKING_WINDOW_SYNC_LS_KEY || e.newValue == null) return
+  onRemoteWindowPublish(parseEvBookingWindowSyncPayload(e.newValue))
+}
+
+function onWindowBroadcast (event) {
+  onRemoteWindowPublish(parseEvBookingWindowSyncPayload(event?.data))
+}
+
+async function pollCalendarAvailabilityFromServer () {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    return
+  }
+  if (calendarPollInFlight) return
+  calendarPollInFlight = true
+  try {
+    await loadCalendarAvailability()
+  } catch {
+    /* 下一轮轮询重试 */
+  } finally {
+    calendarPollInFlight = false
+  }
+}
+
+function onDocumentVisibilityChange () {
+  if (document.visibilityState === 'visible') {
+    void pollEvBookingWindowFromServer()
+    void pollCalendarAvailabilityFromServer()
+  }
+}
+
+function startEvBookingWindowWatchers () {
+  windowPollTimer = setInterval(pollEvBookingWindowFromServer, WINDOW_POLL_MS)
+  calendarPollTimer = setInterval(pollCalendarAvailabilityFromServer, CALENDAR_POLL_MS)
+  window.addEventListener('storage', onWindowStorageSync)
+  document.addEventListener('visibilitychange', onDocumentVisibilityChange)
+  try {
+    windowSyncChannel = new BroadcastChannel(EV_BOOKING_WINDOW_BC_NAME)
+    windowSyncChannel.onmessage = onWindowBroadcast
+  } catch {
+    windowSyncChannel = null
+  }
+}
+
+function stopEvBookingWindowWatchers () {
+  if (windowPollTimer) {
+    clearInterval(windowPollTimer)
+    windowPollTimer = null
+  }
+  if (calendarPollTimer) {
+    clearInterval(calendarPollTimer)
+    calendarPollTimer = null
+  }
+  window.removeEventListener('storage', onWindowStorageSync)
+  document.removeEventListener('visibilitychange', onDocumentVisibilityChange)
+  if (windowSyncChannel) {
+    try {
+      windowSyncChannel.close()
+    } catch {
+      /* noop */
+    }
+    windowSyncChannel = null
+  }
+}
 
 function isDateInEvWindow(dateLike) {
   const date = new Date(dateLike)
   if (Number.isNaN(date.getTime())) return false
   const { start, end } = evWindowRange.value
   return date >= start && date <= end
+}
+
+/** 预订日或时段 endTime 已过（与 EV 管理列表 past 判定一致：按时段结束时刻） */
+function isSlotPast (dateYmd, periodId) {
+  return isEvSlotPast(dateYmd, periodId, timePeriods.value)
 }
 
 // 生成两周的数据（动态显示：明天到第14天）
@@ -197,51 +348,86 @@ const weeks = computed(() => {
   return result
 })
 
-// 获取可用性数据
+function resolveSlotAvailability (date, period) {
+  const key = `${date}-${period}`
+  const slot = bookings.value[key]
+  if (slot) return { ...slot }
+  if (!availabilityLoaded.value) {
+    return { available: null, total: 0, loading: true }
+  }
+  const total = totalParkingSpaces.value
+  return { available: total, total, booked: 0 }
+}
+
 function getAvailabilityData(date, period) {
   if (!isDateInEvWindow(`${date}T12:00:00`)) {
     return { available: 0, total: 0, outOfWindow: true }
   }
-  const key = `${date}-${period}`
-  return bookings.value[key] || { available: 3, total: 3 }
+  const data = resolveSlotAvailability(date, period)
+  if (isSlotPast(date, period)) {
+    return { ...data, isPast: true }
+  }
+  return data
 }
 
 // 获取可用性文本
 function getAvailabilityText(date, period, periodLabel) {
   const data = getAvailabilityData(date, period)
+  if (data.loading) return ''
   if (data.outOfWindow) return 'Closed'
   if (data.available === 0) {
     return 'Full'
   }
+  if (data.isPast) return periodLabel
   return periodLabel
 }
 
 // 获取可用性样式类
 function getAvailabilityClass(date, period) {
   const data = getAvailabilityData(date, period)
+  if (data.loading) return 'is-loading'
   if (data.outOfWindow) {
     return 'is-closed'
   }
   if (data.available === 0) {
     return 'is-full'
   }
+  if (data.isPast) {
+    return 'is-past'
+  }
   return ''
 }
 
-// 选择时间段
-function selectTimeSlot(date, period) {
+// 选择时间段：先拉最新余量再判断，避免他人刚抢最后一个车位仍误判可订
+async function selectTimeSlot (date, period) {
   if (!isDateInEvWindow(`${date}T12:00:00`)) {
     statusDialog.value = {
       visible: true,
+      type: '',
       message: 'This date is outside the EV booking date range'
     }
     return
   }
+  if (isSlotPast(date, period)) {
+    return
+  }
+  await loadCalendarAvailability()
   const data = getAvailabilityData(date, period)
+  if (data.loading) return
+  if (data.isPast) return
+  if (data.outOfWindow) {
+    statusDialog.value = {
+      visible: true,
+      type: '',
+      message: 'This date is outside the EV booking date range'
+    }
+    return
+  }
   if (data.available === 0) {
     statusDialog.value = {
       visible: true,
-      message: 'This time slot is fully booked'
+      message: 'This time slot is fully booked.',
+      type: 'error'
     }
     return
   }
@@ -250,39 +436,130 @@ function selectTimeSlot(date, period) {
   dialogVisible.value = true
 }
 
-// 关闭对话框
-function closeDialog() {
+// 关闭对话框后刷新日历，他人订走车位时网格尽快变 Full（无 WebSocket 时的折中）
+function closeDialog () {
   dialogVisible.value = false
   selectedDate.value = ''
   selectedPeriod.value = ''
+  void loadCalendarAvailability()
 }
 
-// 处理预订确认
-function handleBookingConfirm(bookingData) {
-  console.log('Booking confirmed:', bookingData)
+const bookingSubmitting = ref(false)
 
-  // 更新预订数据
-  const key = `${bookingData.date}-${bookingData.timePeriod}`
-  const currentData = bookings.value[key] || { available: 3, total: 3 }
-  bookings.value[key] = {
-    ...currentData,
-    available: Math.max(0, currentData.available - 1)
+const loadCalendarAvailability = async () => {
+  const { currentStartDate, currentEndDate } = evBookingWindow.value
+  if (!currentStartDate || !currentEndDate) {
+    bookings.value = {}
+    availabilityLoaded.value = false
+    return
   }
-
-  closeDialog()
-  statusDialog.value = {
-    visible: true,
-    message: 'Booking created successfully!'
+  try {
+    const data = await getEvCalendarAvailability({
+      startDate: currentStartDate,
+      endDate: currentEndDate
+    })
+    totalParkingSpaces.value = Number(data?.totalSpaces) || 0
+    bookings.value = data?.availability && typeof data.availability === 'object'
+      ? { ...data.availability }
+      : {}
+    availabilityLoaded.value = true
+  } catch {
+    totalParkingSpaces.value = 0
+    bookings.value = {}
+    availabilityLoaded.value = true
   }
 }
 
-// 初始化数据
-onMounted(() => {
-  bookings.value = generateEVBookingsMock({
-    days: 14,
-    periods: timePeriods.map((p) => p.id),
-    totalPerSlot: 3
-  })
+const getErrorMessage = (error, fallback = 'Operation failed') => {
+  const message = error?.response?.data?.message
+  if (Array.isArray(message)) return message[0] || fallback
+  if (typeof message === 'string' && message.trim()) return message
+  if (typeof error?.message === 'string' && error.message.trim()) return error.message
+  return fallback
+}
+
+function isFullyBookedMessage (message) {
+  return /fully booked/i.test(String(message || ''))
+}
+
+/** 他人抢订最后一个车位时，先乐观标 Full，避免日历缓存尚未失效时网格仍显示可订 */
+function markSlotFullyBooked (date, periodId) {
+  if (!date || periodId == null || periodId === '') return
+  const key = `${date}-${periodId}`
+  const prev = bookings.value[key]
+  const total = Math.max(
+    Number(prev?.total) || 0,
+    Number(totalParkingSpaces.value) || 0,
+    Number(prev?.booked) || 0,
+    1
+  )
+  bookings.value = {
+    ...bookings.value,
+    [key]: { available: 0, total, booked: total }
+  }
+}
+
+async function syncCalendarAfterFullyBooked (date, periodId) {
+  if (date && periodId != null && periodId !== '') {
+    markSlotFullyBooked(date, periodId)
+  }
+  await loadCalendarAvailability()
+}
+
+async function dismissBookingStatusDialog () {
+  const message = statusDialog.value.message
+  const wasFullyBooked = isFullyBookedMessage(message)
+  statusDialog.value = { ...statusDialog.value, visible: false }
+  if (wasFullyBooked) {
+    await syncCalendarAfterFullyBooked(selectedDate.value, selectedPeriod.value)
+  }
+}
+
+async function handleBookingConfirm(bookingData) {
+  if (bookingSubmitting.value) return
+  bookingSubmitting.value = true
+  try {
+    const res = await createEvBooking({
+      licensePlateId: String(bookingData.licensePlateId),
+      periodId: String(bookingData.timePeriod),
+      bookingDate: bookingData.date,
+      slotId: bookingData.slotId ? String(bookingData.slotId) : undefined
+    })
+    await loadCalendarAvailability()
+    closeDialog()
+    const space = res?.booking?.evSpace || ''
+    statusDialog.value = {
+      visible: true,
+      type: 'success',
+      message: space
+        ? `Booking created successfully!\nParking space: ${space}`
+        : 'Booking created successfully!'
+    }
+  } catch (error) {
+    const message = getErrorMessage(error, 'Failed to create booking')
+    if (isFullyBookedMessage(message)) {
+      await syncCalendarAfterFullyBooked(bookingData.date, bookingData.timePeriod)
+    }
+    statusDialog.value = {
+      visible: true,
+      type: 'error',
+      message
+    }
+  } finally {
+    bookingSubmitting.value = false
+  }
+}
+
+onMounted(async () => {
+  loadEvRuleNotice()
+  timePeriods.value = await fetchActiveEvTimePeriods()
+  await loadEvBookingWindow()
+  await loadCalendarAvailability()
+  startEvBookingWindowWatchers()
+})
+
+onUnmounted(() => {
+  stopEvBookingWindowWatchers()
 })
 </script>
 
@@ -313,6 +590,11 @@ onMounted(() => {
 
 .calendar-main.tip-collapsed-gap {
   margin-top: 6px;
+}
+
+/* 无 Important Note 时，与有绿条时 top-tip-wrapper 的 pt-2 保持相近顶距 */
+.calendar-main.calendar-main-header-gap {
+  padding-top: 0.5rem;
 }
 
 .calendar-container {
@@ -430,55 +712,6 @@ onMounted(() => {
   outline-offset: 2px;
 }
 
-.ev-rule-notice-content {
-  color: #1f2937;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.ev-rule-notice-content :deep(p) {
-  margin: 0 0 8px;
-}
-
-.ev-rule-notice-content :deep(strong) {
-  color: #111827;
-}
-
-.ev-rule-notice-content :deep(.attention-line),
-.ev-rule-notice-content :deep(.main-title) {
-  color: #ef4444;
-  font-weight: 700;
-  text-align: center;
-}
-
-.ev-rule-notice-content :deep(.attention-line) {
-  margin-bottom: 2px;
-  font-size: 14px;
-}
-
-.ev-rule-notice-content :deep(.main-title) {
-  margin-bottom: 10px;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.ev-rule-notice-content :deep(.section-title) {
-  font-size: 14px;
-  font-weight: 700;
-  color: #111827;
-  text-decoration: underline;
-}
-
-.ev-rule-notice-content :deep(.line-item) {
-  margin-bottom: 2px;
-  font-size: 14px;
-  color: #111827;
-}
-
-.ev-rule-notice-content :deep(.line-item .change-highlight) {
-  color: #ef4444;
-}
-
 .calendar-wrapper {
   display: flex;
   flex-direction: column;
@@ -524,6 +757,10 @@ onMounted(() => {
 
 .day-header:last-child {
   border-right: none;
+}
+
+.week-grid.is-partial-week .day-header:last-child {
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .day-header.is-today {
@@ -574,13 +811,23 @@ onMounted(() => {
   border-right: none;
 }
 
-.time-cell:hover:not(.is-full) {
+.week-grid.is-partial-week .time-cell:last-child {
+  border-right: 1px solid #e5e7eb;
+}
+
+.time-cell:hover:not(.is-full):not(.is-closed):not(.is-past) {
   background-color: #f3f4f6;
 }
 
 .time-cell.is-full {
   background-color: #fecaca;
   cursor: not-allowed;
+}
+
+.time-cell.is-loading {
+  background-color: #f9fafb;
+  cursor: default;
+  pointer-events: none;
 }
 
 .time-cell.is-closed {
@@ -591,6 +838,21 @@ onMounted(() => {
 .time-cell.is-closed .availability {
   color: #6b7280;
   font-weight: 700;
+}
+
+.time-cell.is-past {
+  background-color: #f9fafb;
+  cursor: not-allowed;
+}
+
+.time-cell.is-past:hover {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.time-cell.is-past .availability {
+  color: #d1d5db;
+  font-weight: 600;
 }
 
 .time-cell.is-full:hover {
@@ -635,7 +897,7 @@ onMounted(() => {
 }
 
 .status-modal-title {
-  font-size: 1.0625rem;
+  font-size: 1.1875rem;
   font-weight: 600;
   line-height: 1.5;
 }
@@ -669,10 +931,19 @@ onMounted(() => {
 
 .status-dialog-message {
   margin: 0;
-  font-size: 15px;
+  font-size: 1.125rem;
   text-align: center;
-  line-height: 1.5;
+  line-height: 1.55;
   color: #333333;
+  white-space: pre-line;
+}
+
+.status-dialog-message.error {
+  color: #f56c6c;
+}
+
+.status-dialog-message.success {
+  color: #00723a;
 }
 
 .status-modal-footer {

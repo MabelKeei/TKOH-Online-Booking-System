@@ -259,6 +259,7 @@ import {
   deleteEvTimePeriod,
   publishEvBookingWindow
 } from '@/api/evManagement'
+import { notifyEvBookingWindowUpdated } from '@/utils/evBookingWindowSync'
 
 const activeTab = ref('parking')
 const parkingList = ref([])
@@ -512,6 +513,10 @@ const handlePublishEvWindow = async () => {
       endDate: evWindowForm.value.endDate
     })
     applyEvWindowFromApi(data)
+    notifyEvBookingWindowUpdated({
+      currentStartDate: data?.currentStartDate,
+      currentEndDate: data?.currentEndDate
+    })
     showNotice('EV booking date range published', 'Success')
   } catch (error) {
     showNotice(getErrorMessage(error, 'Failed to publish booking date range'), 'Error')

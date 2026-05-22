@@ -9,8 +9,20 @@ function parseTimeHm(value: string): Date {
   return new Date(`1970-01-01T${value}:00.000Z`);
 }
 
-async function main() {
+/** 解除对 departments / access_roles 的外键引用，以便 deleteMany 重建 seed 数据 */
+async function detachDepartmentAndRoleReferences() {
   await prisma.user.updateMany({ data: { departmentId: null, accessRoleId: null } });
+  await prisma.pending_users.updateMany({
+    data: {
+      department_id: null,
+      access_role_id: null,
+      approver_user_id: null,
+    },
+  });
+}
+
+async function main() {
+  await detachDepartmentAndRoleReferences();
 
   const departmentList = seedData.departmentList ?? [];
   const accessRoleList = seedData.accessRoleList ?? [];
@@ -171,18 +183,18 @@ async function main() {
   if (licensePlates.length > 0) {
     for (const row of licensePlates) {
       const id = BigInt(row.id);
-      const employeeId = row.employeeId != null ? BigInt(row.employeeId) : null;
+      const userId = row.userId != null ? BigInt(row.userId) : null;
       await prisma.license_plates.upsert({
         where: { id },
         update: {
-          employee_id: employeeId,
+          user_id: userId,
           plate_number: row.plateNumber,
           is_default: row.isDefault === true,
           status: row.status ?? 'active',
         },
         create: {
           id,
-          employee_id: employeeId,
+          user_id: userId,
           plate_number: row.plateNumber,
           is_default: row.isDefault === true,
           status: row.status ?? 'active',

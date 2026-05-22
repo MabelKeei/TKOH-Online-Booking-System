@@ -4,8 +4,8 @@
 
     <!-- Main container: viewport minus header and bottom space -->
     <main class="booking-main">
-      <div class="booking-window-tip">
-        <span>Important Note: Lecture Theatre is temporarily closed.</span>
+      <div v-if="hasVenueRuleNotice" class="booking-window-tip">
+        <span>Important Note: {{ venueRuleNoticeBannerText }}</span>
         <button type="button" class="read-more-link" @click="noticeDialogVisible = true">Read more...</button>
       </div>
       <div class="booking-content">
@@ -18,12 +18,10 @@
             <div class="venue-card__title-wrapper">
               <h3 class="venue-card__title">Conference Rooms and Discussion Room</h3>
             </div>
-            <div class="venue-card__grid">
-              <div class="venue-card__image" v-for="i in 4" :key="i">
-                <img :src="venueImage" alt="Conference Room" />
-                <div class="venue-card__overlay"></div>
-              </div>
-            </div>
+            <VenueBookingCardImages
+              :items="conferenceImages"
+              :loading="venuesLoading"
+            />
             <el-button type="primary" class="venue-card__button" @click="goToConference">
               Book Now →
             </el-button>
@@ -35,12 +33,10 @@
             <div class="venue-card__title-wrapper">
               <h3 class="venue-card__title">Other Venues</h3>
             </div>
-            <div class="venue-card__grid">
-              <div class="venue-card__image" v-for="i in 4" :key="i">
-                <img :src="venueImage" alt="Other Venue" />
-                <div class="venue-card__overlay"></div>
-              </div>
-            </div>
+            <VenueBookingCardImages
+              :items="otherVenueImages"
+              :loading="venuesLoading"
+            />
             <el-button type="primary" class="venue-card__button" @click="goToOtherVenues">
               Book Now →
             </el-button>
@@ -50,30 +46,55 @@
     </main>
 
     <BookingStyleModal
+      v-if="hasVenueRuleNotice"
       v-model="noticeDialogVisible"
       title="Important Note"
-      max-width="720px"
+      max-width="820px"
       custom-class="important-note-modal"
     >
-      <div class="venue-rule-notice-content" v-html="venueRuleNoticeContent"></div>
+      <div v-if="venueRuleNoticeLoading" class="venue-rule-notice-content">Loading...</div>
+      <div
+        v-else-if="venueRuleNoticeContent"
+        class="venue-rule-notice-content rich-content"
+        v-html="venueRuleNoticeContent"
+      ></div>
+      <div v-else class="venue-rule-notice-content venue-rule-notice-empty">No content available.</div>
     </BookingStyleModal>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import venueImage from '../assets/venue/1.jpg'
 import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
-import { getMockPromptList } from '@/mocks/mockData'
+import VenueBookingCardImages from '@/components/VenueBookingCardImages.vue'
+import { useVenueBookingImages } from '@/composables/useVenueBookingImages'
+import { useVenueBookingRuleNotice } from '@/composables/useVenueBookingRuleNotice'
+import '@/styles/rich-content.css'
 
 const router = useRouter()
 const noticeDialogVisible = ref(false)
-const promptList = getMockPromptList()
-const venueRuleNoticeContent = computed(() => {
-  return promptList.find(item => item.key === 'venue_booking_lecture_theatre_notice')?.content || ''
+const {
+  venueRuleNoticeContent,
+  venueRuleNoticeBannerText,
+  venueRuleNoticeLoading,
+  hasVenueRuleNotice,
+  loadVenueRuleNotice
+} = useVenueBookingRuleNotice()
+
+const {
+  venuesLoading,
+  conferenceImages,
+  otherVenueImages,
+  loadVenueBookingImages
+} = useVenueBookingImages()
+
+onMounted(() => {
+  loadVenueRuleNotice()
+  loadVenueBookingImages()
 })
+
 const goToConference = () => router.push({ name: 'VenueCalendarView', query: { roomType: 'conference' } })
 const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { roomType: 'other' } })
 </script>
@@ -129,24 +150,6 @@ const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { 
 
 .read-more-link:hover {
   color: #115e59;
-}
-
-.venue-rule-notice-content {
-  color: #1f2937;
-  font-size: 14px;
-  line-height: 1.6;
-  text-align: center;
-}
-
-.venue-rule-notice-content :deep(.venue-notice-line) {
-  margin: 0 0 10px;
-  font-size: 18px;
-  font-weight: 700;
-  color: #ef4444;
-}
-
-.venue-rule-notice-content :deep(.venue-notice-line.zh) {
-  color: #111827;
 }
 
 /* Content container: max width and centered */
@@ -239,53 +242,6 @@ const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { 
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-/* Image grid */
-.venue-card__grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  row-gap: clamp(8px, 1vh, 10px);
-  column-gap: clamp(8px, 1vh, 10px);
-  flex: 1;
-  align-content: center;
-  margin-bottom: clamp(8px, 1vh, 10px);
-}
-
-/* Image block */
-.venue-card__image {
-  aspect-ratio: 4/3;
-  border-radius: clamp(0.4rem, 0.8vh, 0.6rem);
-  overflow: hidden;
-  position: relative;
-  will-change: transform;
-  backface-visibility: hidden;
-  padding: 0;
-  margin: 0;
-}
-
-/* Image */
-.venue-card__image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  padding: 0;
-  margin: 0;
-  border: none;
-  outline: none;
-}
-
-/* Hover overlay */
-.venue-card__overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, transparent, rgba(0,0,0,0.3));
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-.venue-card__image:hover .venue-card__overlay {
-  opacity: 1;
 }
 
 /* CTA button */

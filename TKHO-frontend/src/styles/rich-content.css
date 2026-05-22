@@ -1,14 +1,36 @@
+/* 覆盖 style.css :root { font-synthesis: none }，否则 em/i 斜体不可见 */
+.rich-content {
+  font-synthesis: style;
+}
+
+.rich-content em,
+.rich-content i,
+.rich-content [style*='font-style: italic'],
+.rich-content [style*='font-style:italic'] {
+  font-style: italic !important;
+}
+
 .rich-content p {
   margin: 0;
 }
 
-.rich-content ol,
-.rich-content ul {
+/* Tailwind preflight sets list-style: none on ol/ul — restore markers for saved HTML */
+.rich-content ol {
+  list-style-type: decimal;
+  list-style-position: outside;
   margin: 0;
-  padding-left: 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.rich-content ul {
+  list-style-type: disc;
+  list-style-position: outside;
+  margin: 0;
+  padding-left: 1.5rem;
 }
 
 .rich-content li {
+  display: list-item;
   margin: 0.2rem 0;
 }
 

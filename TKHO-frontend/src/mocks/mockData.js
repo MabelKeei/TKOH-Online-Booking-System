@@ -5,7 +5,7 @@
  * 关联字段约定（便于与真实 API / 表结构对齐）：
  * - 会议审批：venueId → 场地；bookerEmployeeId → 员工 id；bookerCorpId → 预订人 corpId
  * - 账号待审批：departmentId → 部门 id（与 department 名称对应）
- * - 车牌：employeeId → 员工 id（与 corpId 对应同一人）
+ * - 车牌：userId → 用户 id（与 corpId 对应同一人）
  * - 展示配置 venueRules：venueId、displayType、mergeGroup、displayName（大屏行名，如 CR1）、arrowDirection（8方向）
  *   - 特殊规则：EV 可使用 venueId=null，前端据此判断为固定行（不可修改）
  * - 员工 ↔ 角色 / 部门：当前仅用字符串 role、department，若需 roleId、departmentId 可在员工记录上扩展
@@ -425,18 +425,7 @@ export function getMockPromptList () {
       id: 1,
       key: 'ev_booking_points_to_note',
       name: 'EV Booking Points to Note',
-      content: `<p><strong>Points to Note:</strong></p>
-<ol>
-  <li>1. TKOH Car Park Reservation System allows access by nominated staff only.</li>
-  <li>2. Visitors coming to TKOH to attend meeting or to deliver presentation at lecture/seminar/workshop, or to service or technical support should make booking through the nominated staff.</li>
-  <li>3. Booking is not available for visitors coming to attend training, course, seminar or workshop.</li>
-  <li>4. Booking for contractors or suppliers for whatever purpose is not accepted.</li>
-  <li>5. Booking should be made at least 5 working days before the date of parking.</li>
-  <li>6. Confirmation of booking will be announced on the system 5 days before the date of parking.</li>
-  <li>7. Amendment for car registration number or booking details must be notified in advance.</li>
-  <li>8. Reserved parking-space will be allocated to other users if the registered car does not show up one hour after.</li>
-  <li>9. Owing to the limited number of parking-spaces in the Reserved Carpark, acceptance of car park reservation of a parking-space.</li>
-</ol>`,
+      content: `<p><strong>Points to Note:</strong></p><ol><li>TKOH Car Park Reservation System allows access by nominated staff only.</li><li>Visitors coming to TKOH to attend meeting or to deliver presentation at lecture/seminar/workshop, or to service or technical support should make booking through the nominated staff.</li><li>Booking is not available for visitors coming to attend training, course, seminar or workshop.</li><li>Booking for contractors or suppliers for whatever purpose is not accepted.</li><li>Booking should be made at least 5 working days before the date of parking.</li><li>Confirmation of booking will be announced on the system 5 days before the date of parking.</li><li>Amendment for car registration number or booking details must be notified in advance.</li><li>Reserved parking-space will be allocated to other users if the registered car does not show up one hour after.</li><li>Owing to the limited number of parking-spaces in the Reserved Carpark, acceptance of car park reservation of a parking-space.</li></ol>`,
       category: 'system_fixed',
       canAdd: false
     },
@@ -444,12 +433,7 @@ export function getMockPromptList () {
       id: 2,
       key: 'venue_booking_points_to_note',
       name: 'Venue Booking Points to Note',
-      content: `<p><strong>Points to Note:</strong></p>
-<ol>
-  <li>1. For reservation of other venues (e.g. Courtyard or Glasshouse), please contact General Office at <strong>2208 1951</strong> directly.</li>
-  <li>2. General Office reserves the right to cancel any booking or reassign another venue under necessary circumstances.</li>
-  <li>3. Should user require the following service for the meeting, please directly contact the respective department in advance for arrangement.</li>
-</ol>
+      content: `<p><strong>Points to Note:</strong></p><ol><li>For reservation of other venues (e.g. Courtyard or Glasshouse), please contact General Office at <strong>2208 1951</strong> directly.</li><li>General Office reserves the right to cancel any booking or reassign another venue under necessary circumstances.</li><li>Should user require the following service for the meeting, please directly contact the respective department in advance for arrangement.</li></ol>
 <table>
   <thead>
     <tr>
@@ -595,8 +579,8 @@ export function getMockPromptList () {
     },
     {
       id: 16,
-      key: 'venue_booking_lecture_theatre_notice',
-      name: 'Venue Booking Lecture Theatre Notice',
+      key: 'venue_booking_rule_update_notice',
+      name: 'Venue Booking Rule Update Notice',
       content: `<p class="venue-notice-line">Lecture Theatre is temporarily closed.</p>
 <p class="venue-notice-line zh">演講廳暫停使用</p>`,
       category: 'system_fixed',
@@ -640,10 +624,10 @@ export function getMockLicensePlateList () {
   if (_licensePlateList) return cloneMockList(_licensePlateList)
 
   _licensePlateList = [
-    { id: 1, employeeId: 1, corpId: 'E001', owner: 'John Doe', plateNumber: 'SJA1234A', status: 'active' },
-    { id: 2, employeeId: 2, corpId: 'E002', owner: 'Jane Smith', plateNumber: 'SJB5678B', status: 'active' },
-    { id: 3, employeeId: 6, corpId: 'E006', owner: 'Olivia Chan', plateNumber: 'SKO9012C', status: 'inactive' },
-    { id: 4, employeeId: 20, corpId: 'E020', owner: 'Ivy Cheong', plateNumber: 'SKP3456D', status: 'active' }
+    { id: 1, userId: 1, corpId: 'E001', owner: 'John Doe', plateNumber: 'SJA1234A', status: 'active' },
+    { id: 2, userId: 2, corpId: 'E002', owner: 'Jane Smith', plateNumber: 'SJB5678B', status: 'active' },
+    { id: 3, userId: 6, corpId: 'E006', owner: 'Olivia Chan', plateNumber: 'SKO9012C', status: 'inactive' },
+    { id: 4, userId: 20, corpId: 'E020', owner: 'Ivy Cheong', plateNumber: 'SKP3456D', status: 'active' }
   ]
 
   return cloneMockList(_licensePlateList)

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { EvManagementService } from './ev-management.service';
 import { CreateEvParkingDto } from './dto/create-ev-parking.dto';
@@ -6,6 +6,7 @@ import { UpdateEvParkingDto } from './dto/update-ev-parking.dto';
 import { CreateEvTimePeriodDto } from './dto/create-ev-time-period.dto';
 import { UpdateEvTimePeriodDto } from './dto/update-ev-time-period.dto';
 import { PublishEvWindowDto } from './dto/publish-ev-window.dto';
+import { ListEvBookingsQueryDto } from './dto/list-ev-bookings-query.dto';
 
 @ApiTags('ev-management')
 @ApiBearerAuth()
@@ -61,5 +62,21 @@ export class EvManagementController {
   @Patch('booking-window')
   publishBookingWindow(@Body() dto: PublishEvWindowDto) {
     return this.evManagementService.publishEvBookingWindow(dto);
+  }
+
+  @Get('bookings')
+  listBookings(
+    @Req() req: { user: { sub?: string; corpId?: string; role?: string; system?: string } },
+    @Query() query: ListEvBookingsQueryDto,
+  ) {
+    return this.evManagementService.listManageBookings(req.user, query.scope ?? 'my');
+  }
+
+  @Patch('bookings/:id/cancel')
+  cancelBooking(
+    @Req() req: { user: { sub?: string; corpId?: string; role?: string; system?: string } },
+    @Param('id') id: string,
+  ) {
+    return this.evManagementService.cancelManageBooking(req.user, id);
   }
 }

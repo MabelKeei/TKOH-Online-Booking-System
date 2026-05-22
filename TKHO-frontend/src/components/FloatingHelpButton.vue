@@ -15,7 +15,12 @@
     <!-- 帮助信息弹窗 -->
     <BookingStyleModal v-model="dialogVisible" title="Points to Note" max-width="900px">
       <div class="help-content">
-        <div v-if="currentPointsToNoteContent" class="help-rich-content" v-html="currentPointsToNoteContent"></div>
+        <p v-if="pointsToNoteLoading" class="empty-note">Loading...</p>
+        <div
+          v-else-if="currentPointsToNoteContent"
+          class="help-rich-content"
+          v-html="currentPointsToNoteContent"
+        ></div>
         <p v-else class="empty-note">No points to note for current system.</p>
       </div>
     </BookingStyleModal>
@@ -27,6 +32,8 @@ import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getMockPromptList } from '@/mocks/mockData'
+import { getPrompts, getPublicPointsToNote } from '@/api/promptManagement'
+import { formatPointsToNoteForDisplay } from '@/utils/pointsToNoteHtml'
 import BookingStyleModal from './BookingStyleModal.vue'
 
 const route = useRoute()
@@ -38,10 +45,38 @@ const dragStart = ref({ x: 0, y: 0 })
 const hasMoved = ref(false)
 const BUTTON_SIZE = 50
 const EDGE_GAP = 10
-const promptList = getMockPromptList()
-const pointsToNoteKeyBySystem = {
+const POINTS_TO_NOTE_KEYS = {
   parking: 'ev_booking_points_to_note',
   room: 'venue_booking_points_to_note'
+}
+const pointsToNoteByKey = ref({
+  [POINTS_TO_NOTE_KEYS.parking]: '',
+  [POINTS_TO_NOTE_KEYS.room]: ''
+})
+const pointsToNoteLoading = ref(false)
+
+const applyPointsToNoteList = (list) => {
+  const items = Array.isArray(list) ? list : []
+  pointsToNoteByKey.value = {
+    [POINTS_TO_NOTE_KEYS.parking]:
+      items.find((item) => item.key === POINTS_TO_NOTE_KEYS.parking)?.content || '',
+    [POINTS_TO_NOTE_KEYS.room]:
+      items.find((item) => item.key === POINTS_TO_NOTE_KEYS.room)?.content || ''
+  }
+}
+
+const loadPointsToNote = async () => {
+  pointsToNoteLoading.value = true
+  try {
+    const data = userStore.token
+      ? await getPrompts({ category: 'system_fixed' })
+      : await getPublicPointsToNote()
+    applyPointsToNoteList(data)
+  } catch {
+    applyPointsToNoteList(getMockPromptList())
+  } finally {
+    pointsToNoteLoading.value = false
+  }
 }
 
 const activeSystem = computed(() => {
@@ -52,12 +87,17 @@ const activeSystem = computed(() => {
   return ''
 })
 
+const currentPointsToNoteKey = computed(() => {
+  if (route.path.startsWith('/evBooking')) return POINTS_TO_NOTE_KEYS.parking
+  if (route.path.startsWith('/VenueBooking')) return POINTS_TO_NOTE_KEYS.room
+  return POINTS_TO_NOTE_KEYS[activeSystem.value] || ''
+})
+
 const currentPointsToNoteContent = computed(() => {
-  const targetKey = pointsToNoteKeyBySystem[activeSystem.value]
+  const targetKey = currentPointsToNoteKey.value
   if (!targetKey) return ''
-  const rawContent = promptList.find(item => item.key === targetKey)?.content || ''
-  // Modal title already shows "Points to Note", strip duplicated heading in body.
-  return rawContent.replace(/^\s*<p>\s*<strong>\s*Points?\s+to\s+Note\s*:\s*<\/strong>\s*<\/p>\s*/i, '')
+  const rawContent = pointsToNoteByKey.value[targetKey] || ''
+  return formatPointsToNoteForDisplay(rawContent)
 })
 
 const getZoomScale = () => {
@@ -116,6 +156,7 @@ const isLoginPage = computed(() =>
 
 // 初始化位置（右下角）
 onMounted(() => {
+  loadPointsToNote()
   placeToBottomRight()
   window.addEventListener('resize', keepInsideViewport)
 })
@@ -212,13 +253,48 @@ onUnmounted(() => {
   color: #374151;
 }
 
+/* 全局 font-synthesis: none 会吞掉斜体，与 PromptManagement 预览区一致 */
+.help-rich-content {
+  font-synthesis: style;
+}
+
+.help-rich-content :deep(em),
+.help-rich-content :deep(i),
+.help-rich-content :deep([style*='font-style: italic']),
+.help-rich-content :deep([style*='font-style:italic']) {
+  font-style: italic !important;
+}
+
 .help-rich-content :deep(p) {
   margin: 0 0 8px;
 }
 
+.help-rich-content :deep(strong),
+.help-rich-content :deep(b) {
+  font-weight: 700;
+  color: inherit;
+}
+
+.help-rich-content :deep(u) {
+  text-decoration: underline;
+}
+
 .help-rich-content :deep(ol) {
+  list-style-type: decimal;
+  list-style-position: outside;
   margin: 0;
-  padding-left: 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.help-rich-content :deep(ul) {
+  list-style-type: disc;
+  list-style-position: outside;
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.help-rich-content :deep(li) {
+  display: list-item;
 }
 
 .help-rich-content :deep(li + li) {
@@ -243,10 +319,19 @@ onUnmounted(() => {
   border: 1px solid #d1d5db;
 }
 
-.help-rich-content :deep(thead tr) {
+/* 表头默认浅绿底 + 深绿字（覆盖编辑器内联白底） */
+.help-rich-content :deep(thead th),
+.help-rich-content :deep(th) {
   font-weight: 700;
-  background: linear-gradient(135deg, #d0e8d6 0%, #c8e6d0 100%);
-  color: #0A3D1F;
+  background: linear-gradient(135deg, #d0e8d6 0%, #c8e6d0 100%) !important;
+  color: #0a3d1f !important;
+}
+
+/* 无 thead 时，首行作表头 */
+.help-rich-content :deep(table:not(:has(thead)) tbody > tr:first-child > td) {
+  font-weight: 700;
+  background: linear-gradient(135deg, #d0e8d6 0%, #c8e6d0 100%) !important;
+  color: #0a3d1f !important;
 }
 
 .help-rich-content :deep(tbody tr:nth-child(odd)) td {

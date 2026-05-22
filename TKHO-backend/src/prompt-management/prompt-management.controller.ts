@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
 import { PromptManagementService } from './prompt-management.service';
 import { CreatePromptDto } from './dto/create-prompt.dto';
 import { UpdatePromptDto } from './dto/update-prompt.dto';
@@ -9,6 +10,18 @@ import { UpdatePromptDto } from './dto/update-prompt.dto';
 @Controller('api/prompt-management')
 export class PromptManagementController {
   constructor(private readonly promptManagementService: PromptManagementService) {}
+
+  @Public()
+  @Get('public/points-to-note')
+  listPublicPointsToNote() {
+    return this.promptManagementService.listPublicPointsToNote();
+  }
+
+  @Public()
+  @Get('public/booking-notices')
+  listPublicBookingNotices() {
+    return this.promptManagementService.listPublicBookingNotices();
+  }
 
   @Get('prompts')
   listPrompts(@Query('category') category?: string) {

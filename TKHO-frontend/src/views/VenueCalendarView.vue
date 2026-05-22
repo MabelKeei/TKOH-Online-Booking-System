@@ -1,7 +1,7 @@
 <template>
   <div class="calendar-page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden" style="padding-top: var(--app-header-height, 64px);">
     <AppHeader />
-    <div v-if="!showTopTip" class="top-tip-toggle-wrapper">
+    <div v-if="hasVenueRuleNotice && !showTopTip" class="top-tip-toggle-wrapper">
       <button
         type="button"
         class="top-tip-toggle-btn"
@@ -10,9 +10,9 @@
         @click="showTopTip = true"
       ></button>
     </div>
-    <div v-if="showTopTip" class="top-tip-wrapper px-2 md:px-3 lg:px-4 pt-2 pb-0">
+    <div v-if="hasVenueRuleNotice && showTopTip" class="top-tip-wrapper px-2 md:px-3 lg:px-4 pt-2 pb-0">
       <div class="booking-window-tip">
-        <span>Important Note: Lecture Theatre is temporarily closed.</span>
+        <span>Important Note: {{ venueRuleNoticeBannerText }}</span>
         <button type="button" class="read-more-link" @click="noticeDialogVisible = true">Read more...</button>
         <button type="button" class="tip-close-btn" aria-label="Close important note" @click="showTopTip = false">
           &times;
@@ -28,8 +28,11 @@
 
     <!-- Main content -->
     <main
-      class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 pt-0 pb-1 md:pb-2 overflow-hidden"
-      :class="{ 'tip-collapsed-gap': !showTopTip }"
+      class="calendar-main flex-1 flex flex-col px-2 md:px-3 lg:px-4 pb-1 md:pb-2 overflow-hidden"
+      :class="{
+        'tip-collapsed-gap': hasVenueRuleNotice && !showTopTip,
+        'calendar-main-header-gap': !hasVenueRuleNotice
+      }"
     >
       <!-- Top toolbar -->
       <div class="toolbar toolbar-layout mb-1 flex items-center justify-between gap-3">
@@ -298,12 +301,19 @@
       </template>
     </BookingStyleModal>
     <BookingStyleModal
+      v-if="hasVenueRuleNotice"
       v-model="noticeDialogVisible"
       title="Important Note"
-      max-width="720px"
+      max-width="820px"
       custom-class="important-note-modal"
     >
-      <div class="venue-rule-notice-content" v-html="venueRuleNoticeContent"></div>
+      <div v-if="venueRuleNoticeLoading" class="venue-rule-notice-content">Loading...</div>
+      <div
+        v-else-if="venueRuleNoticeContent"
+        class="venue-rule-notice-content rich-content"
+        v-html="venueRuleNoticeContent"
+      ></div>
+      <div v-else class="venue-rule-notice-content venue-rule-notice-empty">No content available.</div>
     </BookingStyleModal>
 
     <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
@@ -327,7 +337,9 @@ import VenueCalendarDay from '../components/VenueCalendarDay.vue'
 import VenueBookingDialog from '../components/VenueBookingDialog.vue'
 import VenueBookingDetailDialog from '../components/VenueBookingDetailDialog.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
-import { getMockVenueList, getMockBookingWindow, getMockPromptList, getMockVenueCalendarBookingList } from '../mocks/mockData'
+import { getMockVenueList, getMockBookingWindow, getMockVenueCalendarBookingList } from '../mocks/mockData'
+import { useVenueBookingRuleNotice } from '@/composables/useVenueBookingRuleNotice'
+import '@/styles/rich-content.css'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 // import { getBookingsByMonth, getBookingsByWeek, getBookingsByDate } from '../api/calendar'
@@ -369,10 +381,13 @@ const showNotice = (message, title = 'Notice') => {
   noticeMessage.value = message
   showNoticeDialog.value = true
 }
-const promptList = getMockPromptList()
-const venueRuleNoticeContent = computed(() => {
-  return promptList.find(item => item.key === 'venue_booking_lecture_theatre_notice')?.content || ''
-})
+const {
+  venueRuleNoticeContent,
+  venueRuleNoticeBannerText,
+  venueRuleNoticeLoading,
+  hasVenueRuleNotice,
+  loadVenueRuleNotice
+} = useVenueBookingRuleNotice()
 const blockForm = ref({
   roomName: '',
   startAt: '',
@@ -903,6 +918,7 @@ function handleBookingClick(dayDate) {
 // Logout handler
 // Initialize demo bookings
 onMounted(() => {
+  loadVenueRuleNotice()
   if (!isDateInVenueWindow(currentDate.value)) {
     currentDate.value = new Date(venueWindowRange.value.start)
   }
@@ -984,6 +1000,10 @@ onUnmounted(() => {
 
 .calendar-main.tip-collapsed-gap {
   margin-top: 6px;
+}
+
+.calendar-main.calendar-main-header-gap {
+  padding-top: 0.5rem;
 }
 
 .toolbar {
@@ -1111,24 +1131,6 @@ onUnmounted(() => {
 .top-tip-toggle-btn:focus-visible {
   outline: 2px solid #bbf7d0;
   outline-offset: 2px;
-}
-
-.venue-rule-notice-content {
-  color: #1f2937;
-  font-size: 14px;
-  line-height: 1.6;
-  text-align: center;
-}
-
-.venue-rule-notice-content :deep(.venue-notice-line) {
-  margin: 0 0 10px;
-  font-size: 18px;
-  font-weight: 700;
-  color: #ef4444;
-}
-
-.venue-rule-notice-content :deep(.venue-notice-line.zh) {
-  color: #111827;
 }
 
 .notice-message {

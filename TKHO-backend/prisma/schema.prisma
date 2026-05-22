@@ -24,9 +24,11 @@ model User {
   status           String        @default("Active")
   lastLoginTime    DateTime?     @map("last_login_time") @db.Timestamptz(6)
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  access_roles     access_roles? @relation(fields: [accessRoleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  department       departments?  @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  pending_users    pending_users[]
+  access_roles            access_roles?   @relation(fields: [accessRoleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  department              departments?    @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pending_users           pending_users[]
+  venueBookingsReserved VenueBookings[] @relation("VenueBookingReservedBy")
+  venueBookingsHandled  VenueBookings[] @relation("VenueBookingHandler")
 
   @@map("user")
 }
@@ -46,9 +48,8 @@ model Venues {
   createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   roomCapacity         Int?                   @map("room_capacity")
   display_venue_rules  display_venue_rules?
-  meeting_bookings     meeting_bookings[]
-  tea_service_requests tea_service_requests[]
-  venue_blocks         venue_blocks[]
+  venueBookings VenueBookings[]
+  venue_blocks  venue_blocks[]
 
   @@map("venues")
 }
@@ -78,17 +79,15 @@ model EvTimePeriods {
 
 model EvBookings {
   id             BigInt         @id @default(autoincrement())
-  sourceId       BigInt?        @map("source_id")
-  employeeCorpId String?        @map("employee_corp_id")
-  plateNumber    String         @map("plate_number")
+  userCorpId     String?        @map("user_corp_id")
+  licensePlateId BigInt         @map("license_plate_id")
   slotId         BigInt         @map("slot_id")
   periodId       BigInt?        @map("period_id")
   bookingDate    DateTime       @map("booking_date") @db.Date
   bookedOn       DateTime?      @map("booked_on") @db.Timestamptz(6)
   status         String
-  sourceRawTime  String?        @map("source_raw_time")
-  sourceRawSpace String?        @map("source_raw_space")
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  licensePlate   license_plates @relation(fields: [licensePlateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   period         EvTimePeriods? @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   slot           EvParkingSlots @relation(fields: [slotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -166,37 +165,64 @@ model display_venue_rules {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model license_plates {
-  id           BigInt   @id
-  employee_id  BigInt?
-  plate_number String   @unique
-  is_default   Boolean  @default(false)
-  status       String   @default("active")
-  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  id           BigInt       @id
+  user_id      BigInt?      @map("user_id")
+  plate_number String       @unique
+  is_default   Boolean      @default(false)
+  status       String       @default("active")
+  created_at   DateTime     @default(now()) @db.Timestamptz(6)
+  ev_bookings  EvBookings[]
 }
 
+/// 场地预订主表：统一承载日历视图、我的预订、管理审批等场景。
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model meeting_bookings {
-  id                 BigInt    @id
-  booking_id         String?   @unique
-  source_list        String
-  venue_id           BigInt?
-  venue_name         String?
-  booker_employee_id BigInt?
-  booker_corp_id     String?
-  user_name          String?
-  department         String?
-  meeting_title      String?
-  booking_date       DateTime? @db.Date
-  time_range         String?
-  submitted_at       DateTime? @db.Timestamptz(6)
-  approved_at        DateTime? @db.Timestamptz(6)
-  approved_by        String?
-  rejected_at        DateTime? @db.Timestamptz(6)
-  rejected_by        String?
-  reject_reason      String?
-  tea_service        Json?
-  created_at         DateTime  @default(now()) @db.Timestamptz(6)
-  venues             Venues?   @relation(fields: [venue_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model VenueBookings {
+  /// 主键，自增。
+  id             BigInt    @id @default(autoincrement())
+  /// 场地 ID，关联 venues.id。
+  venueId        BigInt?   @map("venue_id")
+  /// 预订人/预留人用户 ID，关联 user.id（联系信息从 user 读取）。
+  reservedByUserId BigInt? @map("reserved_by")
+  /// 会议/活动主题。
+  meetingTitle   String?   @map("meeting_title")
+  /// 预订日期。
+  bookingDate    DateTime? @map("booking_date") @db.Date
+  /// 开始时间，供日历格展示与时段冲突校验。
+  startTime      DateTime? @map("start_time") @db.Time(6)
+  /// 结束时间，供日历格展示与时段冲突校验。
+  endTime        DateTime? @map("end_time") @db.Time(6)
+  /// 预计参会人数。
+  attendees      Int?
+  /// 预订备注。
+  notes          String?
+  /// 预订生命周期状态：如 upcoming、past、canceled。
+  status         String?
+  /// 预订类型，默认 venue（场地预订）。
+  bookingType    String?   @default("venue") @map("booking_type")
+  /// 审批状态：pending、approved、rejected。
+  approvalStatus String?   @map("approval_status")
+  /// 审批处理人用户 ID（通过或拒绝），关联 user.id。
+  handleByUserId BigInt?   @map("handle_by")
+  /// 审批处理时间（通过或拒绝）。
+  handledAt      DateTime? @map("handled_at") @db.Timestamptz(6)
+  /// 拒绝原因（仅 rejected 时有值）。
+  rejectReason   String?   @map("reject_reason")
+  /// 预订时是否勾选需要茶水服务；详情见 venue_tea_service.tea_service。
+  teaServiceRequired Boolean @default(false) @map("tea_service_required")
+  /// 用户提交预订的时间。
+  submittedAt    DateTime? @map("submitted_at") @db.Timestamptz(6)
+  /// 记录创建时间。
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 记录最后修改时间；业务更新时应同步刷新。
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  venue             Venues?               @relation(fields: [venueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reservedBy        User?                 @relation("VenueBookingReservedBy", fields: [reservedByUserId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  handler           User?                 @relation("VenueBookingHandler", fields: [handleByUserId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  venueTeaService   VenueTeaService?
+
+  @@index([venueId, bookingDate], map: "idx_venue_bookings_venue_date")
+  @@index([approvalStatus], map: "idx_venue_bookings_approval_status")
+  @@map("venue_bookings")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -233,17 +259,21 @@ model prompts {
   created_at    DateTime @default(now()) @db.Timestamptz(6)
 }
 
+/// 场地预订茶水服务：一对一关联 venue_bookings；茶歇详情以本表 tea_service 为准。
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model tea_service_requests {
-  booking_id    String    @id
-  venue_id      BigInt?
-  meeting_title String?
-  booking_date  DateTime? @db.Date
-  time_range    String?
-  tea_service   Json
-  completed     Boolean   @default(false)
-  created_at    DateTime  @default(now()) @db.Timestamptz(6)
-  venues        Venues?   @relation(fields: [venue_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model VenueTeaService {
+  /// 关联 venue_bookings.id（主键即外键，有茶歇才存在此行）
+  venueBookingId BigInt        @id @map("venue_booking_id")
+  /// 茶歇需求 JSON（饮品、供应方式、人数、备注等）；展示板读本字段。
+  teaService     Json          @map("tea_service")
+  /// 茶水间是否已在展示板标记完成。
+  completed      Boolean       @default(false)
+  /// 进入茶水展示板队列的时间（可与预订 submitted_at 不同）。
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  venueBooking   VenueBookings @relation(fields: [venueBookingId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([completed], map: "idx_venue_tea_service_completed")
+  @@map("venue_tea_service")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -257,41 +287,3 @@ model venue_blocks {
   venues     Venues   @relation(fields: [venue_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model venue_calendar_bookings {
-  id           BigInt   @id
-  room_name    String
-  booking_date DateTime @db.Date
-  start_time   DateTime @db.Time(6)
-  end_time     DateTime @db.Time(6)
-  attendees    Int?
-  topic        String?
-  notes        String?
-  reserved_by  String?
-  contact      String?
-  color        String?
-  created_at   DateTime @default(now()) @db.Timestamptz(6)
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model venue_manage_bookings {
-  id                       BigInt    @id
-  topic                    String
-  room                     String
-  booking_date             DateTime? @db.Date
-  time_range               String?
-  booked_on                DateTime? @db.Timestamptz(6)
-  status                   String?
-  booking_type             String?
-  reserved_by              String?
-  contact                  String?
-  email                    String?
-  tea_service_required     Boolean   @default(false)
-  tea_service_summary      String?
-  tea_service_participants Int?
-  approval_status          String?
-  approved_by              String?
-  approved_at              DateTime? @db.Timestamptz(6)
-  reject_reason            String?
-  created_at               DateTime  @default(now()) @db.Timestamptz(6)
-}

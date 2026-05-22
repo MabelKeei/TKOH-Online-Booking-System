@@ -17,10 +17,21 @@ const userStore = useUserStore()
 const route = useRoute()
 const isAdminRoute = computed(() => route.path.startsWith('/admin'))
 const isPublicRegistrationRoute = computed(() => route.path === '/register')
-const showFloatingHelpButton = computed(() => !isAdminRoute.value && !isPublicRegistrationRoute.value)
+const showFloatingHelpButton = computed(
+  () =>
+    !isAdminRoute.value &&
+    !isPublicRegistrationRoute.value &&
+    !isPublicEntryRoute(route.path)
+)
+
+const isPublicEntryRoute = (path) => path === '/login' || path === '/register'
 
 onMounted(async () => {
   userStore.initUserInfo()
+  // 登录/注册页刷新时不要带过期 token 调 /auth/me，否则会触发全局 401 弹窗
+  if (isPublicEntryRoute(route.path)) {
+    return
+  }
   await userStore.refreshSessionUser()
 })
 </script>

@@ -12,7 +12,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:status": "prisma migrate status",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "load-test:ev": "node scripts/load-test/ev-booking-concurrent.mjs",
+    "load-test:ev-calendar": "node scripts/load-test/ev-booking-calendar-stress.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",

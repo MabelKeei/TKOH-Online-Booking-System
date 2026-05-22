@@ -19,7 +19,7 @@ Swagger: `http://localhost:4001/api/docs`
 - `AuthModule`: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/user`
 - `HealthModule`: `GET /api/health`
 - `MetaModule`: `GET /api/meta/users`, `GET /api/meta/employees`（与 `users` 同数据，兼容旧路径）, `GET /api/meta/venues`
-- `ParkingModule`: `POST /api/parking/occupy`（Redis 锁 + Prisma 事务）
+- `ParkingModule`: EV 预订 / 日历余量 / `occupy`（PostgreSQL 事务 + advisory lock；P1：Redis 缓存日历与 booking window、抢订限流，见 `docs/P1-ev-performance.md`）
 
 ## Prisma
 

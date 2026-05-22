@@ -22,11 +22,12 @@
           <div class="form-section">
             <label class="form-label">License plate number <span class="required">*</span></label>
             <el-select
-              v-model="form.licensePlate"
+              v-model="form.licensePlateId"
               placeholder="Select license plate"
               class="form-input form-input-license"
-              size="large"
               :teleported="false"
+              :loading="vehiclesLoading"
+              :disabled="vehiclesLoading || !vehicles.length"
             >
               <el-option
                 v-for="vehicle in vehicles"
@@ -43,18 +44,18 @@
             <div class="time-period-group">
               <label
                 v-for="period in timePeriods"
-                :key="period.value"
+                :key="period.id"
                 class="time-period-option"
                 :class="{
-                  'is-selected': form.timePeriod === period.value,
-                  'is-disabled': !isTimeAvailable(period.value)
+                  'is-selected': form.timePeriod === period.id,
+                  'is-disabled': !isTimeAvailable(period.id)
                 }"
               >
                 <input
                   type="radio"
-                  :value="period.value"
+                  :value="period.id"
                   v-model="form.timePeriod"
-                  :disabled="!isTimeAvailable(period.value)"
+                  :disabled="!isTimeAvailable(period.id)"
                   class="time-radio"
                 />
                 <span class="time-label">{{ period.label }}</span>
@@ -82,7 +83,7 @@
           <div class="form-section parking-info-section">
             <div class="parking-info">
               <span class="parking-label">Parking space:</span>
-              <span class="parking-value">B3 (auto-assigned)</span>
+              <span class="parking-value">{{ parkingSpaceDisplay }}</span>
             </div>
           </div>
         </div>
@@ -90,26 +91,33 @@
 
       <!-- 底部按钮 -->
       <div class="modal-footer">
-        <el-button @click="handleClose" class="cancel-btn">Cancel</el-button>
-        <el-button @click="handleSave" class="save-btn">Save</el-button>
+        <el-button @click="handleClose" class="cancel-btn" :disabled="submitting">Cancel</el-button>
+        <el-button
+          @click="handleSave"
+          class="save-btn"
+          :loading="submitting"
+          :disabled="submitting || !canSaveBooking"
+        >
+          Save
+        </el-button>
       </div>
     </div>
 
-    <div v-if="statusDialog.visible" class="status-modal-overlay" @click.self="statusDialog.visible = false">
+    <div v-if="statusDialog.visible" class="status-modal-overlay" @click.self="dismissStatusDialog">
       <div class="status-modal-wrapper">
         <div class="status-modal-header">
           <span class="status-modal-title">Reminder</span>
-          <button type="button" class="status-modal-close" @click="statusDialog.visible = false">
+          <button type="button" class="status-modal-close" @click="dismissStatusDialog">
             <svg viewBox="0 0 24 24" class="status-close-icon">
               <path d="M18 6L6 18M6 6l12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
         </div>
         <div class="status-modal-body">
-          <p class="status-dialog-message">{{ statusDialog.message }}</p>
+          <p :class="['status-dialog-message', statusDialog.type]">{{ statusDialog.message }}</p>
         </div>
         <div class="status-modal-footer">
-          <el-button class="status-confirm-btn" type="default" @click="statusDialog.visible = false">OK</el-button>
+          <el-button class="status-confirm-btn" type="default" @click="dismissStatusDialog">OK</el-button>
         </div>
       </div>
     </div>
@@ -117,7 +125,11 @@
 </template>
 
 <script setup>
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted, computed } from 'vue'
+import { getAccountVehicles } from '@/api/accountVehicle'
+import { getEvAssignmentPreview } from '@/api/parking'
+import { getMockAccountVehicleList, getMockEVParkingList } from '@/mocks/mockData'
+import { createDateAtMidnight, isEvSlotPast } from '@/utils/evSlotPast'
 
 const props = defineProps({
   visible: {
@@ -135,6 +147,27 @@ const props = defineProps({
   availableSlots: {
     type: Object,
     default: () => ({})
+  },
+  timePeriods: {
+    type: Array,
+    default: () => []
+  },
+  submitting: {
+    type: Boolean,
+    default: false
+  },
+  bookingWindowStart: {
+    type: String,
+    default: ''
+  },
+  bookingWindowEnd: {
+    type: String,
+    default: ''
+  },
+  /** 弹窗打开时先拉最新日历余量，再加载 assignment-preview */
+  refreshCalendarAvailability: {
+    type: Function,
+    default: null
   }
 })
 
@@ -173,54 +206,255 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', handleMouseUp)
 })
 
-// 时间段选项
-const timePeriods = [
-  { value: 'am', label: 'AM (08:30 - 13:00)' },
-  { value: 'pm', label: 'PM (13:45 - 18:15)' },
-  { value: 'night', label: 'Night (19:00 - 23:30)' }
-]
+const vehicles = ref([])
+const vehiclesLoading = ref(false)
 
-// 车辆列表
-const vehicles = ref([
-  { id: 'AB1234', label: 'AB1234 (Toyota - Personal)' },
-  { id: 'CD5678', label: 'CD5678 (Honda - Personal)' },
-  { id: 'EF9012', label: 'EF9012 (Tesla - Company)' },
-  { id: 'GH3456', label: 'GH3456 (BMW - Personal)' }
-])
+const mapVehicleRows = (rows) =>
+  rows.map((item) => ({
+    id: String(item.id),
+    plateNumber: item.plateNumber || item.plate || '',
+    isDefault: Boolean(item.isDefault),
+    label: item.plateNumber || item.plate || ''
+  }))
+
+const loadVehicles = async () => {
+  vehiclesLoading.value = true
+  try {
+    const res = await getAccountVehicles()
+    const active = (res?.vehicles || []).filter(
+      (item) => String(item.status || 'active').toLowerCase() === 'active'
+    )
+    vehicles.value = mapVehicleRows(active)
+  } catch {
+    const mockList = getMockAccountVehicleList()
+    vehicles.value = mapVehicleRows(
+      mockList.map((item, index) => ({
+        id: String(index + 1),
+        plateNumber: item.plate,
+        isDefault: item.isDefault,
+        status: 'active'
+      }))
+    )
+  } finally {
+    vehiclesLoading.value = false
+  }
+}
+
+const applyDefaultLicensePlate = () => {
+  const current = form.value.licensePlateId
+  const stillValid = vehicles.value.some((v) => v.id === current)
+  if (stillValid) return
+  const defaultVehicle =
+    vehicles.value.find((v) => v.isDefault) || vehicles.value[0]
+  form.value.licensePlateId = defaultVehicle?.id || ''
+}
 
 // 表单数据
 const form = ref({
-  licensePlate: '',
+  licensePlateId: '',
   timePeriod: '',
-  date: '',
-  parkingSpace: 'B3'
-})
-const statusDialog = ref({
-  visible: false,
-  message: ''
+  date: ''
 })
 
-// 监听选中的日期和时段
+const emptySlotPreview = () => ({
+  total: 0,
+  booked: 0,
+  remaining: 0,
+  isFull: false,
+  suggestedSlot: null
+})
+
+const slotPreview = ref(emptySlotPreview())
+const slotPreviewLoading = ref(false)
+let slotPreviewRequestId = 0
+
+const statusDialog = ref({
+  visible: false,
+  message: '',
+  type: ''
+})
+
+const canSaveBooking = computed(() => {
+  if (!form.value.date || !form.value.timePeriod) return false
+  if (isEvSlotPast(form.value.date, form.value.timePeriod, props.timePeriods)) return false
+  if (!isTimeAvailable(form.value.timePeriod)) return false
+  if (slotPreviewLoading.value) return false
+  return !slotPreview.value.isFull && !!slotPreview.value.suggestedSlot
+})
+
+const parkingSpaceDisplay = computed(() => {
+  if (!form.value.date || !form.value.timePeriod) return '—'
+  if (slotPreviewLoading.value) return '—'
+  if (slotPreview.value.isFull || !slotPreview.value.suggestedSlot) return '—'
+  return slotPreview.value.suggestedSlot.evSpace || '—'
+})
+
+const applyMockSlotPreview = () => {
+  const key = `${form.value.date}-${form.value.timePeriod}`
+  const slot = props.availableSlots[key]
+  const total = slot?.total ?? getMockEVParkingList().filter((s) => s.status === 'active').length
+  const remaining = slot?.available ?? total
+  const booked = slot?.booked ?? Math.max(0, total - remaining)
+  const mockSlots = getMockEVParkingList().filter((s) => s.status === 'active')
+  const suggested = remaining > 0 && mockSlots.length
+    ? mockSlots[Math.floor(Math.random() * mockSlots.length)]
+    : null
+  slotPreview.value = {
+    total,
+    booked,
+    remaining,
+    isFull: remaining === 0,
+    suggestedSlot: suggested
+      ? { id: String(suggested.id), evSpace: suggested.evSpace, location: suggested.location }
+      : null
+  }
+}
+
+const loadSlotPreview = async (options = {}) => {
+  const { shuffle = false } = options
+  if (!form.value.date || !form.value.timePeriod) {
+    slotPreview.value = emptySlotPreview()
+    return
+  }
+
+  const requestId = ++slotPreviewRequestId
+  slotPreviewLoading.value = true
+  try {
+    const params = {
+      bookingDate: form.value.date,
+      periodId: String(form.value.timePeriod)
+    }
+    if (!shuffle && slotPreview.value.suggestedSlot?.id) {
+      params.slotId = slotPreview.value.suggestedSlot.id
+    }
+    const data = await getEvAssignmentPreview(params)
+    if (requestId !== slotPreviewRequestId) return
+    slotPreview.value = {
+      total: Number(data?.total) || 0,
+      booked: Number(data?.booked) || 0,
+      remaining: Number(data?.remaining) || 0,
+      isFull: Boolean(data?.isFull),
+      suggestedSlot: data?.suggestedSlot || null
+    }
+  } catch {
+    if (requestId !== slotPreviewRequestId) return
+    applyMockSlotPreview()
+  } finally {
+    if (requestId === slotPreviewRequestId) {
+      slotPreviewLoading.value = false
+    }
+  }
+}
+
 watch(() => [props.selectedDate, props.selectedPeriod], ([date, period]) => {
   if (date) form.value.date = date
   if (period) form.value.timePeriod = period
 }, { immediate: true })
 
-// 检查时段是否可用
-function isTimeAvailable(period) {
+watch(
+  () => props.visible,
+  async (visible) => {
+    if (!visible) {
+      slotPreview.value = emptySlotPreview()
+      return
+    }
+    if (typeof props.refreshCalendarAvailability === 'function') {
+      try {
+        await props.refreshCalendarAvailability()
+      } catch {
+        /* 父级已 catch，忽略 */
+      }
+    }
+    await loadVehicles()
+    applyDefaultLicensePlate()
+    if (form.value.date && form.value.timePeriod && !isTimeAvailable(form.value.timePeriod)) {
+      pickFirstAvailablePeriod()
+    }
+    await loadSlotPreview()
+  }
+)
+
+function pickFirstAvailablePeriod () {
+  const next = props.timePeriods.find((row) => isTimeAvailable(row.id))
+  form.value.timePeriod = next?.id ?? ''
+}
+
+watch(
+  () => [form.value.date, form.value.timePeriod],
+  () => {
+    if (!props.visible) return
+    if (form.value.date && form.value.timePeriod && !isTimeAvailable(form.value.timePeriod)) {
+      pickFirstAvailablePeriod()
+    }
+    loadSlotPreview({ shuffle: true })
+  }
+)
+
+watch(
+  () => form.value.date,
+  () => {
+    if (!props.visible || !form.value.date) return
+    if (form.value.timePeriod && !isTimeAvailable(form.value.timePeriod)) {
+      pickFirstAvailablePeriod()
+    }
+  }
+)
+
+watch(
+  () => {
+    if (!props.visible || !form.value.date || !form.value.timePeriod) return null
+    return props.availableSlots[`${form.value.date}-${form.value.timePeriod}`]
+  },
+  (slot) => {
+    if (!props.visible || !slot) return
+    if (slot.available === 0) {
+      void loadSlotPreview()
+    }
+  },
+  { deep: true }
+)
+
+function isFullyBookedReminder () {
+  return /fully booked/i.test(String(statusDialog.value.message || ''))
+}
+
+async function dismissStatusDialog () {
+  const refreshGrid = isFullyBookedReminder()
+  statusDialog.value = { ...statusDialog.value, visible: false }
+  if (!refreshGrid) return
+  if (typeof props.refreshCalendarAvailability === 'function') {
+    try {
+      await props.refreshCalendarAvailability()
+    } catch {
+      /* 父级已 catch */
+    }
+  }
+  await loadSlotPreview()
+}
+
+// 检查时段是否可用（含已满、已过期）
+function isTimeAvailable (period) {
   if (!form.value.date) return true
+  if (isEvSlotPast(form.value.date, period, props.timePeriods)) return false
   const key = `${form.value.date}-${period}`
   const slot = props.availableSlots[key]
   return !slot || slot.available > 0
 }
 
-// 禁用日期（只能预订未来14天）
-function disabledDate(date) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const maxDate = new Date(today)
-  maxDate.setDate(maxDate.getDate() + 13)
-  return date < today || date > maxDate
+// 禁用日期：须在预订窗口内，且不能早于今天
+function disabledDate (date) {
+  const day = new Date(date)
+  day.setHours(0, 0, 0, 0)
+  const today = createDateAtMidnight()
+  if (day < today) return true
+
+  const startRaw = String(props.bookingWindowStart || '').trim()
+  const endRaw = String(props.bookingWindowEnd || '').trim()
+  if (!startRaw || !endRaw) return true
+  const start = createDateAtMidnight(new Date(`${startRaw}T00:00:00`))
+  const end = createDateAtMidnight(new Date(`${endRaw}T00:00:00`))
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return true
+  return day < start || day > end
 }
 
 // 关闭对话框
@@ -233,10 +467,25 @@ function handleClose() {
 
 // 保存预订
 function handleSave() {
-  if (!form.value.licensePlate) {
+  if (props.submitting) return
+  if (!vehicles.value.length) {
+    statusDialog.value = {
+      visible: true,
+      message: 'No active license plate found for your account'
+    }
+    return
+  }
+  if (!form.value.licensePlateId) {
     statusDialog.value = {
       visible: true,
       message: 'Please select a license plate'
+    }
+    return
+  }
+  if (!props.timePeriods.length) {
+    statusDialog.value = {
+      visible: true,
+      message: 'No active time periods configured'
     }
     return
   }
@@ -254,12 +503,40 @@ function handleSave() {
     }
     return
   }
+  if (isEvSlotPast(form.value.date, form.value.timePeriod, props.timePeriods)) {
+    statusDialog.value = {
+      visible: true,
+      message: 'This time period has already ended. Please select another slot.',
+      type: 'error'
+    }
+    pickFirstAvailablePeriod()
+    return
+  }
+  if (!isTimeAvailable(form.value.timePeriod)) {
+    statusDialog.value = {
+      visible: true,
+      message: 'This time period is not available. Please select another slot.',
+      type: 'error'
+    }
+    return
+  }
+  if (slotPreview.value.isFull || !slotPreview.value.suggestedSlot) {
+    statusDialog.value = {
+      visible: true,
+      message: 'This time slot is fully booked.',
+      type: 'error'
+    }
+    if (typeof props.refreshCalendarAvailability === 'function') {
+      void props.refreshCalendarAvailability()
+    }
+    return
+  }
 
   emit('confirm', {
-    licensePlate: form.value.licensePlate,
+    licensePlateId: form.value.licensePlateId,
     timePeriod: form.value.timePeriod,
     date: form.value.date,
-    parkingSpace: form.value.parkingSpace
+    slotId: slotPreview.value.suggestedSlot.id
   })
 }
 </script>
@@ -404,29 +681,28 @@ function handleSave() {
   width: 100%;
 }
 
-/* License plate：加大下拉（全局生效；勿只写在 1100–1599px，否则 ≥1600px 宽屏看不到变化） */
+/* License plate 下拉高度（全局生效） */
 :deep(.form-input-license.el-select) {
-  --el-component-size: 3.1875rem;
-  --el-component-size-large: 3.1875rem;
+  --el-component-size: 2.5rem;
 }
 
 :deep(.form-input-license.el-select .el-input__wrapper),
 :deep(.form-input-license.el-select .el-select__wrapper) {
-  min-height: 3.1875rem;
-  padding: 0 1rem;
-  border-radius: 10px;
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  border-radius: 8px;
   align-items: center;
 }
 
 :deep(.form-input-license.el-select .el-input__inner) {
-  font-size: 1rem;
-  line-height: 1.35;
+  font-size: 0.9375rem;
+  line-height: 1.25;
   height: auto;
 }
 
 :deep(.form-input-license.el-select .el-select__selection) {
-  font-size: 1rem;
-  line-height: 1.35;
+  font-size: 0.9375rem;
+  line-height: 1.25;
 }
 
 :deep(.form-input-license.el-select .el-input__suffix) {
@@ -434,7 +710,7 @@ function handleSave() {
 }
 
 :deep(.form-input-license.el-select .el-select__caret) {
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 :deep(.el-input__wrapper) {
@@ -622,7 +898,7 @@ function handleSave() {
 }
 
 .status-modal-title {
-  font-size: 1.0625rem;
+  font-size: 1.1875rem;
   font-weight: 600;
   line-height: 1.5;
 }
@@ -656,10 +932,19 @@ function handleSave() {
 
 .status-dialog-message {
   margin: 0;
-  font-size: 15px;
+  font-size: 1.125rem;
   text-align: center;
-  line-height: 1.5;
+  line-height: 1.55;
   color: #333333;
+  white-space: pre-line;
+}
+
+.status-dialog-message.error {
+  color: #f56c6c;
+}
+
+.status-dialog-message.success {
+  color: #00723a;
 }
 
 .status-modal-footer {

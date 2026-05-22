@@ -39,3 +39,12 @@ export function getEvBookingWindow() {
 export function publishEvBookingWindow(payload) {
   return request.patch('/ev-management/booking-window', payload)
 }
+
+/** scope: 'my' | 'all'（all 仅管理员） */
+export function listEvManageBookings(scope = 'my') {
+  return request.get('/ev-management/bookings', { params: { scope } })
+}
+
+export function cancelEvManageBooking(id) {
+  return request.patch(`/ev-management/bookings/${id}/cancel`)
+}

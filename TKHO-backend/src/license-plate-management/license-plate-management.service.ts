@@ -11,7 +11,7 @@ import { UpdateLicensePlateDto } from './dto/update-license-plate.dto';
 
 const plateSelect = {
   id: true,
-  employee_id: true,
+  user_id: true,
   plate_number: true,
   is_default: true,
   status: true,
@@ -72,7 +72,7 @@ export class LicensePlateManagementService {
     throw new BadRequestException('Owner not found');
   }
 
-  private async loadUsersByEmployeeIds(ids: bigint[]) {
+  private async loadUsersByIds(ids: bigint[]) {
     if (!ids.length) return new Map<string, { corpId: string; name: string }>();
     const users = await this.prisma.user.findMany({
       where: { id: { in: ids } },
@@ -92,7 +92,7 @@ export class LicensePlateManagementService {
   ) {
     return {
       id: row.id.toString(),
-      employeeId: row.employee_id != null ? row.employee_id.toString() : null,
+      userId: row.user_id != null ? row.user_id.toString() : null,
       corpId: user?.corpId ?? null,
       owner: user?.name ?? null,
       plateNumber: row.plate_number,
@@ -107,19 +107,19 @@ export class LicensePlateManagementService {
       orderBy: { id: 'asc' },
       select: plateSelect,
     });
-    const employeeIds = [
+    const userIds = [
       ...new Set(
         rows
-          .map((r) => r.employee_id)
+          .map((r) => r.user_id)
           .filter((id): id is bigint => id != null),
       ),
     ];
-    const userMap = await this.loadUsersByEmployeeIds(employeeIds);
+    const userMap = await this.loadUsersByIds(userIds);
     return rows.map((row) =>
       this.mapPlate(
         row,
-        row.employee_id != null
-          ? userMap.get(row.employee_id.toString()) ?? null
+        row.user_id != null
+          ? userMap.get(row.user_id.toString()) ?? null
           : null,
       ),
     );
@@ -133,9 +133,9 @@ export class LicensePlateManagementService {
     });
     if (!row) throw new NotFoundException('License plate not found');
     let user: { corpId: string; name: string } | null = null;
-    if (row.employee_id != null) {
-      const map = await this.loadUsersByEmployeeIds([row.employee_id]);
-      user = map.get(row.employee_id.toString()) ?? null;
+    if (row.user_id != null) {
+      const map = await this.loadUsersByIds([row.user_id]);
+      user = map.get(row.user_id.toString()) ?? null;
     }
     return this.mapPlate(row, user);
   }
@@ -152,7 +152,7 @@ export class LicensePlateManagementService {
     }
 
     const hasDefault = await this.prisma.license_plates.findFirst({
-      where: { employee_id: owner.id, is_default: true },
+      where: { user_id: owner.id, is_default: true },
       select: { id: true },
     });
 
@@ -160,7 +160,7 @@ export class LicensePlateManagementService {
       const created = await this.prisma.license_plates.create({
         data: {
           id: await this.nextLicensePlateId(),
-          employee_id: owner.id,
+          user_id: owner.id,
           plate_number: plateNumber,
           status: 'active',
           is_default: !hasDefault,
@@ -204,7 +204,7 @@ export class LicensePlateManagementService {
 
     if (dto.corpId !== undefined || dto.ownerName !== undefined) {
       const owner = await this.resolveOwnerUser(dto.corpId, dto.ownerName);
-      data.employee_id = owner.id;
+      data.user_id = owner.id;
     }
 
     try {
@@ -213,11 +213,11 @@ export class LicensePlateManagementService {
         data,
         select: plateSelect,
       });
-      const employeeId = updated.employee_id;
+      const userId = updated.user_id;
       let user: { corpId: string; name: string } | null = null;
-      if (employeeId != null) {
-        const map = await this.loadUsersByEmployeeIds([employeeId]);
-        user = map.get(employeeId.toString()) ?? null;
+      if (userId != null) {
+        const map = await this.loadUsersByIds([userId]);
+        user = map.get(userId.toString()) ?? null;
       }
       return this.mapPlate(updated, user);
     } catch (e) {
@@ -237,9 +237,9 @@ export class LicensePlateManagementService {
 
     await this.prisma.$transaction(async (tx) => {
       await tx.license_plates.delete({ where: { id: bid } });
-      if (!current.is_default || current.employee_id == null) return;
+      if (!current.is_default || current.user_id == null) return;
       const next = await tx.license_plates.findFirst({
-        where: { employee_id: current.employee_id },
+        where: { user_id: current.user_id },
         orderBy: { id: 'asc' },
       });
       if (next) {

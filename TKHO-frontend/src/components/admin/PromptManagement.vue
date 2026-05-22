@@ -104,6 +104,7 @@
       :title="formMode === 'add' ? `Add ${activeTabLabel}` : `Edit ${activeTabLabel}`"
       :max-width="activeTab === 'system' ? '1240px' : '700px'"
       :max-height="formModalMaxHeight"
+      :custom-class="formModalCustomClass"
     >
       <el-form :model="formData" label-width="120px">
         <el-form-item v-if="activeTab === 'reject' && formMode === 'edit'" label="Type">
@@ -129,7 +130,10 @@
         </el-form-item>
         <el-form-item label="Content">
           <template v-if="activeTab === 'system'">
-            <div class="rich-editor-wrap">
+            <div
+              class="rich-editor-wrap"
+              :class="{ 'rich-editor-wrap--system-prompt': activeTab === 'system' }"
+            >
               <div class="rich-editor-toolbar">
                 <WangToolbar
                   :editor="editorRef"
@@ -185,7 +189,7 @@
 import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import * as XLSX from 'xlsx'
 import { Editor as WangEditor, Toolbar as WangToolbar } from '@wangeditor/editor-for-vue'
-import { i18nChangeLanguage } from '@wangeditor/editor'
+import { i18nChangeLanguage, DomEditor } from '@wangeditor/editor'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import {
   getPrompts,
@@ -289,9 +293,12 @@ const noticeTitle = ref('Operation Notice')
 const noticeMessage = ref('')
 const editorRef = shallowRef()
 const toolbarConfig = {
+  /** 工具栏/选区面板挂到 body，避免弹窗内 overflow 裁切（对齐 license owner 下拉体验） */
+  modalAppendToBody: true,
   toolbarKeys: [
     'bold',
     'italic',
+    'through',
     'underline',
     // 'fontSize',
     '|',
@@ -301,46 +308,79 @@ const toolbarConfig = {
     'justifyCenter',
     'justifyRight',
     '|',
+    'insertLink',
+    'bulletedList',
+    'numberedList',
+    '|',
     'insertTable',
     'deleteTable',
     '|',
     'undo',
-    'redo'
+    'redo',
+    'clearStyle'
   ]
 }
 const editorConfig = {
   placeholder: 'Please enter content...'
 }
 const SYSTEM_PROMPT_MODAL_MQ = '(min-width: 1100px) and (max-width: 1599px)'
-const systemPromptEditModalMaxHeight = ref('94vh')
+const systemPromptEditModalMaxHeight = ref('98vh')
 const formModalMaxHeight = computed(() => (
-  activeTab.value === 'system' && formMode.value === 'edit' ? systemPromptEditModalMaxHeight.value : '94vh'
+  activeTab.value === 'system' ? systemPromptEditModalMaxHeight.value : '94vh'
+))
+const formModalCustomClass = computed(() => (
+  activeTab.value === 'system' ? 'system-prompt-edit-modal' : ''
 ))
 let systemPromptModalMq = null
 
 function updateSystemPromptEditModalMaxHeight () {
   if (typeof window === 'undefined') return
-  systemPromptEditModalMaxHeight.value = window.matchMedia(SYSTEM_PROMPT_MODAL_MQ).matches ? '120vh' : '94vh'
+  // 14 寸 zoom:0.8 时用更大 vh，折算后视口高度与 98vh 接近并略高
+  systemPromptEditModalMaxHeight.value = window.matchMedia(SYSTEM_PROMPT_MODAL_MQ).matches ? '128vh' : '98vh'
+}
+
+function onSystemPromptModalMqChange () {
+  updateSystemPromptEditModalMaxHeight()
+  restoreAllPortaledDropPanels()
+  const openPanel = document.querySelector(
+    'body > .w-e-drop-panel, body > .w-e-modal, .system-prompt-edit-modal .w-e-drop-panel, .system-prompt-edit-modal .w-e-modal'
+  )
+  if (openPanel && editorRef.value) {
+    editorRef.value.hidePanelOrModal?.()
+  }
+  if (editorRef.value) {
+    bindWangHoverBarReposition(editorRef.value)
+  } else {
+    unbindWangHoverBarReposition()
+  }
 }
 
 onMounted(() => {
   i18nChangeLanguage('en')
   updateSystemPromptEditModalMaxHeight()
   systemPromptModalMq = window.matchMedia(SYSTEM_PROMPT_MODAL_MQ)
-  systemPromptModalMq.addEventListener('change', updateSystemPromptEditModalMaxHeight)
+  systemPromptModalMq.addEventListener('change', onSystemPromptModalMqChange)
   loadPromptList()
 })
 
 onUnmounted(() => {
   if (systemPromptModalMq) {
-    systemPromptModalMq.removeEventListener('change', updateSystemPromptEditModalMaxHeight)
+    systemPromptModalMq.removeEventListener('change', onSystemPromptModalMqChange)
   }
+  unbindWangDropPanelReposition()
+  unbindWangHoverBarReposition()
   editorRef.value?.destroy()
   editorRef.value = null
 })
 
 watch(showForm, async (opened) => {
-  if (!opened || activeTab.value !== 'system') return
+  if (!opened) {
+    unbindWangDropPanelReposition()
+    unbindWangHoverBarReposition()
+    editorRef.value?.hidePanelOrModal?.()
+    return
+  }
+  if (activeTab.value !== 'system') return
   await nextTick()
   formData.value.content = sanitizeHtml(formData.value.content || '<p></p>')
 })
@@ -436,7 +476,7 @@ function sanitizeHtml (html) {
           .split(';')
           .map(s => s.trim())
           .filter(Boolean)
-          .filter(rule => /^(color|background-color|font-weight|font-style|text-decoration|text-align|margin-left|margin-right|width|max-width|display)\s*:/i.test(rule))
+          .filter(rule => /^(color|background-color|font-weight|font-style|text-decoration|text-align|margin-left|margin-right|width|max-width|display|list-style-type|list-style-position)\s*:/i.test(rule))
           .join('; ')
         if (safe) el.setAttribute('style', safe)
         else el.removeAttribute('style')
@@ -448,8 +488,700 @@ function sanitizeHtml (html) {
 
 const renderFormattedContent = (content) => sanitizeHtml(content)
 
+const WANG_PANEL_Z_INDEX = 10060
+const wangDropPanelAnchors = new WeakMap()
+
+/** 色板 dropPanel、链接 insertLink/editLink 的 modal */
+function isWangFloatingPanel (panel) {
+  return panel?.type === 'dropPanel' || panel?.type === 'modal'
+}
+let wangDropPanelReposition = null
+let wangDropPanelPositionTimers = []
+let wangHoverBarScrollHandler = null
+let wangHoverBarPointerHandler = null
+let wangHoverBarPointerEl = null
+let wangHoverBarScrollEl = null
+let wangHoverBarScrollDebounceTimer = null
+let wangHoverBarAlignRetryTimers = []
+let wangHoverBarRepositioning = false
+
+/**
+ * 色板挂到 body/modal-body 后，mousedown 会使编辑器 blur、selection 变 null；
+ * 此前在 click 捕获阶段 stopPropagation 会阻断 wangeditor 色块点击，导致改色无反应。
+ */
+function onWangDropPanelMouseDown (e) {
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+function onWangDropPanelColorPick (e) {
+  const panelEl = e.currentTarget
+  const li = e.target?.closest?.('li')
+  if (!li || !panelEl.contains(li)) return
+
+  e.preventDefault()
+  e.stopPropagation()
+
+  const editor = editorRef.value
+  if (!editor) return
+
+  if (editor.selection == null) {
+    editor.restoreSelection()
+  }
+  if (editor.selection == null) return
+
+  const anchor = wangDropPanelAnchors.get(panelEl)
+  const mark = anchor?.menuKey === 'bgColor' ? 'bgColor' : 'color'
+  const val = li.getAttribute('data-value')
+
+  if (val === '0' || li.classList.contains('clear')) {
+    editor.removeMark(mark)
+  } else if (val) {
+    editor.addMark(mark, val)
+  } else {
+    return
+  }
+
+  formData.value.content = sanitizeHtml(editor.getHtml())
+  editor.hidePanelOrModal?.()
+}
+
+function attachDropPanelSelectionGuard (panel) {
+  const panelEl = panel?.$elem?.[0]
+  if (!panelEl || panelEl.dataset.wangDropGuard === '1') return
+  panelEl.dataset.wangDropGuard = '1'
+  panelEl.addEventListener('mousedown', onWangDropPanelMouseDown, true)
+  panelEl.addEventListener('click', onWangDropPanelColorPick, false)
+}
+
+function clearPortalPanelStyles (panelEl) {
+  if (!panelEl) return
+  for (const key of ['position', 'left', 'top', 'right', 'bottom', 'z-index']) {
+    panelEl.style.removeProperty(key)
+  }
+}
+
+function isBarItemEl (el) {
+  return Boolean(el?.classList?.contains('w-e-bar-item'))
+}
+
+function toDropPanelAnchor (host) {
+  if (!host) return null
+  const trigger = host.matches?.('button') ? host : host.querySelector?.('button')
+  if (!trigger) return null
+  const barItem = isBarItemEl(host) ? host : host.closest?.('.w-e-bar-item')
+  return {
+    trigger,
+    host: barItem || host,
+    menuKey: trigger.getAttribute?.('data-menu-key') || ''
+  }
+}
+
+function findActiveDropPanelAnchorIn (container) {
+  if (!container) return null
+  const selectors = [
+    '.w-e-bar-item button.active',
+    '.w-e-bar-item.active button',
+    '.w-e-bar-item .w-e-button-container.active button'
+  ]
+  for (const sel of selectors) {
+    const activeBtn = container.querySelector(sel)
+    if (activeBtn) return toDropPanelAnchor(activeBtn.closest('.w-e-bar-item'))
+  }
+  return null
+}
+
+/** insertLink / editLink：show 瞬间可能尚无 .active，需回退到对应按钮 */
+function findLinkMenuAnchorInModal () {
+  const root = document.querySelector('.booking-style-modal-root.system-prompt-edit-modal')
+  if (!root) return null
+  for (const key of ['insertLink', 'editLink']) {
+    const selectors = [
+      `button[data-menu-key="${key}"].active`,
+      `.w-e-bar-item.active button[data-menu-key="${key}"]`,
+      `.w-e-bar-item button[data-menu-key="${key}"]`
+    ]
+    for (const sel of selectors) {
+      const btn = root.querySelector(sel)
+      if (btn) return toDropPanelAnchor(btn.closest('.w-e-bar-item'))
+    }
+  }
+  return null
+}
+
+/** 仅匹配当前点击的 active 按钮，避免误用 hoverbar 里第一个颜色按钮导致整体偏下 */
+function findDropPanelAnchorInModal () {
+  const root = document.querySelector('.booking-style-modal-root.system-prompt-edit-modal')
+  if (!root) return null
+
+  const hoverBar = root.querySelector('.w-e-hover-bar.w-e-bar-show')
+    || root.querySelector('.w-e-hover-bar:not(.w-e-bar-hidden)')
+  const hoverAnchor = findActiveDropPanelAnchorIn(hoverBar)
+  if (hoverAnchor) return hoverAnchor
+
+  const toolbar = root.querySelector('.rich-editor-toolbar .w-e-toolbar, .wang-toolbar .w-e-toolbar')
+  const toolbarAnchor = findActiveDropPanelAnchorIn(toolbar)
+  if (toolbarAnchor) return toolbarAnchor
+
+  return findLinkMenuAnchorInModal()
+}
+
+/** 以本次 show 时记录的按钮为准，避免切换颜色/背景色时仍定位到上一个 active */
+function resolveLiveDropPanelAnchor (panel, showAnchor = null) {
+  const panelEl = panel?.$elem?.[0]
+  const cached = panelEl ? wangDropPanelAnchors.get(panelEl) : null
+  if (cached?.trigger?.isConnected) return cached
+  if (showAnchor?.trigger?.isConnected) return showAnchor
+
+  const parent = panel?.$elem?.parent()?.[0]
+  if (isBarItemEl(parent)) return toDropPanelAnchor(parent)
+
+  if (panel?.type === 'modal') {
+    return findLinkMenuAnchorInModal() || findDropPanelAnchorInModal()
+  }
+  return findDropPanelAnchorInModal()
+}
+
+/** 锚点缺失时仍抬升层级，避免留在 body 底层被 BookingStyleModal 遮住 */
+function ensureWangPanelLayer (panelEl) {
+  if (!panelEl) return
+  panelEl.style.setProperty('z-index', String(WANG_PANEL_Z_INDEX), 'important')
+  if (panelEl.parentNode === document.body) {
+    panelEl.style.setProperty('position', 'fixed', 'important')
+    panelEl.style.setProperty('right', 'auto', 'important')
+    panelEl.style.setProperty('bottom', 'auto', 'important')
+  }
+}
+
+/** 与 style.css html zoom 0.8 断点一致：挂 body + fixed 会与缩放坐标不一致 */
+function shouldPortalWangDropPanelToBody () {
+  if (typeof window === 'undefined') return true
+  return !window.matchMedia(SYSTEM_PROMPT_MODAL_MQ).matches
+}
+
+function restoreDropPanelToHost (panelEl) {
+  const anchor = wangDropPanelAnchors.get(panelEl)
+  if (!anchor?.host?.isConnected || !panelEl) return
+  anchor.host.appendChild(panelEl)
+  clearPortalPanelStyles(panelEl)
+}
+
+function restoreAllPortaledDropPanels () {
+  document.querySelectorAll('body > .w-e-drop-panel, body > .w-e-modal').forEach((panelEl) => {
+    restoreDropPanelToHost(panelEl)
+  })
+  const root = document.querySelector('.booking-style-modal-root.system-prompt-edit-modal')
+  if (!root) return
+  root.querySelectorAll(
+    '.modal-body > .w-e-drop-panel, .modal-body > .w-e-modal, .w-e-hover-bar .w-e-drop-panel, .w-e-hover-bar .w-e-modal'
+  ).forEach((panelEl) => {
+    restoreDropPanelToHost(panelEl)
+  })
+}
+
+function isHoverbarAnchor (anchor) {
+  return Boolean(anchor?.trigger?.closest('.w-e-hover-bar'))
+}
+
+function getSystemPromptModalBody () {
+  return document.querySelector('.booking-style-modal-root.system-prompt-edit-modal .modal-body')
+}
+
+function getSystemPromptEditorRoot () {
+  return document.querySelector('.booking-style-modal-root.system-prompt-edit-modal')
+}
+
+function getVisibleHoverBarEl () {
+  const root = getSystemPromptEditorRoot()
+  if (!root) return null
+  const bar = root.querySelector('.w-e-hover-bar.w-e-bar-show')
+  if (!bar || bar.classList.contains('w-e-bar-hidden')) return null
+  return bar
+}
+
+function getHoverBarTargetDomNode (editor) {
+  if (!editor?.selection) return null
+  try {
+    const elems = DomEditor.getSelectedElems(editor)
+    if (elems?.length) {
+      const node = DomEditor.toDOMNode(editor, elems[elems.length - 1])
+      if (node?.nodeType === Node.ELEMENT_NODE) return node
+      return node?.parentElement || null
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const native = window.getSelection?.()
+    if (!native?.rangeCount) return null
+    let node = native.getRangeAt(0).commonAncestorContainer
+    if (node?.nodeType === Node.TEXT_NODE) node = node.parentElement
+    return node?.closest?.('a, img, table, span[data-w-e-type]') || node
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
+/** wangeditor hoverbar 用 offset + getBoundingClientRect 混算，html zoom 0.8 下会远离选区 */
+function repositionHoverBarAtZoomBreakpoint (editor) {
+  if (wangHoverBarRepositioning || shouldPortalWangDropPanelToBody()) return
+  const hoverBar = getVisibleHoverBarEl()
+  if (!hoverBar || !editor) return
+
+  const host = hoverBar.offsetParent
+  const target = getHoverBarTargetDomNode(editor)
+  if (!host || !target) return
+
+  const zoom = getHtmlZoomScale()
+  const hostRect = host.getBoundingClientRect()
+  const rect = target.getBoundingClientRect()
+  if (!rect.width && !rect.height) return
+
+  const relTop = (rect.top - hostRect.top) / zoom
+  const relLeft = (rect.left - hostRect.left) / zoom
+  const elH = rect.height / zoom
+  const hostH = host.clientHeight
+  const barW = hoverBar.offsetWidth || 120
+
+  let topPx = null
+  let bottomPx = null
+  let useBottom = relTop > 40
+  if (useBottom) {
+    bottomPx = Math.max(5, hostH - relTop + 5)
+  } else {
+    topPx = Math.max(0, relTop + elH + 5)
+  }
+
+  let left = relLeft + 5
+  const hostW = host.clientWidth
+  if (left + barW > hostW - 8) {
+    left = Math.max(8, (rect.right - hostRect.left) / zoom - barW)
+  }
+  left = Math.max(5, left)
+
+  wangHoverBarRepositioning = true
+  try {
+    hoverBar.style.setProperty('position', 'absolute', 'important')
+    hoverBar.style.setProperty('right', 'auto', 'important')
+    hoverBar.style.setProperty('margin', '0', 'important')
+    hoverBar.style.setProperty('transform', 'none', 'important')
+    hoverBar.style.setProperty('z-index', '30', 'important')
+    hoverBar.style.setProperty('left', `${left}px`, 'important')
+
+    if (useBottom) {
+      hoverBar.classList.add('w-e-bar-bottom')
+      hoverBar.style.setProperty('top', 'auto', 'important')
+      hoverBar.style.setProperty('bottom', `${bottomPx}px`, 'important')
+    } else {
+      hoverBar.classList.remove('w-e-bar-bottom')
+      hoverBar.style.setProperty('bottom', 'auto', 'important')
+      hoverBar.style.setProperty('top', `${topPx}px`, 'important')
+    }
+    hoverBar.classList.add('wang-hover-bar-positioned')
+  } finally {
+    wangHoverBarRepositioning = false
+  }
+}
+
+function clearHoverBarAlignRetryTimers () {
+  wangHoverBarAlignRetryTimers.forEach((id) => clearTimeout(id))
+  wangHoverBarAlignRetryTimers = []
+}
+
+/**
+ * 点击选区后对齐 hoverbar。不用 editor.change（会反复触发并重置定时器导致等很久）。
+ * wangeditor 自身约 200ms debounce 后才显示 hoverbar，故在 0/180/240ms 各试一次。
+ */
+function alignHoverBarAfterSelection (editor) {
+  if (shouldPortalWangDropPanelToBody() || !editor) return
+  clearHoverBarAlignRetryTimers()
+
+  const run = () => {
+    const bar = getVisibleHoverBarEl()
+    if (!bar) return
+    repositionHoverBarAtZoomBreakpoint(editor)
+  }
+
+  ;[0, 180, 240].forEach((ms) => {
+    wangHoverBarAlignRetryTimers.push(setTimeout(run, ms))
+  })
+}
+
+function scheduleHoverBarRepositionOnScroll (editor) {
+  if (shouldPortalWangDropPanelToBody() || !getVisibleHoverBarEl()) return
+  if (wangHoverBarScrollDebounceTimer) clearTimeout(wangHoverBarScrollDebounceTimer)
+  wangHoverBarScrollDebounceTimer = setTimeout(() => {
+    wangHoverBarScrollDebounceTimer = null
+    repositionHoverBarAtZoomBreakpoint(editor)
+  }, 80)
+}
+
+function bindWangHoverBarReposition (editor) {
+  unbindWangHoverBarReposition()
+  if (!editor || shouldPortalWangDropPanelToBody()) return
+
+  const onScroll = () => scheduleHoverBarRepositionOnScroll(editor)
+  const onPointer = () => alignHoverBarAfterSelection(editor)
+  wangHoverBarScrollHandler = onScroll
+  wangHoverBarPointerHandler = onPointer
+
+  editor.on('scroll', onScroll)
+  editor.on('fullScreen', onScroll)
+  editor.on('unFullScreen', onScroll)
+
+  const scrollEl = getSystemPromptEditorRoot()?.querySelector('.w-e-text-container')
+  if (scrollEl) {
+    scrollEl.addEventListener('scroll', onScroll, { passive: true })
+    wangHoverBarScrollEl = scrollEl
+  }
+
+  const pointerTarget =
+    getSystemPromptEditorRoot()?.querySelector('[data-slate-editor]')
+    || scrollEl
+  if (pointerTarget) {
+    pointerTarget.addEventListener('mouseup', onPointer)
+    pointerTarget.addEventListener('keyup', onPointer)
+    wangHoverBarPointerEl = pointerTarget
+  }
+}
+
+function unbindWangHoverBarReposition () {
+  if (wangHoverBarScrollDebounceTimer) {
+    clearTimeout(wangHoverBarScrollDebounceTimer)
+    wangHoverBarScrollDebounceTimer = null
+  }
+  clearHoverBarAlignRetryTimers()
+  wangHoverBarRepositioning = false
+  if (wangHoverBarScrollEl && wangHoverBarScrollHandler) {
+    wangHoverBarScrollEl.removeEventListener('scroll', wangHoverBarScrollHandler)
+    wangHoverBarScrollEl = null
+  }
+  if (wangHoverBarPointerEl && wangHoverBarPointerHandler) {
+    wangHoverBarPointerEl.removeEventListener('mouseup', wangHoverBarPointerHandler)
+    wangHoverBarPointerEl.removeEventListener('keyup', wangHoverBarPointerHandler)
+    wangHoverBarPointerEl = null
+  }
+  const editor = editorRef.value
+  if (editor && wangHoverBarScrollHandler) {
+    editor.off('scroll', wangHoverBarScrollHandler)
+    editor.off('fullScreen', wangHoverBarScrollHandler)
+    editor.off('unFullScreen', wangHoverBarScrollHandler)
+  }
+  wangHoverBarScrollHandler = null
+  wangHoverBarPointerHandler = null
+}
+
+/** 14 寸 html zoom 下，视口坐标需换算为弹窗内 absolute 布局像素 */
+function getHtmlZoomScale () {
+  if (typeof window === 'undefined') return 1
+  const raw = Number.parseFloat(window.getComputedStyle(document.documentElement).zoom || '1')
+  return Number.isFinite(raw) && raw > 0 ? raw : 1
+}
+
+function getTriggerOffsetInHost (trigger, host) {
+  const hostRect = host.getBoundingClientRect()
+  const rect = trigger.getBoundingClientRect()
+  const zoom = getHtmlZoomScale()
+  return {
+    left: (rect.left - hostRect.left + host.scrollLeft) / zoom,
+    top: (rect.top - hostRect.top + host.scrollTop) / zoom,
+    bottom: (rect.bottom - hostRect.top + host.scrollTop) / zoom,
+    right: (rect.right - hostRect.left + host.scrollLeft) / zoom
+  }
+}
+
+/** 14 寸 zoom：工具栏留在 bar-item；hoverbar 挂 modal-body，避免被 w-e-text-container 裁切成空白条 */
+function positionDropPanelAtZoomBreakpoint ($panel, anchor, panel = null) {
+  if (panel?.type === 'modal' || isHoverbarAnchor(anchor)) {
+    positionDropPanelInModalBody($panel, anchor)
+  } else {
+    positionDropPanelInHost($panel, anchor)
+  }
+}
+
+/** bar-item 内 absolute 对齐触发按钮 */
+function positionDropPanelInHost ($panel, anchor) {
+  const panelEl = $panel?.[0]
+  const host = anchor?.host
+  const trigger = anchor?.trigger
+  if (!panelEl || !host || !trigger) return
+
+  if (panelEl.parentNode === document.body || panelEl.parentNode !== host) {
+    host.appendChild(panelEl)
+  }
+  clearPortalPanelStyles(panelEl)
+
+  panelEl.style.setProperty('position', 'absolute', 'important')
+  panelEl.style.setProperty('top', '100%', 'important')
+  panelEl.style.setProperty('margin-top', '2px', 'important')
+  panelEl.style.setProperty('z-index', String(WANG_PANEL_Z_INDEX), 'important')
+
+  const bar = trigger.closest('.w-e-bar')
+  if (bar) {
+    const btnRect = trigger.getBoundingClientRect()
+    const barRect = bar.getBoundingClientRect()
+    if (btnRect.left - barRect.left >= barRect.width / 2) {
+      panelEl.style.setProperty('left', 'auto', 'important')
+      panelEl.style.setProperty('right', '0', 'important')
+    } else {
+      panelEl.style.setProperty('left', '0', 'important')
+      panelEl.style.setProperty('right', 'auto', 'important')
+    }
+  } else {
+    panelEl.style.setProperty('left', '0', 'important')
+    panelEl.style.setProperty('right', 'auto', 'important')
+  }
+  panelEl.style.setProperty('margin', '0', 'important')
+}
+
+function positionDropPanelInModalBody ($panel, anchor) {
+  const panelEl = $panel?.[0]
+  const trigger = anchor?.trigger
+  const host = getSystemPromptModalBody()
+  if (!panelEl || !trigger || !host) return
+
+  if (panelEl.parentNode !== host) {
+    host.appendChild(panelEl)
+  }
+  clearPortalPanelStyles(panelEl)
+
+  const offset = getTriggerOffsetInHost(trigger, host)
+  if (!offset.right && !offset.bottom) return
+
+  const zoom = getHtmlZoomScale()
+  const ph = panelEl.offsetHeight || (panelEl.getBoundingClientRect().height / zoom) || 280
+  const pw = panelEl.offsetWidth || (panelEl.getBoundingClientRect().width / zoom) || 220
+
+  let top = offset.bottom + 2
+  const triggerRect = trigger.getBoundingClientRect()
+  if (triggerRect.bottom + ph * zoom > window.innerHeight - 8) {
+    top = Math.max(8, offset.top - ph - 2)
+  }
+
+  let left = offset.left
+  const hostLayoutWidth = host.offsetWidth
+  if (left + pw > hostLayoutWidth - 8) {
+    left = Math.max(8, offset.right - pw)
+  }
+  left = Math.min(Math.max(left, 8), Math.max(8, hostLayoutWidth - pw - 8))
+
+  panelEl.style.setProperty('margin', '0', 'important')
+  panelEl.style.setProperty('position', 'absolute', 'important')
+  panelEl.style.setProperty('left', `${left}px`, 'important')
+  panelEl.style.setProperty('top', `${top}px`, 'important')
+  panelEl.style.setProperty('right', 'auto', 'important')
+  panelEl.style.setProperty('bottom', 'auto', 'important')
+  panelEl.style.setProperty('transform', 'none', 'important')
+  panelEl.style.setProperty('z-index', String(WANG_PANEL_Z_INDEX), 'important')
+}
+
+function positionPortalDropPanel ($panel, anchor) {
+  const panelEl = $panel?.[0]
+  const trigger = anchor?.trigger
+  if (!panelEl || !trigger) return
+  const rect = trigger.getBoundingClientRect()
+  if (!rect.width && !rect.height) return
+
+  const ph = panelEl.getBoundingClientRect().height || panelEl.offsetHeight || 280
+  const pw = panelEl.getBoundingClientRect().width || panelEl.offsetWidth || 220
+
+  let top = rect.bottom + 2
+  if (top + ph > window.innerHeight - 8) {
+    top = Math.max(8, rect.top - ph - 2)
+  }
+
+  let left = rect.left
+  const bar = trigger.closest('.w-e-bar')
+  if (bar) {
+    const barRect = bar.getBoundingClientRect()
+    const btnCenter = rect.left + rect.width / 2
+    if (btnCenter > barRect.left + barRect.width / 2) {
+      left = rect.right - pw
+    }
+  }
+  if (left + pw > window.innerWidth - 8) {
+    left = Math.max(8, window.innerWidth - pw - 8)
+  }
+  if (left < 8) left = 8
+
+  panelEl.style.setProperty('margin', '0', 'important')
+  panelEl.style.setProperty('position', 'fixed', 'important')
+  panelEl.style.setProperty('left', `${left}px`, 'important')
+  panelEl.style.setProperty('top', `${top}px`, 'important')
+  panelEl.style.setProperty('right', 'auto', 'important')
+  panelEl.style.setProperty('bottom', 'auto', 'important')
+  panelEl.style.setProperty('transform', 'none', 'important')
+  panelEl.style.setProperty('z-index', String(WANG_PANEL_Z_INDEX), 'important')
+}
+
+function clearWangDropPanelPositionTimers () {
+  wangDropPanelPositionTimers.forEach((id) => clearTimeout(id))
+  wangDropPanelPositionTimers = []
+}
+
+function schedulePortalDropPanelPosition (panel, showAnchor) {
+  clearWangDropPanelPositionTimers()
+  const $panel = panel.$elem
+  const panelEl = $panel?.[0]
+  const run = () => {
+    if (!panel?.isShow || !isWangFloatingPanel(panel)) return
+    const liveAnchor = resolveLiveDropPanelAnchor(panel, showAnchor)
+    if (!liveAnchor?.trigger) return
+    if (panelEl) {
+      wangDropPanelAnchors.set(panelEl, liveAnchor)
+    }
+    if (panel?.type === 'modal') {
+      if (shouldPortalWangDropPanelToBody()) {
+        positionPortalDropPanel($panel, liveAnchor)
+      } else {
+        positionDropPanelInModalBody($panel, liveAnchor)
+      }
+    } else if (shouldPortalWangDropPanelToBody()) {
+      positionPortalDropPanel($panel, liveAnchor)
+    } else {
+      positionDropPanelAtZoomBreakpoint($panel, liveAnchor, panel)
+    }
+    ensureWangPanelLayer(panelEl)
+  }
+  run()
+  requestAnimationFrame(run)
+  wangDropPanelPositionTimers = [0, 16, 50, 100, 150, 200].map((ms) => setTimeout(run, ms))
+}
+
+function mountDropPanelForBreakpoint ($panel, anchor, panel = null) {
+  const panelEl = $panel?.[0]
+  if (!panelEl || !anchor) return
+  if (shouldPortalWangDropPanelToBody()) {
+    if (panelEl.parentNode !== document.body) {
+      document.body.appendChild(panelEl)
+    }
+    return
+  }
+  const mountHost = (panel?.type === 'modal' || isHoverbarAnchor(anchor))
+    ? getSystemPromptModalBody()
+    : anchor.host
+  if (mountHost?.isConnected && panelEl.parentNode !== mountHost) {
+    mountHost.appendChild(panelEl)
+  }
+}
+
+/** color/bgColor 为 dropPanel；insertLink 为 modal（modalAppendToBody 默认 left:0 right:0 在 zoom 下会错位） */
+function portalWangDropPanel (panel, showAnchor = null) {
+  if (!isWangFloatingPanel(panel)) {
+    panel?.$elem?.css?.({ zIndex: WANG_PANEL_Z_INDEX })
+    return
+  }
+  const $panel = panel.$elem
+  const panelEl = $panel?.[0]
+  if (!$panel || !panelEl) return
+
+  restoreAllPortaledDropPanels()
+
+  let anchor = resolveLiveDropPanelAnchor(panel, showAnchor)
+  if (!anchor && panel?.type === 'modal') {
+    anchor = findLinkMenuAnchorInModal()
+  }
+  if (!anchor) {
+    ensureWangPanelLayer(panelEl)
+    return
+  }
+
+  wangDropPanelAnchors.set(panelEl, anchor)
+  mountDropPanelForBreakpoint($panel, anchor, panel)
+  if (panel?.type === 'dropPanel') {
+    attachDropPanelSelectionGuard(panel)
+  }
+  schedulePortalDropPanelPosition(panel, anchor)
+}
+
+function restoreWangDropPanel (panel) {
+  if (!isWangFloatingPanel(panel)) return
+  clearWangDropPanelPositionTimers()
+  const $panel = panel.$elem
+  const panelEl = $panel?.[0]
+  const anchor = panelEl ? wangDropPanelAnchors.get(panelEl) : null
+  const host = anchor?.host
+  if (!panelEl || !host || !$panel) return
+  if (panelEl.parentNode !== host) {
+    host.appendChild(panelEl)
+  }
+  clearPortalPanelStyles(panelEl)
+  $panel.css({
+    position: '',
+    left: '',
+    top: '',
+    right: '',
+    bottom: '',
+    zIndex: ''
+  })
+  wangDropPanelAnchors.delete(panelEl)
+}
+
+function bindWangDropPanelReposition (panel) {
+  unbindWangDropPanelReposition()
+  const handler = () => {
+    if (!panel?.isShow || !isWangFloatingPanel(panel)) return
+    const anchor = resolveLiveDropPanelAnchor(panel, null)
+    if (!anchor) return
+    if (panel?.type === 'modal') {
+      if (shouldPortalWangDropPanelToBody()) {
+        positionPortalDropPanel(panel.$elem, anchor)
+      } else {
+        positionDropPanelInModalBody(panel.$elem, anchor)
+      }
+    } else if (shouldPortalWangDropPanelToBody()) {
+      positionPortalDropPanel(panel.$elem, anchor)
+    } else {
+      positionDropPanelAtZoomBreakpoint(panel.$elem, anchor, panel)
+    }
+    ensureWangPanelLayer(panel.$elem?.[0])
+  }
+  wangDropPanelReposition = handler
+  window.addEventListener('scroll', handler, true)
+  window.addEventListener('resize', handler)
+}
+
+function unbindWangDropPanelReposition () {
+  clearWangDropPanelPositionTimers()
+  if (!wangDropPanelReposition) return
+  window.removeEventListener('scroll', wangDropPanelReposition, true)
+  window.removeEventListener('resize', wangDropPanelReposition)
+  wangDropPanelReposition = null
+}
+
+function captureDropPanelShowAnchor (panel) {
+  if (!isWangFloatingPanel(panel)) return null
+  const panelEl = panel.$elem?.[0]
+  const parent = panel.$elem?.parent()?.[0]
+  const anchor = panelEl && isBarItemEl(parent) ? toDropPanelAnchor(parent) : null
+  if (panelEl && anchor) {
+    wangDropPanelAnchors.set(panelEl, anchor)
+  }
+  return anchor
+}
+
 function handleEditorCreated (editor) {
   editorRef.value = editor
+  bindWangHoverBarReposition(editor)
+  editor.on('modalOrPanelShow', (panel) => {
+    const showAnchor = captureDropPanelShowAnchor(panel)
+    if (panel?.type === 'dropPanel') {
+      attachDropPanelSelectionGuard(panel)
+    }
+    void nextTick(() => {
+      portalWangDropPanel(panel, showAnchor)
+      if (isWangFloatingPanel(panel) && panel.isShow) {
+        bindWangDropPanelReposition(panel)
+      }
+    })
+  })
+  editor.on('modalOrPanelHide', (panel) => {
+    if (isWangFloatingPanel(panel)) {
+      restoreWangDropPanel(panel)
+    }
+    unbindWangDropPanelReposition()
+  })
 }
 
 function handleEditorChange (editor) {
@@ -713,6 +1445,33 @@ const confirmDelete = async () => {
   margin-bottom: 8px;
   width: 100%;
   box-sizing: border-box;
+  overflow: visible;
+}
+
+.rich-editor-toolbar :deep(.w-e-toolbar) {
+  overflow: visible;
+  flex-wrap: wrap;
+}
+
+.rich-editor-toolbar :deep(.w-e-bar-item) {
+  position: relative;
+  overflow: visible;
+}
+
+/* 勿改 position：wangeditor 用 inline absolute 将 hoverbar 贴在选区旁 */
+.rich-editor :deep(.w-e-hover-bar) {
+  overflow: visible !important;
+  z-index: 25;
+}
+
+.rich-editor :deep(.w-e-hover-bar .w-e-bar-item) {
+  position: relative;
+  overflow: visible;
+}
+
+.rich-editor-wrap :deep(.w-e-drop-panel),
+.rich-editor-wrap :deep(.w-e-modal) {
+  box-sizing: border-box;
 }
 
 .rich-toolbar-style-group {
@@ -746,6 +1505,7 @@ const confirmDelete = async () => {
   width: 100%;
   min-width: 100%;
   max-width: 100%;
+  overflow: visible;
 }
 
 .color-picker-label {
@@ -797,14 +1557,34 @@ const confirmDelete = async () => {
   min-height: 150px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  padding: 10px 12px;
+  padding: 0;
   box-sizing: border-box;
   line-height: 1.5;
   outline: none;
   white-space: pre-wrap;
-  overflow-y: auto;
+  overflow: visible;
   /* Allow synthetic italic in this editor even when global font-synthesis is disabled. */
   font-synthesis: style;
+}
+
+.rich-editor :deep(.w-e-text-container) {
+  min-height: 150px;
+  max-height: min(42vh, 360px);
+  overflow-y: auto !important;
+  overflow-x: hidden;
+}
+
+.rich-editor-wrap--system-prompt .rich-editor :deep(.w-e-text-container) {
+  min-height: 220px;
+  max-height: min(58vh, 540px);
+}
+
+.rich-editor-wrap--system-prompt .rich-editor :deep(.ProseMirror) {
+  min-height: 220px;
+}
+
+.rich-editor :deep(.w-e-scroll) {
+  overflow: visible !important;
 }
 
 .rich-editor:focus {

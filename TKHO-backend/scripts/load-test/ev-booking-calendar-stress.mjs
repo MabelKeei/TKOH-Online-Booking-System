@@ -1,0 +1,385 @@
+/**
+ * 14 天 × 多时段 × 3 车位 — 日历级并发抢订压测
+ *
+ * 场景：100 人同时对 booking window 内多日、多时段发起预订。
+ * 每个 (日期, 时段) 最多成功数 = active 车位数（seed 默认 3）。
+ *
+ * 环境变量：
+ *   BASE_URL          http://127.0.0.1:4001
+ *   CONCURRENCY       并发订位数，默认 100
+ *   USER_COUNT        登录用户数，默认 100
+ *   USER_START        起始用户 id（2 = E002），默认 2
+ *   DAYS              压测天数，默认 14
+ *   START_DATE        起始日 YYYY-MM-DD；未设则从 booking-window 读取
+ *   PERIOD_IDS        逗号分隔，默认 1,2,3
+ *   TARGET_MODE       spread | hot | random（默认 spread：均匀打到各日期×时段）
+ *   HOT_DATE          TARGET_MODE=hot 时指定日期
+ *   HOT_PERIOD_ID     TARGET_MODE=hot 时指定时段
+ *   PASSWORD          123456
+ *   DRY_RUN           1 只登录
+ */
+
+const BASE_URL = (process.env.BASE_URL || 'http://127.0.0.1:4001').replace(/\/$/, '');
+const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY || 100));
+const USER_COUNT = Math.max(1, Number(process.env.USER_COUNT || CONCURRENCY));
+const USER_START = Math.max(1, Number(process.env.USER_START || 2));
+const DAYS = Math.max(1, Number(process.env.DAYS || 14));
+const PERIOD_IDS = (process.env.PERIOD_IDS || '1,2,3')
+  .split(',')
+  .map((s) => s.trim())
+  .filter((s) => /^\d+$/.test(s));
+const TARGET_MODE = (process.env.TARGET_MODE || 'spread').toLowerCase();
+const HOT_DATE = process.env.HOT_DATE || '';
+const HOT_PERIOD_ID = String(process.env.HOT_PERIOD_ID || '1');
+const PASSWORD = process.env.PASSWORD || '123456';
+const DRY_RUN = process.env.DRY_RUN === '1';
+const START_DATE_ENV = process.env.START_DATE || '';
+
+const MAX_SEED_USER = 25;
+
+function corpIdForUserIndex(i) {
+  return i === 1 ? 'Admin-test' : `E${String(i).padStart(3, '0')}`;
+}
+
+function addDaysYmd(startYmd, offset) {
+  const d = new Date(`${startYmd}T12:00:00`);
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+}
+
+function buildDateRange(startYmd, dayCount, endYmd) {
+  const dates = [];
+  for (let i = 0; i < dayCount; i++) {
+    const ymd = addDaysYmd(startYmd, i);
+    if (endYmd && ymd > endYmd) break;
+    dates.push(ymd);
+  }
+  return dates;
+}
+
+async function requestJson(method, path, { token, body } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const started = performance.now();
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers,
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  const elapsed = performance.now() - started;
+
+  let data = null;
+  const text = await res.text();
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+  }
+
+  return { status: res.status, data, elapsed };
+}
+
+async function login(corpId) {
+  const { status, data } = await requestJson('POST', '/api/auth/login', {
+    body: { account: corpId, password: PASSWORD, system: 'parking' },
+  });
+  if (status !== 201 && status !== 200) {
+    throw new Error(`Login ${corpId} failed: HTTP ${status} ${JSON.stringify(data)}`);
+  }
+  if (!data?.token) throw new Error(`Login ${corpId}: no token`);
+  return { token: data.token };
+}
+
+async function resolveLicensePlateId(token, userIndex) {
+  const { status, data } = await requestJson('GET', '/api/account/vehicles', { token });
+  if (status !== 200) throw new Error(`List vehicles failed: HTTP ${status}`);
+  const vehicles = Array.isArray(data?.vehicles) ? data.vehicles : [];
+  const active = vehicles.filter((v) => String(v.status || 'active').toLowerCase() === 'active');
+  if (active.length) {
+    const picked = active.find((v) => v.isDefault) || active[0];
+    return String(picked.id);
+  }
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const plateNumber = `LT${String(userIndex).padStart(3, '0')}${Date.now() % 100000}${attempt}`;
+    const created = await requestJson('POST', '/api/account/vehicles', {
+      token,
+      body: { plateNumber, isDefault: true },
+    });
+    if (created.status === 200 || created.status === 201) {
+      const id = created.data?.vehicle?.id;
+      if (id) return String(id);
+    }
+  }
+  throw new Error(`Create vehicle failed for user index ${userIndex}`);
+}
+
+async function fetchBookingWindow(token) {
+  const { status, data } = await requestJson('GET', '/api/ev-management/booking-window', {
+    token,
+  });
+  if (status !== 200) return null;
+  return {
+    start: data?.currentStartDate || '',
+    end: data?.currentEndDate || '',
+  };
+}
+
+async function fetchTotalSpaces(token, startDate, endDate) {
+  const { status, data } = await requestJson(
+    'GET',
+    `/api/parking/calendar-availability?startDate=${startDate}&endDate=${endDate}`,
+    { token },
+  );
+  if (status !== 200) return null;
+  return Number(data?.totalSpaces) || 0;
+}
+
+function classifyResult({ status, data }) {
+  const msg = Array.isArray(data?.message)
+    ? data.message.join(' ')
+    : String(data?.message || '');
+  if (status >= 200 && status < 300) return 'success';
+  if (status === 409 || /fully booked|unavailable|in progress/i.test(msg)) return 'conflict';
+  return 'error';
+}
+
+function percentile(sorted, p) {
+  if (!sorted.length) return 0;
+  const idx = Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1);
+  return sorted[idx];
+}
+
+async function mapPool(items, limit, worker) {
+  let next = 0;
+  async function runner() {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) break;
+      await worker(items[i], i);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => runner()),
+  );
+}
+
+function buildCells(dates, periodIds) {
+  const cells = [];
+  for (const date of dates) {
+    for (const periodId of periodIds) {
+      cells.push({ date, periodId, key: `${date}-${periodId}` });
+    }
+  }
+  return cells;
+}
+
+function pickTarget(cells, workerIndex) {
+  if (!cells.length) {
+    throw new Error('No booking cells (check dates / PERIOD_IDS)');
+  }
+  if (TARGET_MODE === 'hot') {
+    const date = HOT_DATE || cells[0].date;
+    return { date, periodId: HOT_PERIOD_ID, key: `${date}-${HOT_PERIOD_ID}` };
+  }
+  if (TARGET_MODE === 'random') {
+    return cells[Math.floor(Math.random() * cells.length)];
+  }
+  return cells[workerIndex % cells.length];
+}
+
+async function createBooking(session, target) {
+  const { status, data, elapsed } = await requestJson('POST', '/api/parking/bookings', {
+    token: session.token,
+    body: {
+      licensePlateId: session.licensePlateId,
+      periodId: target.periodId,
+      bookingDate: target.date,
+    },
+  });
+  return {
+    status,
+    data,
+    elapsed,
+    corpId: session.corpId,
+    target,
+  };
+}
+
+async function main() {
+  console.log('=== EV Calendar Stress (multi-day × multi-period) ===\n');
+  console.log({
+    BASE_URL,
+    CONCURRENCY,
+    USER_COUNT,
+    DAYS,
+    PERIOD_IDS,
+    TARGET_MODE,
+    DRY_RUN,
+  });
+
+  const userIndexes = Array.from({ length: USER_COUNT }, (_, i) => {
+    const span = MAX_SEED_USER - USER_START + 1;
+    return USER_START + (i % span);
+  });
+
+  console.log(`\nLogging in ${userIndexes.length} users...`);
+  const sessionByUserIndex = new Map();
+  const loginFailures = [];
+
+  await mapPool(userIndexes, 8, async (userIndex) => {
+    const corpId = corpIdForUserIndex(userIndex);
+    try {
+      const { token } = await login(corpId);
+      const licensePlateId = await resolveLicensePlateId(token, userIndex);
+      sessionByUserIndex.set(userIndex, { corpId, userIndex, token, licensePlateId });
+    } catch (e) {
+      loginFailures.push({ corpId, error: e.message });
+    }
+  });
+
+  console.log(`Logged in: ${sessionByUserIndex.size}, failed: ${loginFailures.length}`);
+  if (loginFailures.length) {
+    console.log('Login failures (sample):', loginFailures.slice(0, 3));
+  }
+  if (!sessionByUserIndex.size) process.exit(1);
+
+  const token = sessionByUserIndex.values().next().value.token;
+  const window = await fetchBookingWindow(token);
+  let startDate = START_DATE_ENV || window?.start || addDaysYmd(new Date().toISOString().slice(0, 10), 1);
+  const endDate = window?.end || addDaysYmd(startDate, DAYS - 1);
+  const dates = buildDateRange(startDate, DAYS, endDate);
+  const cells = buildCells(dates, PERIOD_IDS);
+
+  const totalSpaces = await fetchTotalSpaces(
+    token,
+    dates[0],
+    dates[dates.length - 1],
+  );
+  const slotsPerCell = totalSpaces ?? 3;
+  const maxTheoreticalSuccess = cells.length * slotsPerCell;
+
+  console.log('\n--- Calendar ---');
+  console.log('Booking window:', window || '(API failed, using START_DATE / tomorrow)');
+  console.log('Date range:', dates[0], '→', dates[dates.length - 1], `(${dates.length} days)`);
+  console.log('Period IDs:', PERIOD_IDS.join(', '));
+  console.log('Cells (date × period):', cells.length);
+  console.log('Slots per cell (totalSpaces):', slotsPerCell);
+  console.log('Max theoretical successes:', maxTheoreticalSuccess);
+  console.log(
+    'Clear SQL:',
+    `DELETE FROM ev_bookings WHERE booking_date >= DATE '${dates[0]}' AND booking_date <= DATE '${dates[dates.length - 1]}' AND period_id IN (${PERIOD_IDS.join(',')});`,
+  );
+
+  if (DRY_RUN) {
+    console.log('\nDRY_RUN=1, skip bookings.');
+    return;
+  }
+
+  const workers = Array.from({ length: CONCURRENCY }, (_, i) => {
+    const userIndex = userIndexes[i];
+    const session = sessionByUserIndex.get(userIndex);
+    if (!session) {
+      throw new Error(`No session for user index ${userIndex} (login failed)`);
+    }
+    return { session, target: pickTarget(cells, i) };
+  });
+
+  console.log(`\nFiring ${CONCURRENCY} concurrent bookings (mode=${TARGET_MODE})...`);
+  const wallStart = Date.now();
+  const results = await Promise.all(
+    workers.map(({ session, target }) =>
+      createBooking(session, target).catch((e) => ({
+        status: 0,
+        data: { message: e.message },
+        elapsed: 0,
+        corpId: session.corpId,
+        target,
+      })),
+    ),
+  );
+  const wallMs = Date.now() - wallStart;
+
+  const buckets = { success: 0, conflict: 0, error: 0 };
+  const latencies = [];
+  const cellStats = new Map();
+  const slotKeys = new Set();
+  const duplicateSlot = { count: 0 };
+  const errorsSample = [];
+
+  for (const r of results) {
+    const kind = classifyResult(r);
+    buckets[kind]++;
+    if (r.elapsed > 0) latencies.push(r.elapsed);
+
+    const ck = r.target?.key || '?';
+    if (!cellStats.has(ck)) {
+      cellStats.set(ck, { success: 0, conflict: 0, error: 0 });
+    }
+    cellStats.get(ck)[kind]++;
+
+    if (kind === 'success') {
+      const slotId = r.data?.booking?.slotId;
+      const bookingDate = r.data?.booking?.bookingDate;
+      const periodId = r.data?.booking?.periodId;
+      const sk = `${bookingDate}-${periodId}-${slotId}`;
+      if (slotKeys.has(sk)) duplicateSlot.count++;
+      slotKeys.add(sk);
+    } else if (kind === 'error' && errorsSample.length < 6) {
+      errorsSample.push({
+        corpId: r.corpId,
+        target: r.target,
+        status: r.status,
+        message: r.data?.message ?? r.data,
+      });
+    }
+  }
+
+  latencies.sort((a, b) => a - b);
+
+  console.log('\n=== Overall ===');
+  console.log('Wall time ms:', wallMs);
+  console.log('Outcomes:', buckets);
+  console.log(
+    'Success vs capacity:',
+    `${buckets.success} / ${maxTheoreticalSuccess} (if DB was empty)`,
+  );
+  if (duplicateSlot.count) {
+    console.log('WARNING same slot+date+period booked twice in responses:', duplicateSlot.count);
+  }
+  if (latencies.length) {
+    console.log('Latency ms:', {
+      min: Math.round(latencies[0]),
+      p50: Math.round(percentile(latencies, 50)),
+      p95: Math.round(percentile(latencies, 95)),
+      max: Math.round(latencies[latencies.length - 1]),
+    });
+  }
+
+  const hotCells = [...cellStats.entries()]
+    .map(([key, stats]) => ({ key, ...stats }))
+    .sort((a, b) => b.success + b.conflict - (a.success + a.conflict))
+    .slice(0, 12);
+
+  console.log('\n=== Per cell (top activity) ===');
+  console.table(hotCells);
+
+  const fullCells = [...cellStats.values()].filter((s) => s.success >= slotsPerCell).length;
+  console.log(`\nCells at capacity (success >= ${slotsPerCell}):`, fullCells, '/', cells.length);
+
+  if (errorsSample.length) {
+    console.log('\nSample errors:', errorsSample);
+  }
+
+  console.log('\nVerify SQL (no duplicate slot per date+period):');
+  console.log(
+    `SELECT slot_id, period_id, booking_date, COUNT(*) FROM ev_bookings WHERE status IN ('pending','confirmed') AND booking_date >= DATE '${dates[0]}' AND booking_date <= DATE '${dates[dates.length - 1]}' GROUP BY 1,2,3 HAVING COUNT(*)>1;`,
+  );
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

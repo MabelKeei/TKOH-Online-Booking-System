@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page h-screen bg-[#f5f5f5] flex flex-col overflow-hidden" style="padding-top: var(--app-header-height, 64px);">
     <AppHeader />
 
@@ -366,16 +366,16 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
-import { getMockEVManageBookingList } from '@/mocks/mockData'
+import { cancelEvManageBooking, listEvManageBookings } from '@/api/evManagement'
 import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
 
 const userStore = useUserStore()
-const { isAdmin, userInfo } = storeToRefs(userStore)
+const { isAdmin } = storeToRefs(userStore)
 
 const bookingView = ref('my') // 'my' or 'all' - for admin to switch between personal and all bookings
 const searchQuery = ref('')
@@ -412,24 +412,12 @@ const statusFilters = ref({
 })
 
 // Mock booking data（统一�?mockData 管理�?
-const bookings = ref(getMockEVManageBookingList())
+const bookings = ref([])
+const bookingsLoading = ref(false)
 
 const filteredBookings = computed(() => {
   let result = bookings.value
 
-  // Filter by booking view (admin only)
-  if (isAdmin.value && bookingView.value === 'my') {
-    // 优先按用�?id 关联；兼容旧 mock 再回退 corpId / email
-    const currentUserId = userInfo.value?.id
-    const currentUserCorpId = userInfo.value?.corpId
-    const currentUserEmail = userInfo.value?.email || 'karen.shen@ha.org.hk'
-    result = result.filter((b) => {
-      if (currentUserId != null && b.employeeId != null) return String(b.employeeId) === String(currentUserId)
-      if (currentUserCorpId && b.corpId) return String(b.corpId) === String(currentUserCorpId)
-      return (b.email || '') === currentUserEmail
-    })
-  }
-  // If bookingView is 'all' or user is not admin, show all bookings
 
   // Filter by status (multi-select)
   const activeStatuses = Object.keys(statusFilters.value).filter(key => statusFilters.value[key])
@@ -441,7 +429,9 @@ const filteredBookings = computed(() => {
   if (dateRange.value && dateRange.value.length === 2) {
     const [startDate, endDate] = dateRange.value
     result = result.filter(b => {
-      const bookingDate = parseDate(b.date)
+      const bookingDate = b.dateSortKey
+        ? new Date(`${b.dateSortKey}T12:00:00`)
+        : parseDate(b.date)
       const start = new Date(startDate)
       const end = new Date(endDate)
       start.setHours(0, 0, 0, 0)
@@ -496,10 +486,17 @@ const sortPeriodOrder = {
   Night: 3
 }
 
+const bookingDateMs = (booking) => {
+  if (booking.dateSortKey) {
+    return new Date(`${booking.dateSortKey}T12:00:00`).getTime()
+  }
+  return parseDate(booking.date).getTime()
+}
+
 const getSortValue = (booking, key) => {
   switch (key) {
     case 'bookingDateTime': {
-      const dateTime = parseDate(booking.date).getTime()
+      const dateTime = bookingDateMs(booking)
       const period = booking.time?.split(' ')?.[0] || ''
       const periodOrder = sortPeriodOrder[period] ?? 99
       return dateTime * 100 + periodOrder
@@ -816,15 +813,54 @@ const cancelBooking = (id) => {
   showCancelDialog.value = true
 }
 
-const confirmCancel = () => {
-  const booking = bookings.value.find(b => b.id === cancelBookingId.value)
-  if (booking) {
-    booking.status = 'cancelled'
-  }
-  showCancelDialog.value = false
-  cancelBookingId.value = null
-  showNotice('EV booking cancelled successfully!', 'Success')
+const getErrorMessage = (error, fallback = 'Operation failed') => {
+  const message = error?.response?.data?.message
+  if (Array.isArray(message)) return message[0] || fallback
+  if (typeof message === 'string' && message.trim()) return message
+  if (typeof error?.message === 'string' && error.message.trim()) return error.message
+  return fallback
 }
+
+const loadBookings = async () => {
+  bookingsLoading.value = true
+  try {
+    const scope = isAdmin.value && bookingView.value === 'all' ? 'all' : 'my'
+    const data = await listEvManageBookings(scope)
+    bookings.value = Array.isArray(data?.bookings) ? data.bookings : []
+  } catch (error) {
+    bookings.value = []
+    showNotice(getErrorMessage(error, 'Failed to load bookings'), 'Error')
+  } finally {
+    bookingsLoading.value = false
+  }
+}
+
+watch(bookingView, () => {
+  if (isAdmin.value) {
+    void loadBookings()
+  }
+})
+
+const confirmCancel = async () => {
+  const id = cancelBookingId.value
+  if (id == null || id === '') {
+    showCancelDialog.value = false
+    return
+  }
+  try {
+    await cancelEvManageBooking(String(id))
+    showCancelDialog.value = false
+    cancelBookingId.value = null
+    await loadBookings()
+    showNotice('EV booking cancelled successfully!', 'Success')
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to cancel booking'), 'Error')
+  }
+}
+
+onMounted(() => {
+  void loadBookings()
+})
 
 </script>
 

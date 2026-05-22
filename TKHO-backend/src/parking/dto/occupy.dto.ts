@@ -1,11 +1,12 @@
-import { IsDateString, IsInt, IsString } from 'class-validator';
+import { IsDateString, IsInt, IsString, Matches } from 'class-validator';
 
 export class OccupyDto {
   @IsString()
-  employeeCorpId: string;
+  userCorpId: string;
 
   @IsString()
-  plateNumber: string;
+  @Matches(/^\d+$/, { message: 'licensePlateId must be a numeric id' })
+  licensePlateId: string;
 
   @IsInt()
   slotId: number;

@@ -269,6 +269,8 @@ onUnmounted(() => {
 .booking-style-modal-root.important-note-modal .booking-dialog-wrapper {
   border: 2px solid #ef1515;
   border-radius: 28px;
+  width: min(94vw, 820px);
+  max-width: 820px;
 }
 
 .booking-style-modal-root.important-note-modal .modal-header {
@@ -281,7 +283,7 @@ onUnmounted(() => {
 .booking-style-modal-root.important-note-modal .modal-title {
   width: 100%;
   text-align: center;
-  font-size: 1.0625rem;
+  font-size: 1.1875rem;
   font-weight: 700;
 }
 
@@ -290,6 +292,85 @@ onUnmounted(() => {
   right: 14px;
   top: 50%;
   transform: translateY(-50%);
+}
+
+/* EV / Venue Important Note 正文：统一字号（弹窗 Teleport 到 body，样式须写在此处） */
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content,
+.booking-style-modal-root.important-note-modal .venue-rule-notice-content {
+  color: #1f2937;
+  font-size: 16px;
+  line-height: 1.65;
+  text-align: center;
+  font-synthesis: style;
+}
+
+.booking-style-modal-root.important-note-modal .ev-rule-notice-empty,
+.booking-style-modal-root.important-note-modal .venue-rule-notice-empty {
+  text-align: center;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content :deep(p),
+.booking-style-modal-root.important-note-modal .venue-rule-notice-content :deep(p) {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content :deep(strong),
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content :deep(b),
+.booking-style-modal-root.important-note-modal .venue-rule-notice-content :deep(strong),
+.booking-style-modal-root.important-note-modal .venue-rule-notice-content :deep(b) {
+  font-weight: 700;
+  color: inherit;
+}
+
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content :deep(.attention-line),
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content :deep(.main-title) {
+  color: #ef4444;
+  font-weight: 700;
+  text-align: center;
+}
+
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content :deep(.attention-line) {
+  margin-bottom: 4px;
+  font-size: 17px;
+}
+
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content :deep(.main-title) {
+  margin-bottom: 12px;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content :deep(.section-title) {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  text-decoration: underline;
+}
+
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content :deep(.line-item) {
+  margin-bottom: 4px;
+  font-size: 16px;
+  color: #111827;
+}
+
+.booking-style-modal-root.important-note-modal .ev-rule-notice-content :deep(.line-item .change-highlight) {
+  color: #ef4444;
+}
+
+.booking-style-modal-root.important-note-modal .venue-rule-notice-content :deep(.venue-notice-line) {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.booking-style-modal-root.important-note-modal .venue-rule-notice-content :deep(.venue-notice-line.zh) {
+  color: #111827;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 /* License Plate owner selector:
@@ -315,5 +396,46 @@ onUnmounted(() => {
 .booking-style-modal-root.reject-registration-modal .modal-footer {
   padding-left: 1rem;
   padding-right: 1.25rem;
+}
+
+/* System Prompt 富文本：工具栏/选区下拉可溢出 modal-body（配合 wangeditor modalAppendToBody） */
+.booking-style-modal-root.system-prompt-edit-modal .modal-body {
+  position: relative;
+  overflow: visible;
+}
+
+.booking-style-modal-root.system-prompt-edit-modal .modal-body .el-form-item,
+.booking-style-modal-root.system-prompt-edit-modal .modal-body .el-form-item__content {
+  overflow: visible;
+}
+
+/* 14 寸 html zoom 断点：w-e 下拉留在弹窗 DOM 内，避免挂 body 后坐标偏移 */
+.booking-style-modal-root.system-prompt-edit-modal .w-e-toolbar .w-e-bar-item,
+.booking-style-modal-root.system-prompt-edit-modal .w-e-hover-bar .w-e-bar-item {
+  position: relative;
+  overflow: visible;
+}
+
+.booking-style-modal-root.system-prompt-edit-modal .w-e-toolbar,
+.booking-style-modal-root.system-prompt-edit-modal .w-e-hover-bar {
+  overflow: visible;
+  z-index: 25;
+}
+
+.booking-style-modal-root.system-prompt-edit-modal .modal-body > .w-e-modal {
+  z-index: 10060 !important;
+}
+
+/* insertLink modalAppendToBody：默认 z-index:1 会被遮罩盖住 */
+body > .w-e-modal {
+  z-index: 10060 !important;
+}
+
+/* 14 寸 zoom：校正完成前不绘制 hoverbar，避免先错后对再闪动 */
+@media screen and (min-width: 1100px) and (max-width: 1599px) {
+  .booking-style-modal-root.system-prompt-edit-modal
+    .w-e-hover-bar.w-e-bar-show:not(.wang-hover-bar-positioned) {
+    visibility: hidden !important;
+  }
 }
 </style>

@@ -11,8 +11,8 @@ RUN npm ci
 
 COPY TKHO-backend/ .
 
-RUN rm -rf dist tsconfig.build.tsbuildinfo && \
-    npx prisma generate && \
+RUN rm -rf dist tsconfig.build.tsbuildinfo prisma.config.js prisma.config.js.map prisma.config.d.ts prisma.config.ts && \
+    npx prisma generate --schema=prisma/schema.prisma && \
     npm run build && \
     test -f dist/main.js && \
     test -f dist/ev-management/ev-management.controller.js
@@ -28,7 +28,8 @@ RUN apk add --no-cache curl
 COPY TKHO-backend/package*.json ./
 COPY TKHO-backend/prisma ./prisma/
 
-RUN npm ci --omit=dev && npm install prisma@6.16.2 --no-save && npx prisma generate
+RUN npm ci --omit=dev && npm install prisma@6.16.2 --no-save && \
+    npx prisma generate --schema=prisma/schema.prisma
 
 COPY --from=builder /app/dist ./dist
 

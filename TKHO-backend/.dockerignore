@@ -1,6 +1,10 @@
 node_modules
 dist
 *.tsbuildinfo
+prisma.config.ts
+prisma.config.js
+prisma.config.js.map
+prisma.config.d.ts
 .env
 .env.*
 !.env.example

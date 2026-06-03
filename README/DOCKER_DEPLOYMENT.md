@@ -338,6 +338,7 @@ docker exec tkho-booking-backend-blue curl -f http://127.0.0.1:3210/api/health
 | Nginx / 前端 unhealthy | 探针用 `localhost` 解析到 IPv6 `::1`，或镜像无 `wget` | 已改为 `curl http://127.0.0.1/health`；拉代码后重建 Nginx/前端镜像 |
 | 后端 `health: starting` 很久 | 启动时要跑 `prisma migrate deploy`，超过原 60s 宽限期 | 已把 `start_period` 改为 **120s**；看 `docker logs` 是否迁移失败 |
 | 后端反复重启，`Cannot find module '/app/dist/main.js'` | 构建产物在 `dist/src/main.js`，与启动命令不一致 | 已修正 `tsconfig.build.json`；服务器上 **必须 `--build` 重建后端镜像** |
+| 后端 `Cannot find module './ev-management.controller'` | 误提交 `tsconfig.build.tsbuildinfo`，Docker 增量编译漏编部分文件 | 已从仓库删除并加入 `.dockerignore`；重建时加 **`--no-cache`** |
 | 后端反复重启 | `.env` 中 `DB_PASSWORD` / `REDIS_PASSWORD` 与已有数据卷不一致 | 统一 `.env` 与首次建库时的密码，或删卷重建 |
 | Nginx 起不来 | `docker/nginx/ssl` 缺少 `cert.pem`、`key.pem` | 在服务器执行 `deploy.sh` 自动生成，或见 `docker/nginx/ssl/README.md` |
 

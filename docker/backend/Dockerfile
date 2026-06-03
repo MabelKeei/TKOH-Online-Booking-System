@@ -11,7 +11,11 @@ RUN npm ci
 
 COPY TKHO-backend/ .
 
-RUN npx prisma generate && npm run build
+RUN rm -rf dist tsconfig.build.tsbuildinfo && \
+    npx prisma generate && \
+    npm run build && \
+    test -f dist/main.js && \
+    test -f dist/ev-management/ev-management.controller.js
 
 FROM node:20-alpine
 

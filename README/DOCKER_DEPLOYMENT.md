@@ -310,6 +310,44 @@ Docker 构建时设置 `VITE_USE_SAME_ORIGIN_API=true`，浏览器请求走 Ngin
 
 ## 常见问题
 
+### 容器显示 unhealthy（远程服务器）
+
+`unhealthy` 只表示 **Docker 健康检查探针失败**，不等于服务一定不可用。请在**部署机器上**执行：
+
+```bash
+# 1. 看健康检查失败原因
+docker inspect tkho-booking-nginx --format '{{json .State.Health}}' | jq
+docker inspect tkho-booking-frontend-blue --format '{{json .State.Health}}' | jq
+docker inspect tkho-booking-backend-blue --format '{{json .State.Health}}' | jq
+
+# 2. 看业务日志（更重要）
+docker logs --tail 100 tkho-booking-nginx
+docker logs --tail 100 tkho-booking-frontend-blue
+docker logs --tail 100 tkho-booking-backend-blue
+
+# 3. 在容器内手动探测（绕过 healthcheck）
+docker exec tkho-booking-nginx curl -f http://127.0.0.1/health
+docker exec tkho-booking-frontend-blue curl -f http://127.0.0.1/health
+docker exec tkho-booking-backend-blue curl -f http://127.0.0.1:3210/api/health
+```
+
+常见原因：
+
+| 现象 | 原因 | 处理 |
+|------|------|------|
+| Nginx / 前端 unhealthy | 探针用 `localhost` 解析到 IPv6 `::1`，或镜像无 `wget` | 已改为 `curl http://127.0.0.1/health`；拉代码后重建 Nginx/前端镜像 |
+| 后端 `health: starting` 很久 | 启动时要跑 `prisma migrate deploy`，超过原 60s 宽限期 | 已把 `start_period` 改为 **120s**；看 `docker logs` 是否迁移失败 |
+| 后端反复重启，`Cannot find module '/app/dist/main.js'` | 构建产物在 `dist/src/main.js`，与启动命令不一致 | 已修正 `tsconfig.build.json`；服务器上 **必须 `--build` 重建后端镜像** |
+| 后端反复重启 | `.env` 中 `DB_PASSWORD` / `REDIS_PASSWORD` 与已有数据卷不一致 | 统一 `.env` 与首次建库时的密码，或删卷重建 |
+| Nginx 起不来 | `docker/nginx/ssl` 缺少 `cert.pem`、`key.pem` | 在服务器执行 `deploy.sh` 自动生成，或见 `docker/nginx/ssl/README.md` |
+
+修复配置后，在服务器上重建：
+
+```bash
+docker compose -f docker-compose.nginx.yml up -d --build
+docker compose -f docker-compose.base.yml -f docker-compose.redis.yml -f docker-compose.blue.yml up -d --build
+```
+
 **迁移失败**：确认 PostgreSQL 健康、`DB_PASSWORD` 与 compose 一致，查看日志：
 
 ```powershell

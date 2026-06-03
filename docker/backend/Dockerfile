@@ -33,8 +33,8 @@ RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 3210
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:3210/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
+  CMD curl -f http://127.0.0.1:3210/api/health || exit 1
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["node", "dist/main.js"]

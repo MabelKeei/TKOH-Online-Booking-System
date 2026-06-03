@@ -172,6 +172,15 @@ export const deleteRole = (id) => {
   })
 }
 
+/** Admin 角标专用：仅返回待审批数量（较长超时，后台轮询用） */
+export const getAdminPendingCounts = () => {
+  return request({
+    url: '/admin/pending-counts',
+    method: 'get',
+    timeout: 25000
+  })
+}
+
 // 会议审批
 export const getPendingBookings = (params) => {
   return request({
@@ -181,18 +190,27 @@ export const getPendingBookings = (params) => {
   })
 }
 
-export const approveBooking = (id) => {
+export const getTimeoutBookings = (params) => {
   return request({
-    url: `/admin/bookings/${id}/approve`,
-    method: 'post'
+    url: '/admin/bookings/pending-timeout',
+    method: 'get',
+    params
   })
 }
 
-export const rejectBooking = (id, reason) => {
+export const approveBooking = (id, data) => {
+  return request({
+    url: `/admin/bookings/${id}/approve`,
+    method: 'post',
+    data
+  })
+}
+
+export const rejectBooking = (id, data) => {
   return request({
     url: `/admin/bookings/${id}/reject`,
     method: 'post',
-    data: { reason }
+    data
   })
 }
 

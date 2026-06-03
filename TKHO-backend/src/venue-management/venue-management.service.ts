@@ -1,15 +1,41 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertVenueDto } from './dto/upsert-venue.dto';
 import { PublishVenueWindowDto } from './dto/publish-venue-window.dto';
 import { CreateVenueBlockDto } from './dto/create-venue-block.dto';
+import { UpdateVenueManageBookingDto } from './dto/update-venue-manage-booking.dto';
+import {
+  ApproveVenueManageBookingDto,
+  RejectVenueManageBookingDto,
+} from './dto/review-venue-booking.dto';
 
 @Injectable()
 export class VenueManagementService {
   constructor(private readonly prisma: PrismaService) {}
   private readonly uploadsBasePath = '/api/uploads/venues/';
+  private readonly displayMonths = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ] as const;
 
   /** 若 imageUrl 指向本地上传目录，则删除磁盘文件（忽略不存在等错误） */
   private async unlinkVenueUploadFile(imageUrl: string | null | undefined) {
@@ -287,6 +313,401 @@ export class VenueManagementService {
     if (!exists) throw new NotFoundException('Blocked period not found');
     await this.prisma.venue_blocks.delete({ where: { id } });
     return { ok: true };
+  }
+
+  private parseAuthSub(auth: { sub?: string }): bigint {
+    const sub = String(auth?.sub ?? '').trim();
+    if (!/^\d+$/.test(sub)) {
+      throw new UnauthorizedException('Invalid session');
+    }
+    return BigInt(sub);
+  }
+
+  private isAdminRole(auth: { role?: string; system?: string }): boolean {
+    if (auth.system === 'admin') return true;
+    return String(auth.role || '').toLowerCase().includes('admin');
+  }
+
+  private isCanceledStatus(status?: string | null) {
+    const s = String(status || '').toLowerCase();
+    return s === 'cancelled';
+  }
+
+  private bookingSlotEnd(
+    bookingDate: Date | null | undefined,
+    endTime: Date | null | undefined,
+  ): Date {
+    const date = bookingDate ? new Date(bookingDate) : new Date();
+    if (endTime) {
+      date.setUTCHours(
+        endTime.getUTCHours(),
+        endTime.getUTCMinutes(),
+        0,
+        0,
+      );
+    } else {
+      date.setUTCHours(23, 59, 59, 999);
+    }
+    return date;
+  }
+
+  private deriveUiStatus(
+    bookingDate: Date | null | undefined,
+    endTime: Date | null | undefined,
+    dbStatus?: string | null,
+  ): 'upcoming' | 'past' | 'cancelled' {
+    if (this.isCanceledStatus(dbStatus)) {
+      return 'cancelled';
+    }
+    const now = new Date();
+    if (now > this.bookingSlotEnd(bookingDate, endTime)) {
+      return 'past';
+    }
+    return 'upcoming';
+  }
+
+  private formatDisplayDate(date: Date): string {
+    const d = new Date(date);
+    return `${d.getUTCDate()} ${this.displayMonths[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  }
+
+  private formatDisplayDateTime(date: Date): string {
+    const d = new Date(date);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${this.formatDisplayDate(d)} ${hh}:${mm}`;
+  }
+
+  private parseDateOnlyYmd(value: string): Date {
+    const text = String(value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+      throw new BadRequestException('Invalid date format, expected YYYY-MM-DD');
+    }
+    return new Date(`${text}T00:00:00.000Z`);
+  }
+
+  private parseTimeValue(value: string): Date {
+    const text = String(value || '').trim();
+    const m = /^(\d{1,2}):(\d{2})$/.exec(text);
+    if (!m) throw new BadRequestException('Invalid time format, expected HH:mm');
+    const hh = Number(m[1]);
+    const mm = Number(m[2]);
+    if (hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+      throw new BadRequestException('Invalid time');
+    }
+    return new Date(Date.UTC(1970, 0, 1, hh, mm, 0));
+  }
+
+  private formatTimeValue(date: Date | null | undefined): string {
+    if (!date) return '';
+    return `${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`;
+  }
+
+  private timeToMinutes(date: Date | null | undefined): number {
+    if (!date) return 0;
+    return date.getUTCHours() * 60 + date.getUTCMinutes();
+  }
+
+  private timeOverlap(a0: Date, a1: Date, b0: Date, b1: Date): boolean {
+    const s1 = this.timeToMinutes(a0);
+    const e1 = this.timeToMinutes(a1);
+    const s2 = this.timeToMinutes(b0);
+    const e2 = this.timeToMinutes(b1);
+    return s1 < e2 && e1 > s2;
+  }
+
+  private normalizeTeaService(raw: unknown): Record<string, unknown> | null {
+    if (!raw) return null;
+    if (typeof raw === 'object' && !Array.isArray(raw)) {
+      return raw as Record<string, unknown>;
+    }
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  private mapManageBookingRow(
+    row: Prisma.VenueBookingsGetPayload<{
+      include: {
+        venue: { select: { id: true; name: true } };
+        reservedBy: { select: { id: true; corpId: true; name: true; contact: true; email: true } };
+        venueTeaService: { select: { teaService: true } };
+      };
+    }>,
+  ) {
+    const tea = this.normalizeTeaService(row.venueTeaService?.teaService);
+    const teaOrWater = String(tea?.beverages || '').toLowerCase() === 'water' ? 'Water' : 'Tea';
+    const serveAs = String(tea?.serveAs || '').toLowerCase() === 'bottle'
+      ? 'One Bottle Per Person'
+      : 'One Pot';
+    const uiStatus = this.deriveUiStatus(row.bookingDate, row.endTime, row.status);
+    return {
+      id: row.id.toString(),
+      room: row.venue?.name || '',
+      topic: row.meetingTitle || '',
+      date: row.bookingDate ? this.formatDisplayDate(row.bookingDate) : '',
+      time: `${this.formatTimeValue(row.startTime)} - ${this.formatTimeValue(row.endTime)}`,
+      reservedBy: row.reservedBy?.name || '',
+      contact: row.reservedBy?.contact || '',
+      email: row.reservedBy?.email || '',
+      status: uiStatus,
+      dbStatus: String(row.status || '').toLowerCase() || 'confirmed',
+      approvalStatus: String(row.approvalStatus || '').toLowerCase() || 'pending',
+      bookedOn: row.submittedAt
+        ? this.formatDisplayDateTime(row.submittedAt)
+        : this.formatDisplayDateTime(row.createdAt),
+      myNote: row.notes || '',
+      employeeId: row.reservedBy?.id?.toString(),
+      corpId: row.reservedBy?.corpId || '',
+      reason: row.rejectReason || '',
+      teaServiceRequired: row.teaServiceRequired,
+      teaServiceParticipants: Number(tea?.attendees || row.attendees || 1),
+      teaServiceSummary: row.teaServiceRequired ? `${teaOrWater} / ${serveAs}` : '',
+      teaServiceSpecialRequest: String(tea?.notes || '').trim(),
+      teaService: tea,
+    };
+  }
+
+  async listManageBookings(
+    auth: { sub?: string; corpId?: string; role?: string; system?: string },
+    scope: 'my' | 'all' = 'my',
+  ) {
+    const userId = this.parseAuthSub(auth);
+    const corpId = String(auth.corpId || '').trim();
+    if (scope === 'all' && !this.isAdminRole(auth)) {
+      throw new ForbiddenException('Only administrators can view all bookings.');
+    }
+
+    const where: Prisma.VenueBookingsWhereInput = {
+      bookingType: 'venue',
+      ...(scope === 'all'
+        ? {}
+        : {
+            OR: [
+              { reservedByUserId: userId },
+              ...(corpId ? [{ reservedBy: { corpId } }] : []),
+            ],
+          }),
+    };
+
+    const rows = await this.prisma.venueBookings.findMany({
+      where,
+      include: {
+        venue: { select: { id: true, name: true } },
+        reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
+        venueTeaService: { select: { teaService: true } },
+      },
+      orderBy: [{ bookingDate: 'desc' }, { startTime: 'desc' }, { id: 'desc' }],
+    });
+
+    return { bookings: rows.map((row) => this.mapManageBookingRow(row)) };
+  }
+
+  private async assertVenueSlotAvailable(
+    venueId: bigint,
+    bookingDate: Date,
+    startTime: Date,
+    endTime: Date,
+    excludeBookingId?: bigint,
+  ) {
+    if (this.timeToMinutes(startTime) >= this.timeToMinutes(endTime)) {
+      throw new BadRequestException('End time must be later than Start time');
+    }
+
+    const conflictRows = await this.prisma.venueBookings.findMany({
+      where: {
+        venueId,
+        bookingDate,
+        bookingType: 'venue',
+        ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
+        OR: [{ status: null }, { status: { not: 'cancelled', mode: 'insensitive' } }],
+        AND: [
+          {
+            OR: [{ approvalStatus: null }, { approvalStatus: { in: ['pending', 'approved'], mode: 'insensitive' } }],
+          },
+        ],
+      },
+      select: { id: true, startTime: true, endTime: true },
+    });
+
+    for (const row of conflictRows) {
+      if (row.startTime && row.endTime && this.timeOverlap(startTime, endTime, row.startTime, row.endTime)) {
+        throw new BadRequestException('Selected time slot is not available');
+      }
+    }
+  }
+
+  async toggleCancelManageBooking(
+    auth: { sub?: string; corpId?: string; role?: string; system?: string },
+    idRaw: string,
+  ) {
+    const id = BigInt(idRaw);
+    const me = this.parseAuthSub(auth);
+    const corpId = String(auth.corpId || '').trim();
+    const admin = this.isAdminRole(auth);
+    const row = await this.prisma.venueBookings.findUnique({
+      where: { id },
+      include: { reservedBy: { select: { id: true, corpId: true } } },
+    });
+    if (!row) throw new NotFoundException('Booking not found');
+    const isOwner = row.reservedByUserId === me || (!!corpId && row.reservedBy?.corpId === corpId);
+    if (!isOwner && !admin) throw new ForbiddenException('You can only manage your own bookings.');
+
+    const next = this.isCanceledStatus(row.status) ? 'confirmed' : 'cancelled';
+    const updated = await this.prisma.venueBookings.update({
+      where: { id },
+      data: { status: next },
+      include: {
+        venue: { select: { id: true, name: true } },
+        reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
+        venueTeaService: { select: { teaService: true } },
+      },
+    });
+    return { booking: this.mapManageBookingRow(updated) };
+  }
+
+  async updateManageBooking(
+    auth: { sub?: string; corpId?: string; role?: string; system?: string },
+    idRaw: string,
+    dto: UpdateVenueManageBookingDto,
+  ) {
+    const id = BigInt(idRaw);
+    const me = this.parseAuthSub(auth);
+    const corpId = String(auth.corpId || '').trim();
+    const row = await this.prisma.venueBookings.findUnique({
+      where: { id },
+      include: { venue: { select: { name: true } }, reservedBy: { select: { corpId: true } } },
+    });
+    if (!row) throw new NotFoundException('Booking not found');
+    const isOwner = row.reservedByUserId === me || (!!corpId && row.reservedBy?.corpId === corpId);
+    if (!isOwner) throw new ForbiddenException('You can only edit your own bookings.');
+
+    const roomName = (dto.room ?? row.venue?.name ?? '').trim();
+    if (!roomName) throw new BadRequestException('Room is required');
+    const venue = await this.prisma.venues.findFirst({ where: { name: roomName, status: 'active' } });
+    if (!venue) throw new NotFoundException('Venue not found');
+
+    const bookingDate = dto.date ? this.parseDateOnlyYmd(dto.date) : row.bookingDate!;
+    const startTime = dto.startTime ? this.parseTimeValue(dto.startTime) : row.startTime!;
+    const endTime = dto.endTime ? this.parseTimeValue(dto.endTime) : row.endTime!;
+    await this.assertVenueSlotAvailable(venue.id, bookingDate, startTime, endTime, row.id);
+
+    const teaRequired = dto.teaServiceRequired ?? row.teaServiceRequired;
+    const attendees = dto.teaServiceParticipants ?? row.attendees ?? 1;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const booking = await tx.venueBookings.update({
+        where: { id },
+        data: {
+          venueId: venue.id,
+          meetingTitle: dto.topic?.trim() ?? row.meetingTitle,
+          notes: dto.myNote !== undefined ? dto.myNote.trim() : row.notes,
+          bookingDate,
+          startTime,
+          endTime,
+          teaServiceRequired: teaRequired,
+          attendees,
+        },
+        include: {
+          venue: { select: { id: true, name: true } },
+          reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
+          venueTeaService: { select: { teaService: true } },
+        },
+      });
+
+      if (teaRequired) {
+        const existingTea = await tx.venueTeaService.findUnique({
+          where: { venueBookingId: id },
+          select: { teaService: true },
+        });
+        const existingTeaObj = this.normalizeTeaService(existingTea?.teaService);
+        const specialRequest = dto.teaServiceSpecialRequest !== undefined
+          ? String(dto.teaServiceSpecialRequest || '').trim()
+          : String(existingTeaObj?.notes || '').trim();
+        const teaService = {
+          attendees,
+          beverages: dto.teaOrWater ?? 'tea',
+          serveAs: dto.serviceType ?? 'pot',
+          quantity: attendees,
+          notes: specialRequest,
+        };
+        await tx.venueTeaService.upsert({
+          where: { venueBookingId: id },
+          create: { venueBookingId: id, teaService },
+          update: { teaService },
+        });
+      } else {
+        await tx.venueTeaService.deleteMany({ where: { venueBookingId: id } });
+      }
+      return booking;
+    });
+    return { booking: this.mapManageBookingRow(updated) };
+  }
+
+  async approveManageBooking(
+    auth: { sub?: string; role?: string; system?: string },
+    idRaw: string,
+    dto: ApproveVenueManageBookingDto,
+  ) {
+    if (!this.isAdminRole(auth)) {
+      throw new ForbiddenException('Admin portal access required');
+    }
+    const handlerId = this.parseAuthSub(auth);
+    const id = BigInt(idRaw);
+    const updated = await this.prisma.venueBookings.update({
+      where: { id },
+      data: {
+        approvalStatus: 'approved',
+        handleByUserId: handlerId,
+        handledAt: new Date(),
+        ...(dto.topic?.trim() ? { meetingTitle: dto.topic.trim() } : {}),
+      },
+      include: {
+        venue: { select: { id: true, name: true } },
+        reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
+        venueTeaService: { select: { teaService: true } },
+      },
+    });
+    return { booking: this.mapManageBookingRow(updated) };
+  }
+
+  async rejectManageBooking(
+    auth: { sub?: string; role?: string; system?: string },
+    idRaw: string,
+    dto: RejectVenueManageBookingDto,
+  ) {
+    if (!this.isAdminRole(auth)) {
+      throw new ForbiddenException('Admin portal access required');
+    }
+    const reason = String(dto.reason || '').trim();
+    if (!reason) throw new BadRequestException('Reject reason is required');
+    const handlerId = this.parseAuthSub(auth);
+    const id = BigInt(idRaw);
+    const updated = await this.prisma.venueBookings.update({
+      where: { id },
+      data: {
+        approvalStatus: 'rejected',
+        status: 'cancelled',
+        rejectReason: reason,
+        handleByUserId: handlerId,
+        handledAt: new Date(),
+        ...(dto.topic?.trim() ? { meetingTitle: dto.topic.trim() } : {}),
+      },
+      include: {
+        venue: { select: { id: true, name: true } },
+        reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
+        venueTeaService: { select: { teaService: true } },
+      },
+    });
+    return { booking: this.mapManageBookingRow(updated) };
   }
 
   async saveVenueImage(id: string, filename: string) {

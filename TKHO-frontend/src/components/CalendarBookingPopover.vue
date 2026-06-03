@@ -10,7 +10,7 @@
   >
     <template #default>
       <div class="booking-popover-body">
-        <div class="booking-popover-title" :style="{ '--accent': accentColor }">
+        <div class="booking-popover-title" :style="popoverTitleStyle">
           {{ booking.topic || booking.notes || 'Booking' }}
         </div>
         <div class="booking-popover-row">
@@ -38,6 +38,9 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { getCalendarBookingPopoverTitleStyle } from '@/utils/venueCalendarApi'
+
 const props = defineProps({
   booking: {
     type: Object,
@@ -58,17 +61,28 @@ const props = defineProps({
   teleported: {
     type: Boolean,
     default: true
+  },
+  /** 场地列表，用于 Block 等无 color 时按 roomName 取 venue 色 */
+  rooms: {
+    type: Array,
+    default: () => []
   }
 })
 
-const accentColor = props.booking.color || props.defaultColor
+const popoverTitleStyle = computed(() =>
+  getCalendarBookingPopoverTitleStyle(props.booking, props.rooms)
+)
 
 function getBookingContact() {
   return props.booking.contact ?? props.booking.contactNumber ?? props.booking.phone ?? props.booking.tel ?? 'N/A'
 }
 
 function resolveBookingDate() {
-  if (props.booking.date) return new Date(props.booking.date)
+  if (props.booking.date) {
+    const raw = String(props.booking.date).trim()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return new Date(`${raw}T12:00:00`)
+    return new Date(props.booking.date)
+  }
   if (typeof props.fallbackDay === 'number') {
     return new Date(
       props.currentDate.getFullYear(),
@@ -119,8 +133,7 @@ function formatPopoverRoomLine() {
   line-height: 1.35;
   padding: 10px 12px 10px 14px;
   border-radius: 6px;
-  border-left: 5px solid var(--accent, #f97316);
-  background-color: color-mix(in srgb, var(--accent, #f97316) 30%, white);
+  /* 色条与背景由 getCalendarBookingPopoverTitleStyle 内联设置 */
   margin-bottom: 12px;
 }
 

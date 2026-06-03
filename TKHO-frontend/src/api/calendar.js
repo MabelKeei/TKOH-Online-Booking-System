@@ -1,98 +1,93 @@
 import request from './request'
 
-// 获取指定日期范围的预订
 export const getBookingsByDateRange = (params) => {
   return request({
-    url: '/bookings/range',
+    url: '/venue-calendar/bookings/range',
     method: 'get',
     params
   })
 }
 
-// 获取指定日期的预订
 export const getBookingsByDate = (date, roomType) => {
   return request({
-    url: '/bookings/date',
+    url: '/venue-calendar/bookings/date',
     method: 'get',
-    params: {
-      date,
-      roomType
-    }
+    params: { date, roomType }
   })
 }
 
-// 获取指定周的预订
 export const getBookingsByWeek = (weekStart, roomType) => {
   return request({
-    url: '/bookings/week',
+    url: '/venue-calendar/bookings/week',
     method: 'get',
-    params: {
-      weekStart,
-      roomType
-    }
+    params: { weekStart, roomType }
   })
 }
 
-// 获取指定月的预订
 export const getBookingsByMonth = (year, month, roomType) => {
   return request({
-    url: '/bookings/month',
+    url: '/venue-calendar/bookings/month',
     method: 'get',
-    params: {
-      year,
-      month,
-      roomType
-    }
+    params: { year, month, roomType }
   })
 }
 
-// 创建预订
 export const createVenueBooking = (data) => {
   return request({
-    url: '/bookings',
+    url: '/venue-calendar/bookings',
     method: 'post',
     data
   })
 }
 
-// 更新预订
 export const updateVenueBooking = (id, data) => {
   return request({
-    url: `/bookings/${id}`,
+    url: `/venue-calendar/bookings/${id}`,
     method: 'put',
     data
   })
 }
 
-// 删除预订
 export const deleteVenueBooking = (id) => {
   return request({
-    url: `/bookings/${id}`,
+    url: `/venue-calendar/bookings/${id}`,
     method: 'delete'
   })
 }
 
-// 获取可用房间列表
 export const getAvailableRooms = (roomType) => {
   return request({
-    url: '/rooms',
+    url: '/venue-calendar/rooms',
     method: 'get',
-    params: {
-      roomType
-    }
+    params: { roomType }
   })
 }
 
-// 检查房间可用性
-export const checkRoomAvailability = (roomId, date, startTime, endTime) => {
+export const checkRoomAvailability = (roomId, date, startTime, endTime, excludeBookingId) => {
   return request({
-    url: '/rooms/availability',
+    url: '/venue-calendar/rooms/availability',
     method: 'get',
-    params: {
-      roomId,
-      date,
-      startTime,
-      endTime
-    }
+    params: { roomId, date, startTime, endTime, excludeBookingId }
   })
+}
+
+/** 按当前视图拉取预订（day / week / month）；不按 roomType 过滤，由房间筛选控制展示 */
+export function fetchCalendarBookingsByView ({ view, currentDate }) {
+  const d = currentDate instanceof Date ? currentDate : new Date(currentDate)
+  const y = d.getFullYear()
+  const m = d.getMonth() + 1
+
+  if (view === 'day') {
+    const date = `${y}-${String(m).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return getBookingsByDate(date)
+  }
+
+  if (view === 'week') {
+    const weekStartDate = new Date(d)
+    weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay())
+    const weekStart = `${weekStartDate.getFullYear()}-${String(weekStartDate.getMonth() + 1).padStart(2, '0')}-${String(weekStartDate.getDate()).padStart(2, '0')}`
+    return getBookingsByWeek(weekStart)
+  }
+
+  return getBookingsByMonth(y, m)
 }

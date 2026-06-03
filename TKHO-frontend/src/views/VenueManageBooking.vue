@@ -25,7 +25,7 @@
           </div>
 
           <!-- Status Filter -->
-          <div class="status-filter-wrapper">
+          <div class="status-filter-wrapper" data-filter="booking-status">
             <button class="status-filter-btn" @click="toggleStatusFilter">
               {{ statusFilterLabel }}
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon">
@@ -53,6 +53,39 @@
                 </label>
                 <label class="status-checkbox select-all-option">
                   <input type="checkbox" v-model="allStatusesSelected" />
+                  <span>Select All</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Approval Filter (Admin All Bookings only) -->
+          <div v-if="isAdminAllBookingsView" class="status-filter-wrapper" data-filter="approval-status">
+            <button class="status-filter-btn" @click="toggleApprovalFilter">
+              {{ approvalFilterLabel }}
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div v-if="showApprovalFilter" class="status-filter-dropdown" @click.stop>
+              <div class="status-filter-header">
+                <span class="filter-title">Show approval:</span>
+              </div>
+              <div class="status-filter-body">
+                <label class="status-checkbox">
+                  <input type="checkbox" v-model="approvalFilters.pending" />
+                  <span>Pending</span>
+                </label>
+                <label class="status-checkbox">
+                  <input type="checkbox" v-model="approvalFilters.approved" />
+                  <span>Approved</span>
+                </label>
+                <label class="status-checkbox">
+                  <input type="checkbox" v-model="approvalFilters.rejected" />
+                  <span>Rejected</span>
+                </label>
+                <label class="status-checkbox select-all-option">
+                  <input type="checkbox" v-model="allApprovalsSelected" />
                   <span>Select All</span>
                 </label>
               </div>
@@ -145,7 +178,7 @@
                 <span class="filter-title">Show columns:</span>
               </div>
               <div class="columns-filter-body">
-                <label v-for="col in availableColumns" :key="col.key" class="column-checkbox">
+                <label v-for="col in columnsForTablePicker" :key="col.key" class="column-checkbox">
                   <input type="checkbox" v-model="col.visible" :disabled="col.required" />
                   <span>{{ col.label }}</span>
                 </label>
@@ -196,10 +229,42 @@
               :class="'status-' + booking.status"
             >
               <div class="card-header">
-                <h3 class="card-title">{{ booking.topic }}</h3>
-                <span :class="['status-badge', 'badge-' + booking.status]">
-                  {{ formatStatus(booking.status) }}
-                </span>
+                <h3 class="card-title">{{ getCardTitle(booking) }}</h3>
+                <div class="card-header-right">
+                  <el-popover
+                    placement="top"
+                    :width="340"
+                    trigger="hover"
+                    :teleported="cardPopoverTeleported"
+                    popper-class="booking-card-popover"
+                  >
+                    <template #reference>
+                      <button type="button" class="card-info-btn" title="More info">i</button>
+                    </template>
+                    <div class="booking-popover-content">
+                      <div class="booking-popover-row"><span class="popover-label">Meeting / Event</span><span class="popover-value">{{ booking.topic || '-' }}</span></div>
+                      <div v-if="!isAdminAllBookingsView && canViewMyNote(booking)" class="booking-popover-row"><span class="popover-label">My Note</span><span class="popover-value">{{ booking.myNote || '-' }}</span></div>
+                      <div class="booking-popover-row"><span class="popover-label">Reserved By</span><span class="popover-value">{{ booking.reservedBy || '-' }}</span></div>
+                      <div class="booking-popover-row"><span class="popover-label">Contact</span><span class="popover-value">{{ booking.contact || '-' }}</span></div>
+                      <div class="booking-popover-row"><span class="popover-label">Email</span><span class="popover-value">{{ booking.email || '-' }}</span></div>
+                      <div class="booking-popover-row"><span class="popover-label">Tea Service</span><span class="popover-value">{{ formatTeaServiceStatus(booking) }}</span></div>
+                      <div class="booking-popover-row"><span class="popover-label">Tea Special Requests</span><span class="popover-value">{{ formatTeaSpecialRequest(booking) }}</span></div>
+                      <div class="booking-popover-row">
+                        <span class="popover-label">Approval</span>
+                        <span :class="['status-badge', 'badge-approval-' + (booking.approvalStatus || 'pending')]">
+                          {{ formatStatus(booking.approvalStatus || 'pending') }}
+                        </span>
+                      </div>
+                      <div v-if="String(booking.approvalStatus || '').toLowerCase() === 'rejected'" class="booking-popover-row">
+                        <span class="popover-label">Reason</span>
+                        <span class="popover-value">{{ booking.reason || booking.rejectReason || '-' }}</span>
+                      </div>
+                    </div>
+                  </el-popover>
+                  <span :class="['status-badge', 'badge-' + booking.status]">
+                    {{ formatStatus(booking.status) }}
+                  </span>
+                </div>
               </div>
               <div class="card-body">
                 <div class="card-row">
@@ -216,33 +281,71 @@
                 </div>
                 <div class="card-row tea-service-row">
                   <span class="card-label tea-service-label">Tea Service</span>
-                  <span class="card-value tea-service-value">{{ formatTeaServiceStatus(booking) }}</span>
+                  <span class="card-value tea-service-value">
+                    <el-popover
+                      v-if="isBookingTeaServiceYes(booking)"
+                      placement="top"
+                      :width="300"
+                      trigger="hover"
+                      :teleported="cardPopoverTeleported"
+                      popper-class="booking-card-tea-popover"
+                    >
+                      <template #reference>
+                        <span class="tea-service-card-short tea-service-card-short--yes">{{ formatTeaServiceCardLabel(booking) }}</span>
+                      </template>
+                      <div class="tea-service-popover-detail">
+                        <div v-if="getTeaServiceSummaryText(booking)" class="tea-service-popover-line">
+                          {{ getTeaServiceSummaryText(booking) }}
+                        </div>
+                        <div
+                          v-if="formatTeaSpecialRequest(booking) !== '-'"
+                          class="tea-service-popover-line tea-service-popover-special"
+                        >
+                          <span class="tea-service-popover-label">Special requests</span>
+                          <span class="tea-service-popover-text">{{ formatTeaSpecialRequest(booking) }}</span>
+                        </div>
+                      </div>
+                    </el-popover>
+                    <span v-else class="tea-service-card-short">{{ formatTeaServiceCardLabel(booking) }}</span>
+                  </span>
                 </div>
                 <div class="card-row">
                   <span class="card-label application-date-label">Application Date</span>
                   <span class="card-value">{{ formatApplicationDateForCard(booking.bookedOn) }}</span>
                 </div>
+                <div class="card-row">
+                  <span class="card-label">Approval</span>
+                  <span :class="['status-badge', 'card-approval-badge', 'badge-approval-' + (booking.approvalStatus || 'pending')]">
+                    {{ formatStatus(booking.approvalStatus || 'pending') }}
+                  </span>
+                </div>
               </div>
               <div class="card-footer">
-                <div v-if="booking.reason" class="reason-row">
-                  <span class="reason-label">Reason:</span>
-                  <span class="reason-text">{{ booking.reason }}</span>
+                <div
+                  v-if="isAdminAllBookingsView && canShowHandleButton(booking)"
+                  class="card-footer-actions"
+                >
+                  <button
+                    type="button"
+                    class="btn-action btn-edit"
+                    @click="openHandleBooking(booking)"
+                  >
+                    Handle
+                  </button>
                 </div>
-                <button
-                  v-if="isAdminAllBookingsView && booking.status === 'upcoming'"
-                  type="button"
-                  class="btn-action btn-edit"
-                  @click="openHandleBooking(booking)"
-                >
-                  Handle
-                </button>
-                <button
-                  v-else-if="!isAdminAllBookingsView && canShowToggleBookingButton(booking)"
-                  :class="['btn-cancel', { 'btn-restore': isBookingCanceledStatus(booking.status) }]"
-                  @click="cancelBooking(booking.id)"
-                >
-                  {{ isBookingCanceledStatus(booking.status) ? 'Restore Booking' : 'Cancel Booking' }}
-                </button>
+                <div v-else-if="!isAdminAllBookingsView" class="card-footer-actions">
+                  <button type="button" class="btn-action btn-edit" @click="editBooking(booking.id)">
+                    Edit
+                  </button>
+                  <button
+                    v-if="canShowToggleBookingButton(booking)"
+                    type="button"
+                    :class="['btn-action', 'btn-cancel-small', { 'btn-restore-small': isBookingCanceledStatus(booking.status) }]"
+                    @click="cancelBooking(booking.id)"
+                  >
+                    {{ isBookingCanceledStatus(booking.status) ? 'Restore' : 'Cancel' }}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -261,7 +364,7 @@
                       <span class="sort-indicator">{{ getSortIndicator('dateTime') }}</span>
                     </button>
                   </th>
-                  <th v-if="availableColumns[1].visible">
+                  <th v-if="availableColumns[1].visible" class="col-venue">
                     <SortableFilterHeader
                       label="Venue"
                       :sort-indicator="getSortIndicator('room')"
@@ -274,7 +377,7 @@
                       @update:model-value="(v) => updateFilter('room', v)"
                     />
                   </th>
-                  <th v-if="availableColumns[2].visible">
+                  <th v-if="availableColumns[2].visible" class="col-topic">
                     <button type="button" class="th-sort-btn" @click="toggleSort('topic')">
                       Meeting / Event
                       <span class="sort-indicator">{{ getSortIndicator('topic') }}</span>
@@ -337,7 +440,7 @@
                       <span class="sort-indicator">{{ getSortIndicator('bookedOn') }}</span>
                     </button>
                   </th>
-                  <th v-if="availableColumns[9].visible">My Note</th>
+                  <th v-if="isMyNoteTableColumnVisible" class="col-mynote">My Note</th>
                   <th class="col-actions">Actions</th>
                 </tr>
               </thead>
@@ -348,8 +451,8 @@
                     <div class="date">{{ booking.date }}</div>
                     <div class="time">{{ booking.time }}</div>
                   </td>
-                  <td v-if="availableColumns[1].visible">{{ booking.room }}</td>
-                  <td v-if="availableColumns[2].visible">{{ booking.topic }}</td>
+                  <td v-if="availableColumns[1].visible" class="col-venue">{{ booking.room }}</td>
+                  <td v-if="availableColumns[2].visible" class="col-topic">{{ booking.topic }}</td>
                   <td v-if="availableColumns[3].visible">{{ booking.reservedBy }}</td>
                   <td v-if="availableColumns[4].visible">{{ booking.contact }}</td>
                   <td v-if="availableColumns[5].visible">{{ booking.email }}</td>
@@ -364,12 +467,14 @@
                     </span>
                   </td>
                   <td v-if="availableColumns[8].visible">{{ booking.bookedOn }}</td>
-                  <td v-if="availableColumns[9].visible">{{ booking.myNote || '-' }}</td>
+                  <td v-if="isMyNoteTableColumnVisible" class="col-mynote">
+                    <span class="col-mynote-text">{{ booking.myNote || '-' }}</span>
+                  </td>
                   <td class="actions-td">
                     <div class="actions-cell">
                       <template v-if="isAdminAllBookingsView">
                         <button
-                          v-if="booking.status === 'upcoming'"
+                          v-if="canShowHandleButton(booking)"
                           type="button"
                           class="btn-action btn-edit"
                           @click="openHandleBooking(booking)"
@@ -453,23 +558,35 @@
     <BookingStyleModal
       v-model="showEditDialog"
       title="Edit Booking"
-      max-width="560px"
+      max-width="800px"
       :max-height="editBookingModalMaxHeight"
-      custom-class="edit-booking-modal"
+      :custom-class="editBookingModalClass"
     >
-      <el-form :model="editForm" label-width="130px">
-        <el-form-item label="Venue">
+      <el-form :model="editForm" :rules="editFormRules" label-width="150px" class="edit-booking-form">
+        <el-form-item label="Room / Venue" prop="room">
           <el-select
             v-model="editForm.room"
+            filterable
+            clearable
+            default-first-option
             placeholder="Select venue"
             style="width: 100%"
             :teleported="false"
+            :reserve-keyword="false"
+            :filter-method="handleEditRoomFilter"
             :popper-options="editPickerPopperOptions"
+            popper-class="edit-booking-room-select"
           >
-            <el-option v-for="room in editableVenueOptions" :key="`edit-room-${room}`" :label="room" :value="room" />
+            <el-option v-for="room in displayedEditableVenueOptions" :key="`edit-room-${room.name}`" :label="room.name" :value="room.name">
+              <div class="edit-venue-option">
+                <span class="edit-room-color-dot" :style="{ backgroundColor: room.color || '#3b82f6' }"></span>
+                <span class="edit-venue-option-name">{{ room.name }}</span>
+                <span class="edit-venue-option-cap">{{ formatRoomCapacity(room.roomCapacity) }}</span>
+              </div>
+            </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="Meeting / Event">
+        <el-form-item label="Meeting / Event" prop="topic">
           <el-input
             v-model="editForm.topic"
             type="textarea"
@@ -478,39 +595,80 @@
             :disabled="isEditTopicLocked"
           />
         </el-form-item>
-        <el-form-item label="Booking Date">
-          <el-date-picker
-            v-model="editForm.date"
-            type="date"
-            value-format="YYYY-MM-DD"
-            format="DD/MM/YYYY"
-            placeholder="Select booking date"
-            :teleported="false"
-            :popper-options="editPickerPopperOptions"
-            style="width: 100%;"
-          />
+        <el-form-item label="Date" prop="date">
+          <div class="field-with-availability">
+            <el-date-picker
+              v-model="editForm.date"
+              class="field-with-availability__control"
+              type="date"
+              value-format="YYYY-MM-DD"
+              format="DD/MM/YYYY"
+              placeholder="Select booking date"
+              :teleported="false"
+              placement="bottom"
+              popper-class="edit-booking-date-popper"
+              :popper-options="editDatePopperOptions"
+              style="width: 100%;"
+            />
+            <span v-if="editAvailabilityFieldOk.date" class="availability-ok" aria-hidden="true">✓</span>
+            <span v-else-if="editAvailabilityFieldFail.date" class="availability-fail" aria-hidden="true">✕</span>
+          </div>
         </el-form-item>
-        <el-form-item label="Start Time">
-          <el-select
-            v-model="editForm.startTime"
-            placeholder="Select start time"
-            style="width: 100%"
-            :teleported="false"
-            :popper-options="editPickerPopperOptions"
-          >
-            <el-option v-for="t in timeSlotOptions" :key="`edit-start-${t}`" :label="t" :value="t" />
-          </el-select>
+        <div class="form-row">
+          <el-form-item label="Start Time" prop="startTime" class="form-item-half">
+            <div class="field-with-availability">
+              <el-select
+                v-model="editForm.startTime"
+                class="field-with-availability__control"
+                filterable
+                clearable
+                placeholder="Select start time"
+                style="width: 100%"
+                :teleported="false"
+                popper-class="edit-time-select-popper"
+              >
+                <el-option v-for="t in timeSlotOptions" :key="`edit-start-${t}`" :label="t" :value="t" />
+              </el-select>
+              <span v-if="editAvailabilityFieldOk.startTime" class="availability-ok" aria-hidden="true">✓</span>
+              <span v-else-if="editAvailabilityFieldFail.startTime" class="availability-fail" aria-hidden="true">✕</span>
+            </div>
+          </el-form-item>
+          <el-form-item label="End Time" prop="endTime" class="form-item-half">
+            <div class="field-with-availability">
+              <el-select
+                ref="editEndTimeSelectRef"
+                v-model="editForm.endTime"
+                class="field-with-availability__control"
+                filterable
+                clearable
+                placeholder="Select end time"
+                style="width: 100%"
+                :teleported="false"
+                popper-class="edit-end-time-select-popper edit-time-select-popper"
+                @visible-change="handleEditEndTimeVisibleChange"
+              >
+                <el-option v-for="t in editEndTimeOptions" :key="`edit-end-${t}`" :label="t" :value="t" />
+              </el-select>
+              <span v-if="editAvailabilityFieldOk.endTime" class="availability-ok" aria-hidden="true">✓</span>
+              <span v-else-if="editAvailabilityFieldFail.endTime" class="availability-fail" aria-hidden="true">✕</span>
+            </div>
+          </el-form-item>
+        </div>
+        <el-form-item label=" " class="edit-check-availability-item">
+          <el-button type="default" @click="checkEditAvailability" class="check-btn">
+            CHECK AVAILABILITY
+          </el-button>
         </el-form-item>
-        <el-form-item label="End Time">
-          <el-select
-            v-model="editForm.endTime"
-            placeholder="Select end time"
-            style="width: 100%"
-            :teleported="false"
-            :popper-options="editPickerPopperOptions"
-          >
-            <el-option v-for="t in timeSlotOptions" :key="`edit-end-${t}`" :label="t" :value="t" />
-          </el-select>
+        <el-form-item label="My Note">
+          <el-input v-model="editForm.myNote" type="textarea" :rows="2" placeholder="Enter your note" />
+        </el-form-item>
+        <el-form-item label="No. of participants" class="edit-tea-line no-wrap-label">
+          <p v-if="selectedEditVenueCapacity != null" class="edit-participants-hint">
+            min: 1, max: {{ selectedEditVenueCapacity }} (venue capacity)
+          </p>
+          <p v-else-if="editForm.room" class="edit-participants-hint">min: 1</p>
+          <p v-else class="edit-participants-hint">Select a room to see capacity limit</p>
+          <el-input-number v-model="editForm.teaServiceParticipants" :min="1" :max="200" controls-position="right" style="width: 100%" />
         </el-form-item>
         <el-form-item label="Tea Service Required?" class="edit-tea-line no-wrap-label">
           <el-radio-group v-model="editForm.teaServiceRequired">
@@ -522,35 +680,43 @@
           Tea service is locked for near-date bookings. You can turn off Tea Service, but cannot change Tea/Water options.
         </p>
         <template v-if="editForm.teaServiceRequired">
-          <div class="edit-tea-service-options">
-            <el-form-item label="Tea or Water" class="edit-tea-line no-wrap-label">
-              <el-radio-group
-                v-model="editForm.teaOrWater"
-                class="edit-tea-service-radios"
-                :disabled="isEditTeaServiceUnavailable"
+          <div class="edit-tea-service-box">
+            <div class="edit-tea-service-options">
+              <el-form-item label="Tea or Water" class="edit-tea-line no-wrap-label">
+                <el-radio-group
+                  v-model="editForm.teaOrWater"
+                  class="edit-tea-service-radios"
+                  :disabled="isEditTeaServiceUnavailable"
+                >
+                  <el-radio label="tea">Tea</el-radio>
+                  <el-radio label="water">Water</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label=" " class="edit-tea-line edit-tea-followup no-wrap-label">
+                <el-radio-group
+                  v-model="editForm.serviceType"
+                  class="edit-tea-service-radios"
+                  :disabled="isEditTeaServiceUnavailable"
+                >
+                  <el-radio label="pot">One Pot</el-radio>
+                  <el-radio label="bottle">One Bottle Per Person</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item
+                label="Special requests"
+                class="edit-tea-line edit-tea-special-req no-wrap-label"
               >
-                <el-radio label="tea">Tea</el-radio>
-                <el-radio label="water">Water</el-radio>
-              </el-radio-group>
-            </el-form-item>
-            <el-form-item label=" " class="edit-tea-line edit-tea-followup no-wrap-label">
-              <el-radio-group
-                v-model="editForm.serviceType"
-                class="edit-tea-service-radios"
-                :disabled="isEditTeaServiceUnavailable"
-              >
-                <el-radio label="pot">One Pot</el-radio>
-                <el-radio label="bottle">One Bottle Per Person</el-radio>
-              </el-radio-group>
-            </el-form-item>
+                <el-input
+                  v-model="editForm.teaServiceSpecialRequest"
+                  type="textarea"
+                  :autosize="{ minRows: 2, maxRows: 4 }"
+                  resize="none"
+                  placeholder="Optional — e.g. dietary needs, serving time, extra cups"
+                />
+              </el-form-item>
+            </div>
           </div>
         </template>
-        <el-form-item label="No. of participants" class="edit-tea-line no-wrap-label">
-          <el-input-number v-model="editForm.teaServiceParticipants" :min="1" :max="200" controls-position="right" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="My Note">
-          <el-input v-model="editForm.myNote" type="textarea" :rows="2" placeholder="Enter your note" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button type="default" class="cancel-btn" @click="showEditDialog = false">Cancel</el-button>
@@ -558,67 +724,97 @@
       </template>
     </BookingStyleModal>
 
-    <!-- Handle Booking???? All Bookings + upcoming????MeetingApproval??-->
+    <!-- Handle Booking：All Bookings + upcoming，对齐 MeetingApproval -->
     <BookingStyleModal
       v-model="showHandleDialog"
       title="Handle Booking"
       max-width="760px"
       :max-height="handleBookingModalMaxHeight"
+      custom-class="handle-booking-modal"
     >
       <el-form :model="handleForm" label-width="170px" class="handle-booking-form">
-        <el-form-item label="Room">
+        <el-form-item label="Room / Venue">
           <el-input v-model="handleForm.room" disabled />
         </el-form-item>
-        <el-form-item label="Topic / Event Name" class="no-wrap-label">
+        <el-form-item label="Meeting / Event Title" class="no-wrap-label">
           <el-input v-model="handleForm.topic" type="textarea" :rows="2" />
         </el-form-item>
-        <el-form-item label="Booking Date">
+        <el-form-item label="Date">
           <el-input v-model="handleForm.date" disabled />
         </el-form-item>
         <el-form-item label="Time">
           <el-input v-model="handleForm.time" disabled />
         </el-form-item>
-        <div class="handle-contact-section">
-          <el-form-item label="Full Name" label-width="154px">
+        <el-form-item label="No. of Participants" class="no-wrap-label">
+          <el-input v-model="handleForm.participantCount" disabled />
+        </el-form-item>
+        <el-form-item label="Tea Service">
+          <el-input v-model="handleForm.teaService" disabled />
+        </el-form-item>
+        <div class="contact-info-section">
+          <el-form-item label="Name" label-width="154px">
             <el-input v-model="handleForm.userName" disabled />
           </el-form-item>
-          <el-form-item label="Department / Unit" label-width="154px">
+          <el-form-item label="Department" label-width="154px">
             <el-input v-model="handleForm.departmentUnit" disabled />
           </el-form-item>
-          <el-form-item label="Contact Telephone No" label-width="154px">
+          <el-form-item label="Contact No." label-width="154px">
             <el-input v-model="handleForm.contactPhone" disabled />
           </el-form-item>
-          <el-form-item label="Contact Email" label-width="154px">
+          <el-form-item label="Email" label-width="154px">
             <el-input v-model="handleForm.contactEmail" disabled />
           </el-form-item>
         </div>
-        <el-form-item label="Reject Reason">
+      </el-form>
+      <template #footer>
+        <el-button type="default" class="cancel-btn" @click="showHandleDialog = false">Cancel</el-button>
+        <el-button type="default" class="action-btn action-delete" @click="openRejectBookingDialog">Reject</el-button>
+        <el-button type="default" class="action-btn action-approve" @click="confirmHandleApprove">Approve</el-button>
+      </template>
+    </BookingStyleModal>
+
+    <BookingStyleModal
+      v-model="showRejectBookingDialog"
+      title="Reject Booking"
+      max-width="720px"
+      custom-class="reject-booking-modal"
+    >
+      <el-form :model="rejectBookingForm" class="reject-booking-form" label-width="132px">
+        <el-form-item label="Reject Template">
           <el-select
-            v-model="handleForm.rejectTemplateKey"
-            placeholder="Select reject template"
-            style="width: 100%; margin-bottom: 8px;"
-            :teleported="false"
-            @change="handleVenueRejectTemplateChange"
+            v-model="rejectBookingForm.selectedTemplateId"
+            filterable
+            clearable
+            default-first-option
+            style="width: 100%"
+            placeholder="Type template name"
+            :teleported="rejectBookingSelectTeleported"
+            :reserve-keyword="false"
+            :filter-method="handleRejectTemplateFilter"
+            popper-class="reject-booking-template-select-popper"
+            :popper-style="rejectBookingSelectTeleported ? { zIndex: 10100 } : {}"
+            @change="handleRejectTemplateSelectChange"
           >
             <el-option
-              v-for="tpl in meetingRejectTemplateOptions"
+              v-for="tpl in displayedRejectTemplateOptions"
               :key="tpl.id"
               :label="tpl.name"
-              :value="tpl.key"
+              :value="tpl.id"
             />
           </el-select>
+        </el-form-item>
+        <el-form-item label="Reject Reason">
           <el-input
-            v-model="handleForm.reason"
+            v-model="rejectBookingForm.reason"
             type="textarea"
-            :rows="3"
-            placeholder="Required only when rejecting"
+            :rows="6"
+            placeholder="Reason for rejection"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button type="default" class="cancel-btn" @click="showHandleDialog = false">Cancel</el-button>
-        <el-button type="default" class="action-btn action-delete" @click="confirmHandleReject">Reject</el-button>
-        <el-button type="default" class="action-btn action-approve" @click="confirmHandleApprove">Approve</el-button>
+        <el-button type="default" class="cancel-btn" @click="closeRejectBookingDialog">Cancel</el-button>
+        <el-button type="default" class="action-btn action-delete" @click="confirmRejectBooking">Confirm Reject</el-button>
       </template>
     </BookingStyleModal>
 
@@ -632,15 +828,28 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
-import { getMockEmployeeListNormalized, getMockPromptList, getMockVenueManageBookingList } from '@/mocks/mockData'
+import {
+  getVenueManagementVenues,
+  approveVenueManageBooking,
+  listVenueManageBookings,
+  rejectVenueManageBooking,
+  toggleVenueManageBookingCancel,
+  updateVenueManageBooking
+} from '@/api/venueManagement'
+import { checkRoomAvailability } from '@/api/calendar'
+import { getPrompts } from '@/api/promptManagement'
+import { useAdminStore } from '@/stores/admin'
+import { notifyAdminPendingUpdated } from '@/utils/adminPendingSync'
+import { HTML_ZOOM_BREAKPOINT_MQ } from '@/utils/venueCalendarApi'
 
 const userStore = useUserStore()
+const adminStore = useAdminStore()
 const { isAdmin, userInfo } = storeToRefs(userStore)
 
 const currentView = ref('card')
@@ -650,10 +859,29 @@ const bookingView = ref('my') // 'my' or 'all' - for admin to switch between per
 const isAdminAllBookingsView = computed(
   () => isAdmin.value && bookingView.value === 'all'
 )
+
+/** All Bookings 表格不显示 My Note；My Bookings 仍受列筛选控制 */
+const columnsForTablePicker = computed(() =>
+  isAdminAllBookingsView.value
+    ? availableColumns.value.filter((col) => col.key !== 'myNote')
+    : availableColumns.value
+)
+
+const isMyNoteTableColumnVisible = computed(() => {
+  if (isAdminAllBookingsView.value) return false
+  const col = availableColumns.value.find((c) => c.key === 'myNote')
+  return Boolean(col?.visible)
+})
 const searchQuery = ref('')
 const showColumnsFilter = ref(false)
 const showStatusFilter = ref(false)
+const showApprovalFilter = ref(false)
 const showDateFilter = ref(false)
+const approvalFilters = ref({
+  pending: true,
+  approved: true,
+  rejected: true
+})
 const currentPage = ref(1)
 const pageSize = ref(20)
 const sortState = ref([
@@ -672,6 +900,7 @@ const currentEditBookingId = ref(null)
 const currentEditBookingApprovalStatus = ref('')
 const editTeaSelectionSnapshot = ref({ teaOrWater: 'tea', serviceType: 'pot' })
 const dateRange = ref(null)
+const editEndTimeSelectRef = ref(null)
 
 const isBookingCanceledStatus = (status) => ['canceled', 'cancelled'].includes(String(status || '').toLowerCase())
 
@@ -704,11 +933,38 @@ const canShowToggleBookingButton = (booking) => {
   return s === 'upcoming' || s === 'canceled' || s === 'cancelled'
 }
 
+const canShowHandleButton = (booking) => {
+  const status = String(booking?.status || '').toLowerCase()
+  const approvalStatus = String(booking?.approvalStatus || 'pending').toLowerCase()
+  return status === 'upcoming' && approvalStatus === 'pending'
+}
+
 const isSameBooker = (a, b) => {
   if (a?.employeeId != null && b?.employeeId != null) return String(a.employeeId) === String(b.employeeId)
   if (a?.corpId && b?.corpId) return String(a.corpId) === String(b.corpId)
   if (a?.email && b?.email) return String(a.email).toLowerCase() === String(b.email).toLowerCase()
   return String(a?.reservedBy || '').trim().toLowerCase() === String(b?.reservedBy || '').trim().toLowerCase()
+}
+
+const isOwnBooking = (booking) => {
+  const currentUserId = userInfo.value?.id
+  const currentUserCorpId = userInfo.value?.corpId
+  const currentUserEmail = String(userInfo.value?.email || '').trim().toLowerCase()
+  if (currentUserId != null && booking?.employeeId != null) {
+    return String(booking.employeeId) === String(currentUserId)
+  }
+  if (currentUserCorpId && booking?.corpId) {
+    return String(booking.corpId) === String(currentUserCorpId)
+  }
+  if (currentUserEmail && booking?.email) {
+    return String(booking.email).trim().toLowerCase() === currentUserEmail
+  }
+  return false
+}
+
+const canViewMyNote = (booking) => {
+  if (!isOwnBooking(booking)) return false
+  return String(booking?.myNote || '').trim().length > 0
 }
 
 const hasRestoreConflictWithOthers = (targetBooking) => {
@@ -742,6 +998,7 @@ const cancelDialogMessage = computed(() => {
 
 const employeeList = ref([])
 const showHandleDialog = ref(false)
+const showRejectBookingDialog = ref(false)
 const currentHandleBookingId = ref(null)
 const showNoticeDialog = ref(false)
 const noticeTitle = ref('Notice')
@@ -751,18 +1008,43 @@ const showNotice = (message, title = 'Notice') => {
   noticeMessage.value = message
   showNoticeDialog.value = true
 }
+const getErrorMessage = (error, fallback = 'Operation failed') => {
+  const message = error?.response?.data?.message
+  if (Array.isArray(message)) return message[0] || fallback
+  if (typeof message === 'string' && message.trim()) return message
+  if (typeof error?.message === 'string' && error.message.trim()) return error.message
+  return fallback
+}
 const handleForm = ref({
   room: '',
   topic: '',
   date: '',
   time: '',
+  participantCount: '-',
+  teaService: 'No',
   userName: '',
   departmentUnit: '',
   contactPhone: '',
-  contactEmail: '',
-  rejectTemplateKey: 'meeting_approval_reject_template',
+  contactEmail: ''
+})
+
+/** 嵌套弹窗内 Reject Template 下拉：大屏挂 body，14" 视口与 MeetingApproval 一致 */
+const REJECT_BOOKING_SELECT_MQ = HTML_ZOOM_BREAKPOINT_MQ
+const rejectBookingSelectTeleported = ref(true)
+let rejectBookingSelectMq = null
+
+function updateRejectBookingSelectTeleported () {
+  if (typeof window === 'undefined') return
+  rejectBookingSelectTeleported.value = !window.matchMedia(REJECT_BOOKING_SELECT_MQ).matches
+}
+
+const rejectBookingForm = ref({
+  selectedTemplateId: null,
   reason: ''
 })
+
+const rejectTemplateKeyword = ref('')
+
 const editForm = ref({
   room: '',
   topic: '',
@@ -773,8 +1055,16 @@ const editForm = ref({
   teaServiceRequired: false,
   teaOrWater: 'tea',
   serviceType: 'pot',
-  teaServiceParticipants: 1
+  teaServiceParticipants: 1,
+  teaServiceSpecialRequest: ''
 })
+const editFormRules = {
+  room: [{ required: true, message: 'Please select room', trigger: 'change' }],
+  topic: [{ required: true, message: 'Please enter topic', trigger: 'blur' }],
+  date: [{ required: true, message: 'Please select date', trigger: 'change' }],
+  startTime: [{ required: true, message: 'Please select start time', trigger: 'change' }],
+  endTime: [{ required: true, message: 'Please select end time', trigger: 'change' }]
+}
 
 /** ??VenueBookingDialog / mock `teaServiceSummary` ???Tea|Water + One Pot|One Bottle Per Person */
 function buildTeaServiceSummary (teaOrWater, serviceType) {
@@ -810,27 +1100,199 @@ const isEditTeaServiceUnavailable = computed(() => {
 const isEditTopicLocked = computed(() =>
   String(currentEditBookingApprovalStatus.value || '').toLowerCase() === 'approved'
 )
+const promptList = ref([])
 const meetingRejectTemplateOptions = computed(() =>
-  getMockPromptList().filter(
-    item => item.category === 'reject_template' && item.templateType === 'meeting_approval'
-  )
+  promptList.value.filter(item => item.category === 'reject_template' && item.templateType === 'meeting_approval')
 )
 
-const editableVenueOptions = [
-  'Conference Room 1',
-  'Conference Room 2',
-  'Conference Room 3',
-  'Discussion Room',
-  'Discussion Room 2',
-  'Function Room',
-  'Lecture Theatre',
-  'Auditorium'
+const displayedRejectTemplateOptions = computed(() => {
+  const keyword = rejectTemplateKeyword.value.trim().toLowerCase()
+  const source = meetingRejectTemplateOptions.value
+  if (!keyword) return source.slice(0, 12)
+  return source
+    .filter((tpl) =>
+      String(tpl.name || '').toLowerCase().includes(keyword) ||
+      String(tpl.key || '').toLowerCase().includes(keyword) ||
+      String(tpl.id ?? '').includes(keyword)
+    )
+    .slice(0, 30)
+})
+
+function handleRejectTemplateFilter (query) {
+  rejectTemplateKeyword.value = String(query || '')
+}
+
+function handleRejectTemplateSelectChange (templateId) {
+  if (templateId == null || templateId === '') {
+    rejectBookingForm.value.reason = ''
+    return
+  }
+  const selectedTemplate = meetingRejectTemplateOptions.value.find(
+    (item) => String(item.id) === String(templateId)
+  )
+  if (!selectedTemplate) {
+    rejectBookingForm.value.reason = ''
+    return
+  }
+  rejectBookingForm.value.reason = selectedTemplate.content || ''
+}
+
+watch(showRejectBookingDialog, (open) => {
+  if (open) {
+    rejectTemplateKeyword.value = ''
+  }
+})
+const editableVenueMeta = ref([])
+const editRoomKeyword = ref('')
+const fallbackEditableVenueOptions = [
+  { name: 'Conference Room 1', color: '#3b82f6', roomCapacity: null },
+  { name: 'Conference Room 2', color: '#14b8a6', roomCapacity: null },
+  { name: 'Conference Room 3', color: '#0ea5e9', roomCapacity: null },
+  { name: 'Discussion Room', color: '#22c55e', roomCapacity: null },
+  { name: 'Discussion Room 2', color: '#10b981', roomCapacity: null },
+  { name: 'Function Room', color: '#ec4899', roomCapacity: null },
+  { name: 'Lecture Theatre', color: '#6366f1', roomCapacity: null },
+  { name: 'Auditorium', color: '#8b5cf6', roomCapacity: null }
 ]
+const editableVenueOptions = computed(() =>
+  editableVenueMeta.value.length ? editableVenueMeta.value : fallbackEditableVenueOptions
+)
+const displayedEditableVenueOptions = computed(() => {
+  const keyword = editRoomKeyword.value.trim().toLowerCase()
+  const source = editableVenueOptions.value
+  if (!keyword) return source.slice(0, 20)
+  return source
+    .filter((room) => String(room?.name || '').toLowerCase().includes(keyword))
+    .slice(0, 40)
+})
+const selectedEditVenueMeta = computed(() =>
+  editableVenueOptions.value.find((venue) => venue.name === editForm.value.room) || null
+)
+const selectedEditVenueCapacity = computed(() => {
+  const cap = selectedEditVenueMeta.value?.roomCapacity
+  return Number.isFinite(Number(cap)) ? Number(cap) : null
+})
+
+const handleEditRoomFilter = (query) => {
+  editRoomKeyword.value = String(query || '')
+}
+
+const formatRoomCapacity = (value) => {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return ''
+  return `cap ${n}`
+}
+const editAvailabilityFieldOk = ref({
+  date: false,
+  startTime: false,
+  endTime: false
+})
+const editAvailabilityFieldFail = ref({
+  date: false,
+  startTime: false,
+  endTime: false
+})
+
+const clearEditAvailabilityIndicators = () => {
+  editAvailabilityFieldOk.value = {
+    date: false,
+    startTime: false,
+    endTime: false
+  }
+  editAvailabilityFieldFail.value = {
+    date: false,
+    startTime: false,
+    endTime: false
+  }
+}
+
+const setEditAvailabilityPass = () => {
+  editAvailabilityFieldOk.value = {
+    date: true,
+    startTime: true,
+    endTime: true
+  }
+  editAvailabilityFieldFail.value = {
+    date: false,
+    startTime: false,
+    endTime: false
+  }
+}
+
+const setEditAvailabilityFail = () => {
+  editAvailabilityFieldOk.value = {
+    date: false,
+    startTime: false,
+    endTime: false
+  }
+  editAvailabilityFieldFail.value = {
+    date: true,
+    startTime: true,
+    endTime: true
+  }
+}
+
+const checkEditAvailability = async () => {
+  clearEditAvailabilityIndicators()
+  if (!editForm.value.room || !editForm.value.date || !editForm.value.startTime || !editForm.value.endTime) {
+    showNotice('Please fill in Room, Date, Start Time and End Time first', 'Warning')
+    return
+  }
+  if (editForm.value.startTime >= editForm.value.endTime) {
+    showNotice('End Time must be later than Start Time', 'Warning')
+    return
+  }
+
+  const venue = selectedEditVenueMeta.value
+  if (!venue?.id) {
+    showNotice('Room not found', 'Warning')
+    return
+  }
+
+  try {
+    const result = await checkRoomAvailability(
+      String(venue.id),
+      editForm.value.date,
+      editForm.value.startTime,
+      editForm.value.endTime,
+      currentEditBookingId.value != null ? String(currentEditBookingId.value) : undefined
+    )
+    if (result?.available) {
+      setEditAvailabilityPass()
+    } else {
+      const message = result?.message || 'Room is not available for the selected time slot'
+      setEditAvailabilityFail()
+      showNotice(message, 'Warning')
+    }
+  } catch (error) {
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      'Availability check failed. Please try again.'
+    setEditAvailabilityFail()
+    showNotice(message, 'Warning')
+  }
+}
+
+/** 14" html zoom 断点：卡片 Popover 挂 body 会偏移，与 style.css / MonthDayMorePopover 一致 */
+const cardPopoverTeleported = ref(true)
+let cardPopoverTeleportedMq = null
+
+function updateCardPopoverTeleported () {
+  if (typeof window === 'undefined') return
+  cardPopoverTeleported.value = !window.matchMedia(HTML_ZOOM_BREAKPOINT_MQ).matches
+}
 
 /** 14" ????100??599??Handle Booking ?????? MeetingApproval ???*/
-const HANDLE_BOOKING_MODAL_MQ = '(min-width: 1100px) and (max-width: 1599px)'
+const HANDLE_BOOKING_MODAL_MQ = HTML_ZOOM_BREAKPOINT_MQ
 const handleBookingModalMaxHeight = ref('94vh')
 const editBookingModalMaxHeight = ref('98vh')
+/** Tea Service 为 Yes 时整段表单在 modal-body 内统一滚动 */
+const editBookingModalClass = computed(() =>
+  editForm.value.teaServiceRequired
+    ? 'edit-booking-modal edit-booking-modal--unified-scroll'
+    : 'edit-booking-modal'
+)
 const editPickerOffsetY = ref(0)
 const editPickerPopperOptions = computed(() => ({
   modifiers: [
@@ -842,13 +1304,29 @@ const editPickerPopperOptions = computed(() => ({
     }
   ]
 }))
+const editDatePopperOptions = computed(() => ({
+  modifiers: [
+    {
+      name: 'offset',
+      options: {
+        offset: [0, editPickerOffsetY.value]
+      }
+    },
+    {
+      name: 'flip',
+      options: {
+        fallbackPlacements: []
+      }
+    }
+  ]
+}))
 
 function updateHandleBookingModalMaxHeight () {
   if (typeof window === 'undefined') return
   const isLaptop14 = window.matchMedia(HANDLE_BOOKING_MODAL_MQ).matches
   handleBookingModalMaxHeight.value = isLaptop14 ? '120vh' : '94vh'
   // 14??zoom:0.8????????????modal body ????
-  editBookingModalMaxHeight.value = isLaptop14 ? '96vh' : '98vh'
+  editBookingModalMaxHeight.value = isLaptop14 ? '112vh' : '98vh'
   editPickerOffsetY.value = 0
 }
 
@@ -875,7 +1353,8 @@ const availableColumns = ref([
   { key: 'myNote', label: 'My Note', visible: true, required: false }
 ])
 
-const bookings = ref(getMockVenueManageBookingList())
+const bookings = ref([])
+const bookingsLoading = ref(false)
 
 const filteredBookings = computed(() => {
   let result = bookings.value
@@ -898,6 +1377,16 @@ const filteredBookings = computed(() => {
   const activeStatuses = Object.keys(statusFilters.value).filter(key => statusFilters.value[key])
   if (activeStatuses.length > 0 && activeStatuses.length < 3) {
     result = result.filter(b => activeStatuses.includes(b.status))
+  }
+
+  // Admin all bookings: filter by approval status (multi-select)
+  if (isAdminAllBookingsView.value) {
+    const activeApprovals = Object.keys(approvalFilters.value).filter((key) => approvalFilters.value[key])
+    if (activeApprovals.length > 0 && activeApprovals.length < 3) {
+      result = result.filter((b) =>
+        activeApprovals.includes(String(b.approvalStatus || 'pending').toLowerCase())
+      )
+    }
   }
 
   // Filter by date range
@@ -1006,6 +1495,35 @@ const buildHalfHourTimeOptions = (start = '07:00', end = '21:00', stepMinutes = 
 }
 
 const timeSlotOptions = buildHalfHourTimeOptions()
+const editEndTimeOptions = computed(() => {
+  const start = editForm.value.startTime
+  if (!start) return timeSlotOptions
+  return timeSlotOptions.filter(t => t > start)
+})
+
+const handleEditEndTimeVisibleChange = async (visible) => {
+  if (!visible || !editForm.value.startTime) return
+  await nextTick(() => {
+    requestAnimationFrame(() => {
+      const select = editEndTimeSelectRef.value
+      const popperEl = select?.popperRef?.contentRef
+      const wrap =
+        popperEl?.querySelector?.('.el-scrollbar__wrap') ??
+        document.querySelector('.edit-end-time-select-popper .el-scrollbar__wrap')
+      if (!wrap) return
+
+      const items = wrap.querySelectorAll('.el-select-dropdown__item')
+      const start = editForm.value.startTime
+      for (const el of items) {
+        const label = (el.querySelector('span')?.textContent || el.textContent || '').trim()
+        if (label === start) {
+          wrap.scrollTop = Math.max(0, el.offsetTop - 4)
+          return
+        }
+      }
+    })
+  })
+}
 
 const getSortValue = (booking, key) => {
   switch (key) {
@@ -1120,6 +1638,31 @@ const statusFilterLabel = computed(() => {
   }
 })
 
+const approvalFilterLabel = computed(() => {
+  const activeApprovals = Object.keys(approvalFilters.value).filter((key) => approvalFilters.value[key])
+  if (activeApprovals.length === 3) {
+    return 'All Approval'
+  }
+  if (activeApprovals.length === 0) {
+    return 'No approval selected'
+  }
+  if (activeApprovals.length === 1) {
+    return formatStatus(activeApprovals[0])
+  }
+  return `${activeApprovals.length} approvals`
+})
+
+const allApprovalsSelected = computed({
+  get: () => Object.values(approvalFilters.value).every(Boolean),
+  set: (checked) => {
+    approvalFilters.value = {
+      pending: checked,
+      approved: checked,
+      rejected: checked
+    }
+  }
+})
+
 const allStatusesSelected = computed({
   get: () => Object.values(statusFilters.value).every(Boolean),
   set: (checked) => {
@@ -1132,9 +1675,9 @@ const allStatusesSelected = computed({
 })
 
 const allColumnsSelected = computed({
-  get: () => availableColumns.value.every(col => col.visible),
+  get: () => columnsForTablePicker.value.every((col) => col.visible),
   set: (checked) => {
-    availableColumns.value.forEach((col) => {
+    columnsForTablePicker.value.forEach((col) => {
       col.visible = col.required ? true : checked
     })
   }
@@ -1184,21 +1727,90 @@ const visiblePages = computed(() => {
 })
 
 // Watch for filter changes and reset to page 1
-watch([statusFilters, searchQuery, dateRange, columnFilterState], () => {
+watch([statusFilters, approvalFilters, searchQuery, dateRange, columnFilterState], () => {
   currentPage.value = 1
 }, { deep: true })
+
+watch(() => editForm.value.startTime, (start) => {
+  clearEditAvailabilityIndicators()
+  if (!start) {
+    editForm.value.endTime = ''
+    return
+  }
+  const currentEnd = editForm.value.endTime
+  if (currentEnd && currentEnd > start) return
+  const next = timeSlotOptions.find(t => t > start) || ''
+  editForm.value.endTime = next
+})
+
+watch(
+  () => [editForm.value.room, editForm.value.date, editForm.value.startTime, editForm.value.endTime],
+  () => {
+    clearEditAvailabilityIndicators()
+  }
+)
 
 // Format status to capitalize first letter
 const formatStatus = (status) => {
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
+const getCardTitle = (booking) => {
+  const isMyBookingsView = !isAdminAllBookingsView.value
+  const note = String(booking?.myNote || '').trim()
+  if (isMyBookingsView && canViewMyNote(booking) && note) {
+    return note
+  }
+  return booking?.title || booking?.topic || '-'
+}
+
+const isBookingTeaServiceYes = (booking) => {
+  if (booking?.teaServiceRequired === true) return true
+  return Boolean(String(booking?.teaServiceSummary || '').trim())
+}
+
+/** 卡片视图：仅显示 Yes (人数) / No */
+const formatTeaServiceCardLabel = (booking) => {
+  if (!isBookingTeaServiceYes(booking)) return 'No'
+  const count = booking.teaServiceParticipants ?? booking.attendeeCount ?? booking.participants
+  const n = Number(count)
+  return Number.isFinite(n) ? `Yes (${n})` : 'Yes'
+}
+
+const getTeaServiceSummaryText = (booking) => {
+  const summary = String(booking?.teaServiceSummary || '').trim()
+  if (summary) return summary
+  if (booking?.teaServiceRequired === true) return 'Tea service required'
+  return ''
+}
+
 const formatTeaServiceStatus = (booking) => {
+  if (booking?.teaService && typeof booking.teaService === 'object') {
+    const beverages = booking.teaService.beverages
+    if (beverages) return String(beverages)
+    return 'Required'
+  }
   const count = booking.teaServiceParticipants ?? booking.attendeeCount ?? booking.participants
   const countSuffix = Number.isFinite(Number(count)) ? ` (${count})` : ''
   if (booking.teaServiceSummary) return `${booking.teaServiceSummary}${countSuffix}`
   if (booking.teaServiceRequired === true) return `Required${countSuffix}`
   return 'No'
+}
+
+const formatTeaSpecialRequest = (booking) => {
+  const direct = String(booking?.teaServiceSpecialRequest || '').trim()
+  if (direct) return direct
+  let teaServiceObj = booking?.teaService
+  if (typeof teaServiceObj === 'string') {
+    try {
+      teaServiceObj = JSON.parse(teaServiceObj)
+    } catch {
+      teaServiceObj = null
+    }
+  }
+  const fromTeaService = String(teaServiceObj?.notes || '').trim()
+  if (fromTeaService) return fromTeaService
+  return '-'
 }
 
 const formatApplicationDateForCard = (bookedOn) => {
@@ -1214,6 +1826,8 @@ const formatApplicationDateForCard = (bookedOn) => {
 // Toggle status filter
 const toggleStatusFilter = (event) => {
   event.stopPropagation()
+  showApprovalFilter.value = false
+  document.removeEventListener('click', handleApprovalFilterClickOutside)
   showStatusFilter.value = !showStatusFilter.value
 
   if (showStatusFilter.value) {
@@ -1227,12 +1841,32 @@ const toggleStatusFilter = (event) => {
 
 // Click outside to close status filter
 const handleStatusFilterClickOutside = (event) => {
-  const dropdown = document.querySelector('.status-filter-dropdown')
-  const filterBtn = event.target.closest('.status-filter-wrapper')
-
-  if (!dropdown?.contains(event.target) && !filterBtn) {
+  const wrapper = document.querySelector('[data-filter="booking-status"]')
+  if (!wrapper?.contains(event.target)) {
     showStatusFilter.value = false
     document.removeEventListener('click', handleStatusFilterClickOutside)
+  }
+}
+
+const toggleApprovalFilter = (event) => {
+  event.stopPropagation()
+  showStatusFilter.value = false
+  document.removeEventListener('click', handleStatusFilterClickOutside)
+  showApprovalFilter.value = !showApprovalFilter.value
+  if (showApprovalFilter.value) {
+    setTimeout(() => {
+      document.addEventListener('click', handleApprovalFilterClickOutside, { once: false })
+    }, 0)
+  } else {
+    document.removeEventListener('click', handleApprovalFilterClickOutside)
+  }
+}
+
+const handleApprovalFilterClickOutside = (event) => {
+  const wrapper = document.querySelector('[data-filter="approval-status"]')
+  if (!wrapper?.contains(event.target)) {
+    showApprovalFilter.value = false
+    document.removeEventListener('click', handleApprovalFilterClickOutside)
   }
 }
 
@@ -1389,7 +2023,7 @@ const cancelBooking = (id) => {
   showCancelDialog.value = true
 }
 
-const confirmCancel = () => {
+const confirmCancel = async () => {
   const booking = bookings.value.find(b => b.id === cancelBookingId.value)
   if (!booking) return
   if (!canToggleBookingStatus(booking)) {
@@ -1398,21 +2032,19 @@ const confirmCancel = () => {
     return
   }
 
-  if (isBookingCanceledStatus(booking.status)) {
-    if (hasRestoreConflictWithOthers(booking)) {
-      showCancelDialog.value = false
-      showNotice('Cannot restore this booking because the selected room/time conflicts with another user booking.', 'Warning')
-      return
-    }
-    booking.status = 'upcoming'
+  try {
+    await toggleVenueManageBookingCancel(String(booking.id))
+    await loadBookings()
     showCancelDialog.value = false
-    showNotice('Venue booking restored successfully!', 'Success')
-    return
+    showNotice(
+      isBookingCanceledStatus(booking.status)
+        ? 'Venue booking restored successfully!'
+        : 'Venue booking cancelled successfully! You can restore it before meeting start time.',
+      'Success'
+    )
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to update booking status'), 'Error')
   }
-
-  booking.status = 'canceled'
-  showCancelDialog.value = false
-  showNotice('Venue booking cancelled successfully! You can restore it before meeting start time.', 'Success')
 }
 
 const editBooking = (id) => {
@@ -1436,12 +2068,13 @@ const editBooking = (id) => {
     teaServiceRequired: Boolean(booking.teaServiceRequired || booking.teaServiceSummary),
     teaOrWater: teaParsed.teaOrWater,
     serviceType: teaParsed.serviceType,
-    teaServiceParticipants: booking.teaServiceParticipants || 1
+    teaServiceParticipants: booking.teaServiceParticipants || 1,
+    teaServiceSpecialRequest: formatTeaSpecialRequest(booking) === '-' ? '' : formatTeaSpecialRequest(booking)
   }
   showEditDialog.value = true
 }
 
-const confirmEditBooking = () => {
+const confirmEditBooking = async () => {
   const id = currentEditBookingId.value
   if (id == null) return
   if (!editForm.value.topic.trim()) {
@@ -1471,30 +2104,29 @@ const confirmEditBooking = () => {
     showNotice('Near-date bookings cannot change Tea/Water options. You can only cancel Tea Service.', 'Warning')
     return
   }
-  const booking = bookings.value.find(b => b.id === id)
-  if (!booking) return
-
-  const isApproved = String(booking.approvalStatus || '').toLowerCase() === 'approved'
-  if (!isApproved) {
-    booking.topic = editForm.value.topic.trim()
+  try {
+    await updateVenueManageBooking(String(id), {
+      room: editForm.value.room,
+      topic: editForm.value.topic.trim(),
+      myNote: editForm.value.myNote?.trim() || '',
+      date: editForm.value.date,
+      startTime: editForm.value.startTime,
+      endTime: editForm.value.endTime,
+      teaServiceRequired: Boolean(editForm.value.teaServiceRequired),
+      teaOrWater: editForm.value.teaOrWater,
+      serviceType: editForm.value.serviceType,
+      teaServiceParticipants: editForm.value.teaServiceParticipants || 1,
+      teaServiceSpecialRequest: editForm.value.teaServiceSpecialRequest?.trim() || ''
+    })
+    await loadBookings()
+    showEditDialog.value = false
+    currentEditBookingId.value = null
+    currentEditBookingApprovalStatus.value = ''
+    editTeaSelectionSnapshot.value = { teaOrWater: 'tea', serviceType: 'pot' }
+    showNotice('Booking updated successfully', 'Success')
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to update booking'), 'Error')
   }
-  booking.room = editForm.value.room
-  booking.myNote = editForm.value.myNote?.trim() || ''
-  booking.date = formatIsoDateToDisplay(editForm.value.date)
-  booking.time = `${editForm.value.startTime} - ${editForm.value.endTime}`
-  booking.teaServiceRequired = Boolean(editForm.value.teaServiceRequired)
-  booking.teaServiceParticipants = editForm.value.teaServiceParticipants || 1
-  if (booking.teaServiceRequired) {
-    booking.teaServiceSummary = buildTeaServiceSummary(editForm.value.teaOrWater, editForm.value.serviceType)
-  } else {
-    delete booking.teaServiceSummary
-  }
-
-  showEditDialog.value = false
-  currentEditBookingId.value = null
-  currentEditBookingApprovalStatus.value = ''
-  editTeaSelectionSnapshot.value = { teaOrWater: 'tea', serviceType: 'pot' }
-  showNotice('Booking updated successfully', 'Success')
 }
 
 function openHandleBooking (booking) {
@@ -1509,73 +2141,146 @@ function openHandleBooking (booking) {
     topic: booking.topic || '',
     date: booking.date || '',
     time: booking.time || '',
+    participantCount: booking.teaServiceParticipants
+      ?? booking.attendeeCount
+      ?? booking.participants
+      ?? booking.teaService?.attendees
+      ?? '-',
+    teaService: formatTeaServiceStatus(booking),
     userName: booking.reservedBy || '',
     departmentUnit: matched?.department || '-',
     contactPhone: booking.contact || '-',
-    contactEmail: booking.email || '-',
-    rejectTemplateKey: 'meeting_approval_reject_template',
-    reason: ''
+    contactEmail: booking.email || '-'
   }
-  handleVenueRejectTemplateChange(handleForm.value.rejectTemplateKey)
   showHandleDialog.value = true
 }
 
-function handleVenueRejectTemplateChange (templateKey) {
-  const selectedTemplate = meetingRejectTemplateOptions.value.find(item => item.key === templateKey)
-  if (!selectedTemplate) return
-  handleForm.value.reason = selectedTemplate.content || ''
+function openRejectBookingDialog () {
+  if (currentHandleBookingId.value == null) return
+  rejectBookingForm.value.selectedTemplateId = null
+  rejectBookingForm.value.reason = ''
+  showRejectBookingDialog.value = true
 }
 
-function confirmHandleApprove () {
+function closeRejectBookingDialog () {
+  showRejectBookingDialog.value = false
+}
+
+async function confirmHandleApprove () {
   const id = currentHandleBookingId.value
   if (id == null) return
-  const booking = bookings.value.find((b) => b.id === id)
-  if (booking) {
-    booking.topic = handleForm.value.topic.trim() || booking.topic
-    booking.approvalStatus = 'approved'
-    booking.approvedBy = userInfo.value?.name || userInfo.value?.corpId || 'Admin'
-    booking.approvedAt = new Date().toISOString()
-    booking.rejectReason = ''
+  try {
+    await approveVenueManageBooking(String(id), { topic: handleForm.value.topic.trim() })
+    showHandleDialog.value = false
+    currentHandleBookingId.value = null
+    await loadBookings()
+    await adminStore.fetchPendingCounts()
+    notifyAdminPendingUpdated({ source: 'bookings' })
+    showNotice('Booking approved successfully', 'Success')
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to approve booking'), 'Error')
   }
-  showHandleDialog.value = false
-  currentHandleBookingId.value = null
-  showNotice('Booking approved successfully', 'Success')
 }
 
-function confirmHandleReject () {
-  if (!handleForm.value.reason.trim()) {
+async function confirmRejectBooking () {
+  if (!rejectBookingForm.value.reason.trim()) {
     showNotice('Please provide a reason for rejection', 'Warning')
     return
   }
   const id = currentHandleBookingId.value
   if (id == null) return
-  const booking = bookings.value.find((b) => b.id === id)
-  if (booking) {
-    booking.topic = handleForm.value.topic.trim() || booking.topic
-    booking.status = 'canceled'
-    booking.reason = handleForm.value.reason.trim()
-    booking.approvalStatus = 'rejected'
-    booking.rejectReason = handleForm.value.reason.trim()
-    booking.approvedBy = userInfo.value?.name || userInfo.value?.corpId || 'Admin'
-    booking.approvedAt = new Date().toISOString()
+  try {
+    await rejectVenueManageBooking(String(id), {
+      topic: handleForm.value.topic.trim(),
+      reason: rejectBookingForm.value.reason.trim()
+    })
+    showRejectBookingDialog.value = false
+    showHandleDialog.value = false
+    currentHandleBookingId.value = null
+    await loadBookings()
+    await adminStore.fetchPendingCounts()
+    notifyAdminPendingUpdated({ source: 'bookings' })
+    showNotice('Booking rejected', 'Success')
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to reject booking'), 'Error')
   }
-  showHandleDialog.value = false
-  currentHandleBookingId.value = null
-  showNotice('Booking rejected', 'Success')
 }
 
+const loadBookings = async () => {
+  bookingsLoading.value = true
+  try {
+    const scope = isAdmin.value && bookingView.value === 'all' ? 'all' : 'my'
+    const data = await listVenueManageBookings(scope)
+    bookings.value = Array.isArray(data?.bookings) ? data.bookings : []
+  } catch (error) {
+    bookings.value = []
+    showNotice(getErrorMessage(error, 'Failed to load venue bookings'), 'Error')
+  } finally {
+    bookingsLoading.value = false
+  }
+}
+
+const loadRejectPrompts = async () => {
+  try {
+    const data = await getPrompts({ category: 'reject_template' })
+    promptList.value = Array.isArray(data) ? data : []
+  } catch {
+    promptList.value = []
+  }
+}
+
+const loadEditableVenues = async () => {
+  try {
+    const venues = await getVenueManagementVenues()
+    editableVenueMeta.value = Array.isArray(venues)
+      ? venues
+        .filter((v) => String(v?.status || '').toLowerCase() !== 'inactive')
+        .map((v) => ({
+          id: v?.id,
+          name: String(v?.name || '').trim(),
+          color: String(v?.color || '#3b82f6').trim() || '#3b82f6',
+          roomCapacity: v?.roomCapacity ?? null
+        }))
+        .filter((v) => v.name)
+      : []
+  } catch {
+    editableVenueMeta.value = []
+  }
+}
+
+watch(bookingView, () => {
+  if (isAdmin.value) {
+    void loadBookings()
+  }
+})
+
 onMounted(() => {
-  employeeList.value = getMockEmployeeListNormalized()
   updateHandleBookingModalMaxHeight()
+  updateRejectBookingSelectTeleported()
+  updateCardPopoverTeleported()
   handleBookingModalMq = window.matchMedia(HANDLE_BOOKING_MODAL_MQ)
   handleBookingModalMq.addEventListener('change', updateHandleBookingModalMaxHeight)
+  rejectBookingSelectMq = window.matchMedia(REJECT_BOOKING_SELECT_MQ)
+  rejectBookingSelectMq.addEventListener('change', updateRejectBookingSelectTeleported)
+  cardPopoverTeleportedMq = window.matchMedia(HTML_ZOOM_BREAKPOINT_MQ)
+  cardPopoverTeleportedMq.addEventListener('change', updateCardPopoverTeleported)
+  void loadBookings()
+  void loadRejectPrompts()
+  void loadEditableVenues()
 })
 
 onUnmounted(() => {
   if (handleBookingModalMq) {
     handleBookingModalMq.removeEventListener('change', updateHandleBookingModalMaxHeight)
   }
+  if (rejectBookingSelectMq) {
+    rejectBookingSelectMq.removeEventListener('change', updateRejectBookingSelectTeleported)
+  }
+  if (cardPopoverTeleportedMq) {
+    cardPopoverTeleportedMq.removeEventListener('change', updateCardPopoverTeleported)
+  }
   document.removeEventListener('mousedown', handleDateFilterClickOutside, true)
+  document.removeEventListener('click', handleApprovalFilterClickOutside)
 })
 </script>
 
@@ -1823,38 +2528,38 @@ onUnmounted(() => {
   width: 100%;
 }
 
-:deep(.el-date-editor) {
+.date-range-picker :deep(.el-date-editor) {
   width: 100%;
   border: 2px solid #d1d5db;
   border-radius: 0.375rem;
   transition: all 0.2s;
 }
 
-:deep(.el-date-editor:hover) {
+.date-range-picker :deep(.el-date-editor:hover) {
   border-color: #00723a;
 }
 
-:deep(.el-date-editor.is-active) {
+.date-range-picker :deep(.el-date-editor.is-active) {
   border-color: #00723a;
   box-shadow: 0 0 0 3px rgba(0, 114, 58, 0.1);
 }
 
-:deep(.el-date-editor .el-range-input) {
+.date-range-picker :deep(.el-date-editor .el-range-input) {
   font-size: 0.8125rem;
   color: #111827;
 }
 
-:deep(.el-date-editor .el-range-separator) {
+.date-range-picker :deep(.el-date-editor .el-range-separator) {
   font-size: 0.75rem;
   color: #00723a;
   font-weight: 600;
 }
 
-:deep(.el-date-editor .el-range__icon) {
+.date-range-picker :deep(.el-date-editor .el-range__icon) {
   color: #00723a;
 }
 
-:deep(.el-date-editor .el-range__close-icon) {
+.date-range-picker :deep(.el-date-editor .el-range__close-icon) {
   color: #ef4444;
 }
 
@@ -1937,6 +2642,12 @@ onUnmounted(() => {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
+/* teleported=false：浮层留在 zoom 后的 DOM 内，提高层级避免被卡片网格遮挡 */
+.booking-card-popover.el-popper,
+.booking-card-tea-popover.el-popper {
+  z-index: 100;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -1949,6 +2660,63 @@ onUnmounted(() => {
   border-bottom: 2px solid #d1d5db;
 }
 
+.card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.card-info-btn {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.card-info-btn:hover {
+  color: #00723a;
+  border-color: #00723a;
+}
+
+.booking-popover-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+}
+
+.booking-popover-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.booking-popover-row .popover-label {
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.booking-popover-row .popover-value {
+  color: #000 !important;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-weight: 400;
+  min-width: 0;
+}
+
+.booking-popover-row .status-badge {
+  justify-self: end;
+}
+
 .card-title {
   font-size: 0.8125rem;
   font-weight: 600;
@@ -1956,6 +2724,10 @@ onUnmounted(() => {
   margin: 0;
   flex: 1;
   line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .status-badge {
@@ -1968,6 +2740,13 @@ onUnmounted(() => {
   width: 4.5rem;
   box-sizing: border-box;
   text-align: center;
+}
+
+.card-approval-badge {
+  padding: 0.125rem 0.4375rem;
+  font-size: 0.625rem;
+  width: auto;
+  min-width: 4rem;
 }
 
 .badge-upcoming {
@@ -2034,9 +2813,44 @@ onUnmounted(() => {
 }
 
 .tea-service-value {
-  white-space: normal;
-  word-break: break-word;
   margin-left: 0.5rem;
+}
+
+.tea-service-card-short {
+  white-space: nowrap;
+}
+
+.tea-service-card-short--yes {
+  cursor: help;
+  border-bottom: 1px dotted #9ca3af;
+}
+
+.tea-service-popover-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #111827;
+}
+
+.tea-service-popover-line {
+  margin: 0;
+}
+
+.tea-service-popover-special {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tea-service-popover-label {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.tea-service-popover-text {
+  word-break: break-word;
 }
 
 /* Edit dialog ??tea options aligned with VenueBookingDialog.vue */
@@ -2047,38 +2861,193 @@ onUnmounted(() => {
   line-height: 1.4;
 }
 
+.edit-booking-form {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.edit-booking-form :deep(.el-form-item) {
+  margin-bottom: 14px;
+}
+
+.edit-booking-form :deep(.el-form-item__label) {
+  white-space: nowrap;
+  padding-left: 20px;
+  justify-content: flex-end;
+}
+
+.edit-venue-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.edit-venue-option-name {
+  color: #111827;
+}
+
+.edit-venue-option-cap {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.edit-room-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 0 1px rgba(107, 114, 128, 0.35);
+  flex-shrink: 0;
+}
+
+:deep(.edit-booking-room-select .el-select-dropdown__item) {
+  height: 34px;
+  line-height: 34px;
+}
+
+:deep(.edit-time-select-popper .el-select-dropdown__item) {
+  font-variant-numeric: tabular-nums;
+}
+
+.edit-booking-form :deep(.form-row .el-form-item__content) {
+  overflow: visible;
+}
+
+.edit-booking-form :deep(.el-date-editor .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #d1d5db inset !important;
+}
+
+.edit-booking-form :deep(.el-date-editor .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #9ca3af inset !important;
+}
+
+.field-with-availability {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.field-with-availability__control {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-with-availability__control.el-date-editor {
+  width: 100%;
+}
+
+.availability-ok,
+.availability-fail {
+  width: 20px;
+  min-width: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.availability-ok {
+  color: #16a34a;
+}
+
+.availability-fail {
+  color: #dc2626;
+}
+
+.edit-check-availability-item {
+  margin-bottom: 10px;
+}
+
+.check-btn {
+  width: 100%;
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  color: #ffffff;
+}
+
+.check-btn:hover {
+  background-color: #66b1ff;
+  border-color: #66b1ff;
+  color: #ffffff;
+}
+
+.edit-tea-service-box {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.75rem 0.25rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
 .edit-tea-service-options {
   margin-bottom: 0.25rem;
 }
 
+.edit-participants-hint {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  line-height: 1.2;
+}
+
 .edit-tea-line :deep(.el-form-item__label) {
+  justify-content: flex-end;
+  text-align: right;
   white-space: nowrap;
 }
 
 .edit-tea-line :deep(.el-form-item__content) {
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
 }
 
 .edit-tea-followup :deep(.el-form-item__label) {
-  width: 130px !important;
+  width: 150px !important;
 }
 
 .edit-tea-service-radios {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1.25rem;
+  row-gap: 0;
+  justify-content: stretch;
+  width: 100%;
+  max-width: 36rem;
 }
 
 .edit-tea-service-radios :deep(.el-radio) {
   margin-right: 0;
+  white-space: nowrap;
 }
 
 .card-footer {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 0.5rem;
   min-height: 24px;
   margin-top: auto;
+}
+
+.card-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.card-footer > .btn-action,
+.card-footer-actions .btn-action {
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
 }
 
 .reason-row {
@@ -2156,7 +3125,8 @@ onUnmounted(() => {
 }
 
 .bookings-table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 0.8125rem;
 }
@@ -2197,6 +3167,42 @@ onUnmounted(() => {
   font-size: 11px;
   color: #6b7280;
   line-height: 1;
+}
+
+.bookings-table th.col-venue,
+.bookings-table td.col-venue {
+  min-width: 200px;
+  white-space: nowrap;
+}
+
+.bookings-table th.col-topic,
+.bookings-table td.col-topic {
+  min-width: 240px;
+}
+
+.bookings-table td.col-topic {
+  word-break: break-word;
+}
+
+.bookings-table th.col-mynote,
+.bookings-table td.col-mynote {
+  width: 260px;
+  min-width: 220px;
+  max-width: 280px;
+  box-sizing: border-box;
+}
+
+.bookings-table td.col-mynote {
+  vertical-align: top;
+}
+
+.col-mynote-text {
+  display: block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .bookings-table th.col-datetime {
@@ -2690,22 +3696,22 @@ onUnmounted(() => {
   margin-left: 0 !important;
 }
 
-.handle-contact-section {
+.contact-info-section {
   background-color: #f3f4f6;
   padding: 0.75rem 0.75rem 0.25rem 1.25rem;
   border-radius: 0.375rem;
   margin-bottom: 0.5rem;
 }
 
-.handle-contact-section :deep(.el-form-item__label) {
+.contact-info-section :deep(.el-form-item__label) {
   white-space: nowrap;
 }
 
-.handle-contact-section :deep(.el-form-item__content) {
+.contact-info-section :deep(.el-form-item__content) {
   min-width: 0;
 }
 
-.handle-contact-section :deep(.el-input) {
+.contact-info-section :deep(.el-input) {
   width: 96%;
   max-width: 100%;
 }
@@ -2714,8 +3720,9 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.card-footer .btn-action.btn-edit {
-  align-self: flex-end;
+.reject-booking-form :deep(.el-form-item__label) {
+  white-space: nowrap;
+  padding-right: 8px;
 }
 
 .notice-message {
@@ -2723,5 +3730,47 @@ onUnmounted(() => {
   font-size: 15px;
   color: #374151;
   line-height: 1.6;
+}
+</style>
+
+<!-- Edit Booking 日期面板：箭头相对日历顶部居中 -->
+<style>
+.edit-booking-date-popper.el-picker__popper[data-popper-placement^='bottom'] .el-popper__arrow {
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+}
+
+/* EP2：popper-class 在 .el-select-dropdown 上，max-height 须作用在内部滚动层 */
+.edit-time-select-popper.el-select-dropdown,
+.edit-end-time-select-popper.el-select-dropdown {
+  overflow: hidden;
+}
+
+.edit-time-select-popper.el-select-dropdown .el-select-dropdown__wrap,
+.edit-end-time-select-popper.el-select-dropdown .el-select-dropdown__wrap {
+  max-height: 260px !important;
+}
+
+.edit-time-select-popper.el-select-dropdown .el-scrollbar__wrap,
+.edit-end-time-select-popper.el-select-dropdown .el-scrollbar__wrap {
+  max-height: 260px !important;
+}
+
+.edit-time-select-popper.el-select-dropdown .el-select-dropdown__list,
+.edit-end-time-select-popper.el-select-dropdown .el-select-dropdown__list {
+  padding-bottom: 6px;
+}
+
+.reject-booking-template-select-popper.el-select-dropdown .el-select-dropdown__wrap {
+  max-height: min(42vh, 300px) !important;
+}
+
+.reject-booking-template-select-popper.el-select-dropdown .el-scrollbar__wrap {
+  max-height: min(42vh, 300px) !important;
+}
+
+.reject-booking-template-select-popper.el-select-dropdown .el-select-dropdown__list {
+  padding-bottom: 8px;
 }
 </style>

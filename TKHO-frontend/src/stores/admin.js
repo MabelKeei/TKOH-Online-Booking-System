@@ -1,14 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { mockAdminPendingCounts } from '@/mocks/mockData'
-import { listPendingUsers } from '@/api/userManagement'
-// import { getPendingBookings } from '@/api/admin'
+import { getAdminPendingCounts } from '@/api/admin'
 
 export const useAdminStore = defineStore('admin', () => {
   const pendingBookingsCount = ref(0)
   const pendingUsersCount = ref(0)
-  /** 递增后通知 UserManagement 等子页刷新待审批全量列表（角标由 fetchPendingCounts 维护） */
+  /** 递增后通知 UserManagement 刷新待审批用户列表 */
   const pendingUsersListRevision = ref(0)
+  /** 递增后通知 MeetingApproval 刷新待审批会议列表 */
+  const pendingBookingsListRevision = ref(0)
 
   const totalPendingCount = computed(() => {
     return pendingBookingsCount.value + pendingUsersCount.value
@@ -18,21 +18,46 @@ export const useAdminStore = defineStore('admin', () => {
     pendingUsersListRevision.value += 1
   }
 
-  /** 跨标签 / 轮询 / 可见性：更新侧栏角标并触发子页拉表 */
-  async function refreshPendingUsersSignal () {
-    await fetchPendingCounts()
-    notifyPendingUsersListChanged()
+  function notifyPendingBookingsListChanged () {
+    pendingBookingsListRevision.value += 1
   }
 
+  /** 跨标签 / 轮询 / 可见性：更新侧栏角标并触发子页拉表 */
+  async function refreshPendingAdminSignal () {
+    await fetchPendingCounts()
+    notifyPendingUsersListChanged()
+    notifyPendingBookingsListChanged()
+  }
+
+  /** @deprecated 使用 refreshPendingAdminSignal */
+  async function refreshPendingUsersSignal () {
+    return refreshPendingAdminSignal()
+  }
+
+  let pendingCountsInFlight = null
+
+  /** 角标专用：GET /api/admin/pending-counts（会议 + 用户待审批数量） */
   async function fetchPendingCounts () {
+    if (pendingCountsInFlight) {
+      return pendingCountsInFlight
+    }
+    pendingCountsInFlight = (async () => {
+      try {
+        const data = await getAdminPendingCounts()
+        pendingBookingsCount.value = Number(data?.pendingBookings) || 0
+        pendingUsersCount.value = Number(data?.pendingUsers) || 0
+      } catch (error) {
+        const isTimeout = error?.code === 'ECONNABORTED' || /timeout/i.test(String(error?.message || ''))
+        console.warn(
+          isTimeout ? 'Pending counts request timed out; keeping last badge values.' : 'Failed to fetch pending counts:',
+          error
+        )
+      }
+    })()
     try {
-      pendingBookingsCount.value = mockAdminPendingCounts.pendingBookingsCount
-      const pending = await listPendingUsers('pending')
-      pendingUsersCount.value = Array.isArray(pending) ? pending.length : 0
-    } catch (error) {
-      console.error('Failed to fetch pending counts:', error)
-      pendingBookingsCount.value = mockAdminPendingCounts.pendingBookingsCount
-      pendingUsersCount.value = mockAdminPendingCounts.pendingUsersCount
+      await pendingCountsInFlight
+    } finally {
+      pendingCountsInFlight = null
     }
   }
 
@@ -45,9 +70,12 @@ export const useAdminStore = defineStore('admin', () => {
     pendingBookingsCount,
     pendingUsersCount,
     pendingUsersListRevision,
+    pendingBookingsListRevision,
     totalPendingCount,
     fetchPendingCounts,
     notifyPendingUsersListChanged,
+    notifyPendingBookingsListChanged,
+    refreshPendingAdminSignal,
     refreshPendingUsersSignal,
     resetCounts
   }

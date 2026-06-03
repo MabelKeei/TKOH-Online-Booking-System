@@ -82,8 +82,8 @@
                     <label v-for="room in conferenceRooms" :key="room.id" class="room-checkbox">
                       <input type="checkbox" v-model="room.selected" />
                       <span class="room-name-wrapper">
-                        <span>{{ room.name }}</span>
                         <span class="room-color-dot" :style="{ backgroundColor: room.color }"></span>
+                        <span>{{ room.name }}</span>
                       </span>
                     </label>
                   </div>
@@ -95,8 +95,8 @@
                     <label v-for="room in otherVenues" :key="room.id" class="room-checkbox">
                       <input type="checkbox" v-model="room.selected" />
                       <span class="room-name-wrapper">
-                        <span>{{ room.name }}</span>
                         <span class="room-color-dot" :style="{ backgroundColor: room.color }"></span>
+                        <span>{{ room.name }}</span>
                       </span>
                     </label>
                   </div>
@@ -165,19 +165,19 @@
           <div class="view-switcher flex gap-2">
             <button
               :class="['view-btn', { active: currentView === 'day' }]"
-              @click="currentView = 'day'"
+              @click="switchCalendarView('day')"
             >
               Day
             </button>
             <button
               :class="['view-btn', { active: currentView === 'week' }]"
-              @click="currentView = 'week'"
+              @click="switchCalendarView('week')"
             >
               Week
             </button>
             <button
               :class="['view-btn', { active: currentView === 'month' }]"
-              @click="currentView = 'month'"
+              @click="switchCalendarView('month')"
             >
               Month
             </button>
@@ -192,7 +192,10 @@
         </div>
       </div>
       <!-- Calendar content area -->
-      <div class="calendar-container flex-1 overflow-hidden">
+      <div class="calendar-container flex-1 overflow-hidden relative">
+        <div v-if="calendarLoading" class="calendar-loading-mask">
+          <span>Loading bookings...</span>
+        </div>
         <!-- Month view -->
         <div v-if="currentView === 'month'" class="month-view h-full relative">
           <VenueCalendarMonth
@@ -207,8 +210,9 @@
         </div>
 
         <!-- Week view -->
-        <div v-else-if="currentView === 'week'" class="week-view h-full overflow-y-auto relative">
+        <div v-else-if="currentView === 'week'" class="week-view h-full min-h-0 flex flex-col overflow-x-hidden overflow-y-auto relative">
           <VenueCalendarWeek
+            class="week-calendar-host"
             :current-date="currentDate"
             :bookings="calendarBookings"
             :selected-rooms="selectedRoomsList"
@@ -261,9 +265,26 @@
 
     <BookingStyleModal v-model="showBlockDialog" title="Block Venue Time" max-width="720px" :max-height="blockDialogMaxHeight">
       <el-form :model="blockForm" label-width="110px">
-        <el-form-item label="Room">
-          <el-select v-model="blockForm.roomName" style="width: 100%" :teleported="false" placeholder="Select room">
-            <el-option v-for="room in allRooms" :key="room.id" :label="room.name" :value="room.name" />
+        <el-form-item label="Venue">
+          <el-select
+            v-model="blockForm.roomName"
+            style="width: 100%"
+            :teleported="false"
+            placeholder="Select venue"
+            popper-class="block-room-select-popper"
+          >
+            <el-option
+              v-for="room in allRooms"
+              :key="room.id"
+              :label="room.name"
+              :value="room.name"
+            >
+              <div class="room-option" :class="{ 'is-selected': blockForm.roomName === room.name }">
+                <span class="room-color-dot" :style="{ backgroundColor: room.color }"></span>
+                <span class="room-option-name">{{ room.name }}</span>
+                <span class="room-option-cap">{{ formatRoomCapacity(room.roomCapacity) }}</span>
+              </div>
+            </el-option>
           </el-select>
         </el-form-item>
         <div class="block-row">
@@ -326,7 +347,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import AppHeader from '../components/AppHeader.vue'
@@ -337,12 +358,19 @@ import VenueCalendarDay from '../components/VenueCalendarDay.vue'
 import VenueBookingDialog from '../components/VenueBookingDialog.vue'
 import VenueBookingDetailDialog from '../components/VenueBookingDetailDialog.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
-import { getMockVenueList, getMockBookingWindow, getMockVenueCalendarBookingList } from '../mocks/mockData'
 import { useVenueBookingRuleNotice } from '@/composables/useVenueBookingRuleNotice'
 import '@/styles/rich-content.css'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
-// import { getBookingsByMonth, getBookingsByWeek, getBookingsByDate } from '../api/calendar'
+import {
+  fetchCalendarBookingsByView,
+  createVenueBooking,
+  updateVenueBooking,
+  deleteVenueBooking
+} from '@/api/calendar'
+import { unwrapCalendarBookings, isSameCalendarDay, isActiveVenue, parseCalendarDateLocal } from '@/utils/venueCalendarApi'
+import { getVenueManagementVenues, getVenueBookingWindow, createVenueBlock } from '@/api/venueManagement'
+import { notifyAdminPendingUpdated } from '@/utils/adminPendingSync'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -406,30 +434,114 @@ function updateBlockDialogMaxHeight () {
 
 let blockDialogMq = null
 
-const venueList = ref(getMockVenueList())
-const venueBookingWindow = ref(getMockBookingWindow('venue'))
+const venueList = ref([])
+const venueBookingWindow = ref({
+  currentStartDate: '',
+  currentEndDate: ''
+})
+const calendarLoading = ref(false)
 const venueWindowRange = computed(() => ({
   start: new Date(`${venueBookingWindow.value.currentStartDate}T00:00:00`),
   end: new Date(`${venueBookingWindow.value.currentEndDate}T23:59:59`)
 }))
 
-// Room options and colors
-const conferenceRooms = ref(
-  venueList.value
+const conferenceRooms = ref([])
+const otherVenues = ref([])
+
+function getRouteRoomType () {
+  const q = route.query.roomType
+  if (q === 'conference' || q === 'other') return q
+  return roomType.value === 'other' ? 'other' : 'conference'
+}
+
+function applyVenueListToRoomFilters () {
+  const list = (venueList.value || []).filter(isActiveVenue)
+  const rt = getRouteRoomType()
+  conferenceRooms.value = list
     .filter(room => room.tab === 'conference_discussion')
     .map((room) => ({
       id: room.id,
       name: room.name,
-      selected: room.name.includes('Conference Room') || room.name.includes('Discussion Room'),
-      color: room.color
+      selected: rt === 'conference',
+      color: room.color,
+      roomCapacity: room.roomCapacity ?? room.capacity ?? null
     }))
-)
-
-const otherVenues = ref(
-  venueList.value
+  otherVenues.value = list
     .filter(room => room.tab === 'other_venues')
-    .map(room => ({ id: room.id, name: room.name, selected: false, color: room.color }))
-)
+    .map(room => ({
+      id: room.id,
+      name: room.name,
+      selected: rt === 'other',
+      color: room.color,
+      roomCapacity: room.roomCapacity ?? room.capacity ?? null
+    }))
+}
+
+function formatRoomCapacity(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return ''
+  return `cap ${n}`
+}
+
+function loadBlockRecordsFromVenues () {
+  blockRecords.value = venueList.value.filter(isActiveVenue).flatMap((venue) => {
+    const blocks = Array.isArray(venue.blocks) ? venue.blocks : []
+    return blocks
+      .filter(block => block.startAt && block.endAt)
+      .map(block => ({
+        id: block.id ?? `${venue.id}-${block.startAt}`,
+        roomName: venue.name,
+        startAt: block.startAt,
+        endAt: block.endAt,
+        reason: block.reason || 'Blocked'
+      }))
+  })
+}
+
+/** 拉取结果里出现的场地自动勾选，避免预订被筛选藏掉（从 VenueBooking 带 roomType 进入时不覆盖路由筛选） */
+function syncSelectedRoomsWithBookings (bookingList) {
+  if (route.query.roomType === 'conference' || route.query.roomType === 'other') {
+    return
+  }
+  const names = new Set(
+    (bookingList || []).map(b => b.roomName).filter(Boolean)
+  )
+  if (names.size === 0) return
+  for (const room of allRooms.value) {
+    if (names.has(room.name)) {
+      room.selected = true
+    }
+  }
+}
+
+async function fetchBookings () {
+  calendarLoading.value = true
+  try {
+    const res = await fetchCalendarBookingsByView({
+      view: currentView.value,
+      currentDate: currentDate.value
+    })
+    const list = unwrapCalendarBookings(res)
+    bookings.value = list.map(booking => ({
+      ...booking,
+      color: booking.color || getRoomColor(booking.roomName)
+    }))
+    syncSelectedRoomsWithBookings(bookings.value)
+  } catch (error) {
+    console.error('Failed to fetch calendar bookings:', error)
+    showNotice('Failed to load bookings', 'Error')
+  } finally {
+    calendarLoading.value = false
+  }
+}
+
+function switchCalendarView (view) {
+  if (currentView.value !== view) {
+    currentView.value = view
+  } else {
+    fetchBookings()
+  }
+}
 
 const allRooms = computed(() => [...conferenceRooms.value, ...otherVenues.value])
 
@@ -574,12 +686,12 @@ function buildBlockBookings() {
         items.push({
           id: `block-${block.id}-${formatDateISO(cursor)}`,
           roomName: block.roomName,
-          date: cursor.toISOString(),
+          date: formatDateISO(cursor),
           startTime: formatTime(startDate),
           endTime: formatTime(endDate),
           topic: `BLOCKED: ${block.reason}`,
           notes: block.reason,
-          color: '#94a3b8',
+          color: getRoomColor(block.roomName),
           isBlocked: true
         })
       }
@@ -594,10 +706,9 @@ const calendarBookings = computed(() => [...bookings.value, ...buildBlockBooking
 
 // Bookings for current day
 const filteredDayBookings = computed(() => {
-  return calendarBookings.value.filter(booking => {
-    const bookingDate = new Date(booking.date)
-    return bookingDate.toDateString() === currentDate.value.toDateString()
-  })
+  return calendarBookings.value.filter(booking =>
+    isSameCalendarDay(booking.date, currentDate.value)
+  )
 })
 
 // Currently selected rooms
@@ -792,12 +903,13 @@ function showBookingDialog() {
 
 // Open booking dialog from selected slot
 function openBookingDialog(timeInfo) {
-  if (timeInfo?.date && !isDateInVenueWindow(new Date(timeInfo.date))) {
+  const slotDay = timeInfo?.date ? parseCalendarDateLocal(timeInfo.date) : null
+  if (slotDay && !isDateInVenueWindow(slotDay)) {
     showNotice('Selected slot is outside the venue booking date range', 'Warning')
     return
   }
   if (timeInfo?.room && timeInfo?.date && timeInfo?.time) {
-    const slotDate = new Date(timeInfo.date)
+    const slotDate = parseCalendarDateLocal(timeInfo.date)
     const [h, m] = timeInfo.time.split(':').map(Number)
     slotDate.setHours(h, m, 0, 0)
     const slotEnd = new Date(slotDate)
@@ -834,7 +946,7 @@ function resetBlockForm() {
   }
 }
 
-function handleCreateBlock() {
+async function handleCreateBlock () {
   if (!blockForm.value.roomName || !blockForm.value.startAt || !blockForm.value.endAt || !blockForm.value.reason) {
     showNotice('Please fill in Room, Start, End and Reason', 'Warning')
     return
@@ -851,25 +963,54 @@ function handleCreateBlock() {
     return
   }
 
-  blockRecords.value.push({
-    id: Date.now(),
-    roomName: blockForm.value.roomName,
-    startAt: blockForm.value.startAt,
-    endAt: blockForm.value.endAt,
-    reason: blockForm.value.reason
-  })
+  const room = allRooms.value.find(r => r.name === blockForm.value.roomName)
+  if (!room?.id) {
+    showNotice('Room not found', 'Warning')
+    return
+  }
 
-  showBlockDialog.value = false
-  resetBlockForm()
-  showNotice('Blocked period created', 'Success')
+  try {
+    await createVenueBlock(room.id, {
+      startAt: new Date(blockForm.value.startAt.replace(' ', 'T')).toISOString(),
+      endAt: new Date(blockForm.value.endAt.replace(' ', 'T')).toISOString(),
+      reason: blockForm.value.reason
+    })
+    const venues = await getVenueManagementVenues()
+    venueList.value = Array.isArray(venues) ? venues.filter(isActiveVenue) : []
+    loadBlockRecordsFromVenues()
+    showBlockDialog.value = false
+    resetBlockForm()
+    showNotice('Blocked period created', 'Success')
+  } catch (error) {
+    console.error('Failed to create block:', error)
+  }
+}
+
+function buildBookingPayload (bookingData) {
+  const roomName = bookingData.room || bookingData.roomName
+  return {
+    roomName,
+    date: bookingData.date,
+    startTime: bookingData.startTime,
+    endTime: bookingData.endTime,
+    topic: bookingData.topic,
+    remark: bookingData.remark,
+    attendeeCount: bookingData.attendeeCount,
+    teaServiceRequired: bookingData.teaServiceRequired,
+    teaOrWater: bookingData.teaOrWater,
+    serviceType: bookingData.serviceType,
+    teaServiceSpecialRequest: bookingData.teaServiceSpecialRequest,
+    roomType: roomType.value
+  }
 }
 
 // Handle booking create/update
-function handleBookingConfirm(bookingData) {
+async function handleBookingConfirm (bookingData) {
+  const roomName = bookingData.room || bookingData.roomName
   const bookingStart = normalizeDateTime(`${bookingData.date} ${bookingData.startTime}`)
   const bookingEnd = normalizeDateTime(`${bookingData.date} ${bookingData.endTime}`)
   const conflictBlock = blockRecords.value.find((block) => {
-    if (block.roomName !== bookingData.roomName) return false
+    if (block.roomName !== roomName) return false
     const blockStart = normalizeDateTime(block.startAt)
     const blockEnd = normalizeDateTime(block.endAt)
     return bookingStart < blockEnd && bookingEnd > blockStart
@@ -880,18 +1021,27 @@ function handleBookingConfirm(bookingData) {
     return
   }
 
-  // TODO: persist booking via API
-  bookings.value.push({
-    id: Date.now(),
-    ...bookingData,
-    roomType: roomType.value
-  })
-  closeBookingDialog()
-  showNotice('Booking added successfully!', 'Success')
+  const payload = buildBookingPayload(bookingData)
+  const existingId = bookingData.id != null ? String(bookingData.id) : ''
+
+  try {
+    if (existingId && /^\d+$/.test(existingId)) {
+      await updateVenueBooking(existingId, payload)
+      showNotice('Booking updated successfully!', 'Success')
+    } else {
+      await createVenueBooking(payload)
+      notifyAdminPendingUpdated({ source: 'bookings' })
+      showNotice('Booking submitted and pending approval', 'Success')
+    }
+    await fetchBookings()
+    closeBookingDialog()
+  } catch (error) {
+    console.error('Failed to save booking:', error)
+  }
 }
 
 // Handle booking delete
-function handleDeleteBooking(bookingId) {
+function handleDeleteBooking (bookingId) {
   ElMessageBox.confirm(
     'Are you sure to delete this booking?',
     'Warning',
@@ -901,10 +1051,15 @@ function handleDeleteBooking(bookingId) {
       type: 'warning'
     }
   )
-    .then(() => {
-      bookings.value = bookings.value.filter(b => b.id !== bookingId)
-      detailDialogVisible.value = false
-      showNotice('Booking deleted successfully!', 'Success')
+    .then(async () => {
+      try {
+        await deleteVenueBooking(String(bookingId))
+        await fetchBookings()
+        detailDialogVisible.value = false
+        showNotice('Booking deleted successfully!', 'Success')
+      } catch (error) {
+        console.error('Failed to delete booking:', error)
+      }
     })
     .catch(() => {})
 }
@@ -916,51 +1071,62 @@ function handleBookingClick(dayDate) {
 }
 
 // Logout handler
-// Initialize demo bookings
+function applyRoomTypeRouteFilter () {
+  const roomTypeParam = getRouteRoomType()
+  roomType.value = roomTypeParam
+  if (roomTypeParam === 'conference') {
+    conferenceRooms.value.forEach(room => { room.selected = true })
+    otherVenues.value.forEach(room => { room.selected = false })
+  } else if (roomTypeParam === 'other') {
+    conferenceRooms.value.forEach(room => { room.selected = false })
+    otherVenues.value.forEach(room => { room.selected = true })
+  }
+}
+
+async function loadCalendarData () {
+  try {
+    const [venues, window] = await Promise.all([
+      getVenueManagementVenues(),
+      getVenueBookingWindow()
+    ])
+    venueList.value = Array.isArray(venues) ? venues.filter(isActiveVenue) : []
+    if (window?.currentStartDate) {
+      venueBookingWindow.value = window
+    }
+    applyVenueListToRoomFilters()
+    loadBlockRecordsFromVenues()
+    applyRoomTypeRouteFilter()
+    if (!isDateInVenueWindow(currentDate.value)) {
+      currentDate.value = new Date(`${venueBookingWindow.value.currentStartDate}T00:00:00`)
+    }
+    await fetchBookings()
+  } catch (error) {
+    console.error('Failed to load calendar data:', error)
+    showNotice('Failed to load calendar data', 'Error')
+  }
+}
+
+watch([currentDate, currentView], () => {
+  fetchBookings()
+})
+
+watch(
+  () => route.query.roomType,
+  (val) => {
+    if (val !== 'conference' && val !== 'other') return
+    roomType.value = val
+    if (conferenceRooms.value.length || otherVenues.value.length) {
+      applyRoomTypeRouteFilter()
+    }
+  }
+)
+
 onMounted(() => {
   loadVenueRuleNotice()
-  if (!isDateInVenueWindow(currentDate.value)) {
-    currentDate.value = new Date(venueWindowRange.value.start)
-  }
-
   updateBlockDialogMaxHeight()
   blockDialogMq = window.matchMedia(BLOCK_MODAL_MQ)
   blockDialogMq.addEventListener('change', updateBlockDialogMaxHeight)
-
-  blockRecords.value = venueList.value.flatMap((venue) => {
-    const blocks = Array.isArray(venue.blocks) ? venue.blocks : []
-    return blocks
-      .filter(block => block.startAt && block.endAt)
-      .map(block => ({
-        id: block.id ?? `${venue.id}-${Date.now()}`,
-        roomName: venue.name,
-        startAt: block.startAt,
-        endAt: block.endAt,
-        reason: block.reason || 'Blocked'
-      }))
-  })
-
-  // 根据 roomType 参数自动应用筛选
-  const roomTypeParam = route.query.roomType
-  if (roomTypeParam === 'conference') {
-    // 选择 Conference Rooms and Discussion Room
-    conferenceRooms.value.forEach(room => room.selected = true)
-    otherVenues.value.forEach(room => room.selected = false)
-  } else if (roomTypeParam === 'other') {
-    // 选择 Other Venues
-    conferenceRooms.value.forEach(room => room.selected = false)
-    otherVenues.value.forEach(room => room.selected = true)
-  }
-
-  // TODO: fetch bookings from API
-  // fetchBookings()
-
-  bookings.value = getMockVenueCalendarBookingList().map(booking => ({
-    ...booking,
-    color: booking.color || getRoomColor(booking.roomName)
-  }))
-
-  console.log('Calendar view initialized with roomType:', roomType.value)
+  loadCalendarData()
 })
 
 // Cleanup listeners on unmount
@@ -1152,12 +1318,31 @@ onUnmounted(() => {
   transition: box-shadow 0.3s ease;
 }
 
+.calendar-loading-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.875rem;
+  color: #374151;
+  border-radius: 12px;
+}
+
 .calendar-container:hover {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 .month-view {
   min-height: 0;
+}
+
+.week-calendar-host {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
 }
 
 .week-view::-webkit-scrollbar {
@@ -1623,6 +1808,28 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   flex: 1;
+}
+
+.room-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.room-option-name {
+  color: #111827;
+}
+
+.room-option-cap {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.room-option.is-selected .room-option-name,
+.room-option.is-selected .room-option-cap {
+  font-weight: 700;
 }
 
 .room-color-dot {

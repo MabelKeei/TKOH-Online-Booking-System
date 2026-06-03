@@ -56,15 +56,12 @@ import { useUserStore } from '../stores/user'
 import { useAdminStore } from '../stores/admin'
 import { storeToRefs } from 'pinia'
 import AppHeader from '../components/AppHeader.vue'
-import { useAdminPendingUsersSync } from '@/composables/useAdminPendingUsersSync'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const adminStore = useAdminStore()
 const { pendingBookingsCount, pendingUsersCount } = storeToRefs(adminStore)
-
-useAdminPendingUsersSync()
 
 const isCollapsed = ref(false)
 

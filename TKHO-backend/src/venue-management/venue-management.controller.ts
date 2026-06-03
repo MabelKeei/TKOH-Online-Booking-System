@@ -7,6 +7,8 @@ import {
   Param,
   Patch,
   Post,
+  Query,
+  Req,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -18,6 +20,12 @@ import { VenueManagementService } from './venue-management.service';
 import { UpsertVenueDto } from './dto/upsert-venue.dto';
 import { PublishVenueWindowDto } from './dto/publish-venue-window.dto';
 import { CreateVenueBlockDto } from './dto/create-venue-block.dto';
+import { ListVenueBookingsQueryDto } from './dto/list-venue-bookings-query.dto';
+import { UpdateVenueManageBookingDto } from './dto/update-venue-manage-booking.dto';
+import {
+  ApproveVenueManageBookingDto,
+  RejectVenueManageBookingDto,
+} from './dto/review-venue-booking.dto';
 
 @ApiTags('venue-management')
 @ApiBearerAuth()
@@ -86,6 +94,49 @@ export class VenueManagementController {
   @Delete('venues/:venueId/blocks/:blockId')
   removeBlock(@Param('venueId') venueId: string, @Param('blockId') blockId: string) {
     return this.venueService.removeBlock(venueId, blockId);
+  }
+
+  @Get('bookings')
+  listVenueBookings(
+    @Req() req: { user: { sub?: string; corpId?: string; role?: string; system?: string } },
+    @Query() query: ListVenueBookingsQueryDto,
+  ) {
+    return this.venueService.listManageBookings(req.user, query.scope ?? 'my');
+  }
+
+  @Patch('bookings/:id')
+  updateVenueBooking(
+    @Req() req: { user: { sub?: string; corpId?: string; role?: string; system?: string } },
+    @Param('id') id: string,
+    @Body() dto: UpdateVenueManageBookingDto,
+  ) {
+    return this.venueService.updateManageBooking(req.user, id, dto);
+  }
+
+  @Patch('bookings/:id/toggle-cancel')
+  toggleCancelVenueBooking(
+    @Req() req: { user: { sub?: string; corpId?: string; role?: string; system?: string } },
+    @Param('id') id: string,
+  ) {
+    return this.venueService.toggleCancelManageBooking(req.user, id);
+  }
+
+  @Post('bookings/:id/approve')
+  approveVenueBooking(
+    @Req() req: { user: { sub?: string; corpId?: string; role?: string; system?: string } },
+    @Param('id') id: string,
+    @Body() dto: ApproveVenueManageBookingDto,
+  ) {
+    return this.venueService.approveManageBooking(req.user, id, dto);
+  }
+
+  @Post('bookings/:id/reject')
+  rejectVenueBooking(
+    @Req() req: { user: { sub?: string; corpId?: string; role?: string; system?: string } },
+    @Param('id') id: string,
+    @Body() dto: RejectVenueManageBookingDto,
+  ) {
+    return this.venueService.rejectManageBooking(req.user, id, dto);
   }
 }
 

@@ -40,3 +40,24 @@ export function uploadVenueImage(venueId, file) {
   })
 }
 
+/** scope: 'my' | 'all'（all 仅管理员） */
+export function listVenueManageBookings(scope = 'my') {
+  return request.get('/venue-management/bookings', { params: { scope } })
+}
+
+export function updateVenueManageBooking(id, payload) {
+  return request.patch(`/venue-management/bookings/${id}`, payload)
+}
+
+export function toggleVenueManageBookingCancel(id) {
+  return request.patch(`/venue-management/bookings/${id}/toggle-cancel`)
+}
+
+export function approveVenueManageBooking(id, payload) {
+  return request.post(`/venue-management/bookings/${id}/approve`, payload)
+}
+
+export function rejectVenueManageBooking(id, payload) {
+  return request.post(`/venue-management/bookings/${id}/reject`, payload)
+}
+

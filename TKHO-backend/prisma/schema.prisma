@@ -222,6 +222,7 @@ model VenueBookings {
 
   @@index([venueId, bookingDate], map: "idx_venue_bookings_venue_date")
   @@index([approvalStatus], map: "idx_venue_bookings_approval_status")
+  @@index([bookingType, approvalStatus, bookingDate], map: "idx_venue_bookings_pending_count")
   @@map("venue_bookings")
 }
 

@@ -136,11 +136,12 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
 import { storeToRefs } from 'pinia'
+import { useAdminPendingUsersSync } from '@/composables/useAdminPendingUsersSync'
 
 const route = useRoute()
 const router = useRouter()
@@ -148,6 +149,14 @@ const userStore = useUserStore()
 const adminStore = useAdminStore()
 const { isAdmin } = storeToRefs(userStore)
 const { totalPendingCount } = storeToRefs(adminStore)
+
+/** 管理员任意页面/任意窗口均监听待审批同步（跨窗口更新顶栏与 Admin 侧栏角标） */
+const { startSync: startAdminPendingSync, stopSync: stopAdminPendingSync } = useAdminPendingUsersSync()
+
+watch(isAdmin, (isAdminUser) => {
+  if (isAdminUser) startAdminPendingSync()
+  else stopAdminPendingSync()
+}, { immediate: true })
 
 let pollingInterval = null
 const headerRef = ref(null)
@@ -176,10 +185,10 @@ onMounted(() => {
     const isOnAdminShell = () => route.path === '/admin' || route.path.startsWith('/admin/')
     if (!isOnAdminShell()) {
       adminStore.fetchPendingCounts()
-      // Admin 布局内由 useAdminPendingUsersSync 统一轮询，避免重复请求
+      // 非 Admin 壳页：轻量轮询顶栏角标；Admin 壳页由 useAdminPendingUsersSync 统一轮询
       pollingInterval = setInterval(() => {
         if (!isOnAdminShell()) adminStore.fetchPendingCounts()
-      }, 30000)
+      }, 10000)
     }
   }
 })

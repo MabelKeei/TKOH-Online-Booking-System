@@ -63,6 +63,9 @@ const isEvManageBookingRequest = (config) => {
   const url = config?.url || ''
   return url.includes('/ev-management/bookings')
 }
+/** Admin 角标轮询：失败时 store 静默处理，勿弹「网络错误」 */
+const isAdminPendingCountsRequest = (config) =>
+  (config?.url || '').includes('/admin/pending-counts')
 
 const skipsGlobalErrorDialog = (config) =>
   isLoginRequest(config) ||
@@ -70,7 +73,8 @@ const skipsGlobalErrorDialog = (config) =>
   isPublicBookingNoticesRequest(config) ||
   isRegistrationSubmitRequest(config) ||
   isEvBookingCreateRequest(config) ||
-  isEvManageBookingRequest(config)
+  isEvManageBookingRequest(config) ||
+  isAdminPendingCountsRequest(config)
 
 // 响应拦截器
 request.interceptors.response.use(

@@ -345,7 +345,7 @@
             <span>
               Pending Approval
               <el-badge
-                :value="sortedPendingPendingList.length"
+                :value="pendingUsersCount"
                 :max="99"
                 :show-zero="false"
                 class="badge-item"
@@ -966,6 +966,7 @@ import * as XLSX from 'xlsx'
 import QRCode from 'qrcode'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
+import { storeToRefs } from 'pinia'
 import { useAdminStore } from '@/stores/admin'
 import { getAccessRoles, getAccessDepartments } from '@/api/accessRight'
 import {
@@ -984,6 +985,7 @@ import { getPrompts } from '@/api/promptManagement'
 import { notifyPendingUsersUpdated } from '@/utils/pendingUsersSync'
 
 const adminStore = useAdminStore()
+const { pendingUsersCount } = storeToRefs(adminStore)
 
 /** 后端字段为 annualQuotaEv；表格与表单沿用 annualQuotaEV */
 function normalizeUserRow (u) {

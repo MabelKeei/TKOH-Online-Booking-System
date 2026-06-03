@@ -33,6 +33,7 @@
           :key="booking.id"
           :booking="booking"
           :current-date="currentDate"
+          :rooms="selectedRooms"
           default-color="#f97316"
           :teleported="false"
         >
@@ -55,6 +56,7 @@
 <script setup>
 import { computed } from 'vue'
 import CalendarBookingPopover from './CalendarBookingPopover.vue'
+import { getCalendarBookingBlockStyle } from '@/utils/venueCalendarApi'
 
 const props = defineProps({
   currentDate: {
@@ -121,12 +123,14 @@ function getBookingStyle(booking) {
   const top = offsetSlots * slotHeight
   const height = durationSlots * slotHeight
 
-  const accent = booking.color || '#f97316'
-  return {
-    top: `${top}px`,
-    height: `${height}px`,
-    '--booking-accent': accent
-  }
+  return getCalendarBookingBlockStyle(
+    booking,
+    {
+      top: `${top}px`,
+      height: `${height}px`
+    },
+    props.selectedRooms
+  )
 }
 
 // 选择时间槽
@@ -258,8 +262,9 @@ function selectBooking(booking) {
   box-sizing: border-box;
   padding: 3px 6px 3px 7px;
   border-radius: 3px;
-  border-left: 4px solid var(--booking-accent, #f97316);
-  background-color: color-mix(in srgb, var(--booking-accent, #f97316) 42%, white);
+  border-left-width: 4px;
+  border-left-style: solid;
+  /* 色条颜色与背景由 getCalendarBookingBlockStyle 内联设置 */
   color: #111827;
   font-size: 0.7rem;
   overflow: hidden;

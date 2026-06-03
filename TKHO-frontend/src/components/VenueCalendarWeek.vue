@@ -1,60 +1,68 @@
 <template>
-  <div class="calendar-week">
-    <!-- 日期和房间类型表头 - 固定 -->
-    <div class="week-header" :style="{ gridTemplateColumns: weekGridTemplateColumns, minWidth: weekGridMinWidth }">
-      <div class="time-header" />
-      <div v-for="(day, index) in weekDays" :key="index" class="day-header">
-        <div class="day-label">{{ day.name }} / {{ day.date }}</div>
-      </div>
-    </div>
-
-    <!-- 时间槽网格 -->
-    <div class="week-grid" :style="{ gridTemplateColumns: weekGridTemplateColumns, minWidth: weekGridMinWidth }">
-      <!-- 时间列 -->
-      <div class="time-column">
-        <div v-for="hour in timeSlots" :key="hour" class="time-slot">
-          {{ hour }}
-        </div>
-      </div>
-
-      <!-- 每一天的槽位 -->
-      <div v-for="(day, dayIndex) in weekDays" :key="dayIndex" class="day-column" :class="{ 'is-today': isToday(day.fullDate) }">
-        <!-- 时间格子 -->
-        <div
-          v-for="hour in timeSlots"
-          :key="`${dayIndex}-${hour}`"
-          class="time-cell"
-          @click="selectTimeSlot(day.date, hour)"
-        />
-
-        <!-- 预订卡片（绝对定位） -->
-        <CalendarBookingPopover
-          v-for="booking in getDayBookings(day.fullDate)"
-          :key="booking.id"
-          :booking="booking"
-          :current-date="currentDate"
-          default-color="#f97316"
-          :teleported="false"
-        >
-          <template #reference>
-            <div
-              class="booking-block"
-              :style="getBookingStyle(booking, day.fullDate)"
-              @click="selectBooking(day.fullDate)"
-            >
-              <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-              <div class="booking-reserved">{{ booking.reservedBy || 'N/A' }}</div>
+  <div ref="calendarWeekRef" class="calendar-week">
+    <div class="week-frame" :class="{ 'week-frame--scroll-x': needsHorizontalScroll }">
+      <!-- 表头与网格同宽、同列定义；纵向滚动时表头 sticky 固定 -->
+      <div ref="weekScrollRef" class="week-scroll-y">
+        <div class="week-inner" :style="weekInnerStyle">
+          <div class="week-header" :style="weekGridColumnsStyle">
+            <div class="time-header" />
+            <div v-for="(day, index) in weekDays" :key="index" class="day-header">
+              <div class="day-label">{{ day.name }} / {{ day.date }}</div>
             </div>
-          </template>
-        </CalendarBookingPopover>
+          </div>
+
+          <div class="week-grid" :style="weekGridColumnsStyle">
+            <div class="time-column">
+              <div v-for="hour in timeSlots" :key="hour" class="time-slot">
+                {{ hour }}
+              </div>
+            </div>
+
+            <div
+              v-for="(day, dayIndex) in weekDays"
+              :key="dayIndex"
+              class="day-column"
+              :class="{ 'is-today': isToday(day.fullDate) }"
+            >
+              <div
+                v-for="hour in timeSlots"
+                :key="`${dayIndex}-${hour}`"
+                class="time-cell"
+                @click="selectTimeSlot(day.fullDate, hour)"
+              />
+
+              <CalendarBookingPopover
+                v-for="booking in getDayBookings(day.fullDate)"
+                :key="booking.id"
+                :booking="booking"
+                :current-date="currentDate"
+                :rooms="selectedRooms"
+                default-color="#f97316"
+                :teleported="false"
+              >
+                <template #reference>
+                  <div
+                    class="booking-block"
+                    :style="getBookingStyle(booking, day.fullDate)"
+                    @click="selectBooking(day.fullDate)"
+                  >
+                    <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
+                    <div class="booking-reserved">{{ booking.reservedBy || 'N/A' }}</div>
+                  </div>
+                </template>
+              </CalendarBookingPopover>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import CalendarBookingPopover from './CalendarBookingPopover.vue'
+import { formatDateISO, isSameCalendarDay, getCalendarBookingBlockStyle } from '@/utils/venueCalendarApi'
 
 const props = defineProps({
   currentDate: {
@@ -72,6 +80,56 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['time-slot-click', 'booking-click'])
+
+/** Outlook 式：按当日最大并排预订数分配列宽 */
+const TIME_COL_PX = 80
+/** 有并排预订时的列宽下限（表头「Wed / May 27」+ padding） */
+const MIN_DAY_COL_PX = 120
+/** 无并排（demand≤1）时可收窄，把宽度让给高需求日 */
+const COMPACT_DAY_COL_PX = 110
+/** 每增加一列并排预订，在保底宽度上追加的目标宽度 */
+const BOOKING_COL_MIN_PX = 52
+const MAX_DAY_COL_PX = 300
+
+function columnMinForDemand (demand) {
+  return demand <= 1 ? COMPACT_DAY_COL_PX : MIN_DAY_COL_PX
+}
+
+function idealColumnWidth (demand) {
+  const minW = columnMinForDemand(demand)
+  if (demand <= 1) return minW
+  return Math.min(
+    MAX_DAY_COL_PX,
+    minW + (demand - 1) * BOOKING_COL_MIN_PX
+  )
+}
+
+/** 高需求优先；同需求时优先尚未达到 ideal 的列 */
+function demandPriorityOrder (demands, widths, ideals) {
+  const n = demands.length
+  return [...Array(n).keys()].sort((a, b) => {
+    if (demands[b] !== demands[a]) return demands[b] - demands[a]
+    const gapA = ideals[a] - widths[a]
+    const gapB = ideals[b] - widths[b]
+    return gapB - gapA
+  })
+}
+
+/** 缩宽时从低需求、超出保底最多的列开始收 */
+function demandShrinkOrder (demands, widths, mins) {
+  const n = demands.length
+  return [...Array(n).keys()].sort((a, b) => {
+    if (demands[a] !== demands[b]) return demands[a] - demands[b]
+    const slackA = widths[a] - mins[a]
+    const slackB = widths[b] - mins[b]
+    return slackB - slackA
+  })
+}
+
+const calendarWeekRef = ref(null)
+const weekScrollRef = ref(null)
+const containerWidth = ref(0)
+let resizeObserver = null
 
 const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -108,24 +166,15 @@ const weekDays = computed(() => {
   return days
 })
 
-const weekGridTemplateColumns = computed(() => {
-  return `80px repeat(${weekDays.value.length}, minmax(120px, 1fr))`
-})
-
-const weekGridMinWidth = computed(() => {
-  return `calc(80px + ${weekDays.value.length} * 120px)`
-})
-
 function dayDateKey (dayDate) {
-  return dayDate.toDateString()
+  return formatDateISO(dayDate)
 }
 
 // 获取某一天的所有预订（根据选中的房间过滤）
 function getDayBookings (dayDate) {
-  const dayBookings = props.bookings.filter(booking => {
-    const bookingDate = new Date(booking.date)
-    return bookingDate.toDateString() === dayDate.toDateString()
-  })
+  const dayBookings = props.bookings.filter(booking =>
+    isSameCalendarDay(booking.date, dayDate)
+  )
 
   // 与 Day/Month 一致：未选中任何房间（如 Clear All）时不显示预订
   if (!props.selectedRooms || props.selectedRooms.length === 0) {
@@ -192,10 +241,179 @@ const weekOverlapLayouts = computed(() => {
   return byDay
 })
 
+/** 每日最大并排列数（至少 1，空日占最小权重） */
+const dayColumnDemands = computed(() => {
+  return weekDays.value.map((day) => {
+    const layout = weekOverlapLayouts.value.get(dayDateKey(day.fullDate))
+    if (!layout || layout.size === 0) return 1
+    let maxCols = 1
+    for (const meta of layout.values()) {
+      maxCols = Math.max(maxCols, meta.totalCols ?? 1)
+    }
+    return maxCols
+  })
+})
+
+/**
+ * 低需求列维持紧凑保底，富余宽度按需求优先灌入高需求列（先至 ideal，再至 max）。
+ */
+function distributeDayColumnWidths (demands, totalDayWidth) {
+  const n = demands.length
+  if (n === 0) return []
+
+  const mins = demands.map(columnMinForDemand)
+  const ideals = demands.map(idealColumnWidth)
+  const widths = [...mins]
+  let spare = totalDayWidth - widths.reduce((a, b) => a + b, 0)
+
+  const growToward = (capFn) => {
+    let progressed = true
+    while (spare > 0 && progressed) {
+      progressed = false
+      const order = demandPriorityOrder(demands, widths, ideals)
+      for (const i of order) {
+        const cap = capFn(i)
+        if (widths[i] < cap) {
+          widths[i] += 1
+          spare -= 1
+          progressed = true
+          if (spare <= 0) break
+        }
+      }
+    }
+  }
+
+  if (spare > 0) {
+    growToward((i) => ideals[i])
+    growToward((i) => MAX_DAY_COL_PX)
+  } else if (spare < 0) {
+    let progressed = true
+    while (spare < 0 && progressed) {
+      progressed = false
+      const order = demandShrinkOrder(demands, widths, mins)
+      for (const i of order) {
+        if (widths[i] > mins[i]) {
+          widths[i] -= 1
+          spare += 1
+          progressed = true
+          if (spare >= 0) break
+        }
+      }
+    }
+  }
+
+  widths.forEach((w, i) => {
+    widths[i] = Math.floor(Math.min(MAX_DAY_COL_PX, Math.max(mins[i], w)))
+  })
+
+  let sum = widths.reduce((a, b) => a + b, 0)
+  spare = totalDayWidth - sum
+
+  if (spare > 0) {
+    const order = demandPriorityOrder(demands, widths, ideals)
+    for (const i of order) {
+      if (spare <= 0) break
+      if (widths[i] >= MAX_DAY_COL_PX) continue
+      widths[i] += 1
+      spare -= 1
+    }
+  } else if (spare < 0) {
+    const order = demandShrinkOrder(demands, widths, mins)
+    for (const i of order) {
+      if (spare >= 0) break
+      if (widths[i] <= mins[i]) continue
+      widths[i] -= 1
+      spare += 1
+    }
+  }
+
+  return widths
+}
+
+const dayColumnWidthsPx = computed(() => {
+  const demands = dayColumnDemands.value
+  const dayCount = demands.length
+  if (!dayCount) return []
+
+  const minTotal = demands.reduce((sum, d) => sum + columnMinForDemand(d), 0)
+  const available = Math.max(0, containerWidth.value - TIME_COL_PX)
+
+  if (available <= 0) {
+    return demands.map(columnMinForDemand)
+  }
+  if (available < minTotal) {
+    return demands.map(columnMinForDemand)
+  }
+  const layoutBudget = Math.max(0, available - 1)
+  return distributeDayColumnWidths(demands, layoutBudget)
+})
+
+const weekContentWidthPx = computed(() => {
+  return TIME_COL_PX + dayColumnWidthsPx.value.reduce((a, b) => a + b, 0)
+})
+
+/** 内容总宽超过容器时才启用横向滚动 */
+const needsHorizontalScroll = computed(() => {
+  const cw = containerWidth.value
+  if (cw <= 0) return false
+  return weekContentWidthPx.value > cw
+})
+
+/** 表头 / 网格共用同一套像素列宽，保证竖线对齐 */
+const weekGridColumnsStyle = computed(() => {
+  const dayCols = dayColumnWidthsPx.value
+  if (!dayCols.length) {
+    return {
+      gridTemplateColumns: `${TIME_COL_PX}px repeat(7, minmax(${MIN_DAY_COL_PX}px, 1fr))`
+    }
+  }
+  return {
+    gridTemplateColumns: `${TIME_COL_PX}px ${dayCols.map((w) => `${w}px`).join(' ')}`
+  }
+})
+
+const weekInnerStyle = computed(() => {
+  const total = weekContentWidthPx.value
+
+  if (needsHorizontalScroll.value) {
+    return {
+      width: `${total}px`,
+      minWidth: `${total}px`
+    }
+  }
+  return {
+    width: '100%',
+    maxWidth: '100%'
+  }
+})
+
+function updateContainerWidth () {
+  const el = weekScrollRef.value || calendarWeekRef.value
+  containerWidth.value = el ? Math.floor(el.clientWidth) : 0
+}
+
+onMounted(() => {
+  updateContainerWidth()
+  const targets = [weekScrollRef.value, calendarWeekRef.value].filter(Boolean)
+  if (typeof ResizeObserver !== 'undefined' && targets.length) {
+    resizeObserver = new ResizeObserver(() => updateContainerWidth())
+    for (const el of targets) {
+      resizeObserver.observe(el)
+    }
+  } else {
+    window.addEventListener('resize', updateContainerWidth)
+  }
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  window.removeEventListener('resize', updateContainerWidth)
+})
+
 // 判断是否是今天
 function isToday(date) {
-  const today = new Date()
-  return date.toDateString() === today.toDateString()
+  return isSameCalendarDay(date, new Date())
 }
 
 // 计算预订卡片的样式（位置和高度；横向按重叠列均分宽度）
@@ -223,22 +441,24 @@ function getBookingStyle (booking, dayDate) {
   const colFrac = 100 / totalCols
   const gutterPx = 2
 
-  const accent = booking.color || '#f97316'
-  return {
-    top: `${top}px`,
-    height: `${height}px`,
-    left: `calc(${col * colFrac}% + ${gutterPx}px)`,
-    width: `calc(${colFrac}% - ${gutterPx * 2}px)`,
-    right: 'auto',
-    zIndex: 1 + col,
-    '--booking-accent': accent
-  }
+  return getCalendarBookingBlockStyle(
+    booking,
+    {
+      top: `${top}px`,
+      height: `${height}px`,
+      left: `calc(${col * colFrac}% + ${gutterPx}px)`,
+      width: `calc(${colFrac}% - ${gutterPx * 2}px)`,
+      right: 'auto',
+      zIndex: 1 + col
+    },
+    props.selectedRooms
+  )
 }
 
-// 选择时间槽
+// 选择时间槽（date 使用 YYYY-MM-DD，与日视图 / 预订弹窗一致）
 function selectTimeSlot(dayDate, hour) {
   emit('time-slot-click', {
-    date: dayDate,
+    date: formatDateISO(dayDate),
     time: hour
   })
 }
@@ -252,11 +472,57 @@ function selectBooking(dayDate) {
 <style scoped>
 .calendar-week {
   width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   position: relative;
+}
+
+.week-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+.week-frame--scroll-x {
+  overflow-x: auto;
+}
+
+.week-scroll-y {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: visible;
+}
+
+.week-scroll-y::-webkit-scrollbar {
+  width: 8px;
+}
+
+.week-scroll-y::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.week-scroll-y::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.week-scroll-y::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.week-inner {
+  box-sizing: border-box;
 }
 
 .week-header {
   display: grid;
+  box-sizing: border-box;
   background-color: #e5e7eb;
   border-radius: 0.5rem 0.5rem 0 0;
   overflow: visible;
@@ -297,6 +563,7 @@ function selectBooking(dayDate) {
 
 .week-grid {
   display: grid;
+  box-sizing: border-box;
   background-color: #e5e7eb;
   border-radius: 0 0 0.5rem 0.5rem;
   overflow: visible;
@@ -335,11 +602,11 @@ function selectBooking(dayDate) {
 }
 
 .day-column.is-today .time-cell {
-  background-color: #fef3c7;
+  background-color: #fffbeb;
 }
 
 .day-column.is-today .time-cell:hover {
-  background-color: #fde68a;
+  background-color: #fef3c7;
 }
 
 .time-cell {
@@ -366,8 +633,9 @@ function selectBooking(dayDate) {
   box-sizing: border-box;
   padding: 3px 6px 3px 7px;
   border-radius: 3px;
-  border-left: 4px solid var(--booking-accent, #f97316);
-  background-color: color-mix(in srgb, var(--booking-accent, #f97316) 42%, white);
+  border-left-width: 4px;
+  border-left-style: solid;
+  /* 色条颜色与背景由 getCalendarBookingBlockStyle 内联设置 */
   color: #111827;
   font-size: 0.7rem;
   overflow: hidden;

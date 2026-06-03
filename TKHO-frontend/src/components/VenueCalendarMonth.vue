@@ -16,17 +16,56 @@
     <div
       ref="monthGridRef"
       class="month-grid flex-1"
-      :style="{ gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))` }"
+      :style="monthGridStyle"
       :key="`grid-${currentDate.getFullYear()}-${currentDate.getMonth()}`"
     >
       <!-- 上个月的日期 -->
       <div
         v-for="(day, index) in prevMonthDays"
         :key="`prev-${index}-${day}`"
-        class="date-cell empty"
-        :class="{ 'first-col': (index % 7) === 0, 'last-col': (index % 7) === 6 }"
+        class="date-cell"
+        :class="{
+          empty: !hasBookings(day, 'prev'),
+          'has-bookings': hasBookings(day, 'prev'),
+          'has-more-trigger': getHiddenBookingCount(day, 'prev') > 0,
+          'first-col': (index % 7) === 0,
+          'last-col': (index % 7) === 6
+        }"
+        @click="selectDate(day, 'prev')"
       >
         <span class="date-number">{{ day }}</span>
+        <div
+          v-if="hasBookings(day, 'prev')"
+          class="month-booking-list"
+        >
+          <CalendarBookingPopover
+            v-for="(booking, idx) in getVisibleBookings(day, 'prev')"
+            :key="booking.id ?? `b-prev-${day}-${idx}`"
+            :booking="booking"
+            :current-date="currentDate"
+            :fallback-day="day"
+            :rooms="selectedRooms"
+            default-color="#f97316"
+          >
+            <template #reference>
+              <div
+                class="month-event-bar"
+                :class="{ 'is-blocked': booking.isBlocked }"
+                :style="getMonthEventStyle(booking)"
+              >
+                <span class="month-event-text">{{ formatMonthEventLabel(booking) }}</span>
+              </div>
+            </template>
+          </CalendarBookingPopover>
+        </div>
+        <MonthDayMorePopover
+          v-if="getHiddenBookingCount(day, 'prev') > 0"
+          :cell-date="resolveCellDate(day, 'prev')"
+          :current-date="currentDate"
+          :bookings="getBookingsForDay(day, 'prev')"
+          :hidden-count="getHiddenBookingCount(day, 'prev')"
+          :selected-rooms="selectedRooms"
+        />
       </div>
 
       <!-- 本月的日期 -->
@@ -36,52 +75,95 @@
         class="date-cell"
         :class="{
           'today': isToday(day),
-          'has-bookings': hasBookings(day),
+          'has-bookings': hasBookings(day, 'current'),
+          'has-more-trigger': getHiddenBookingCount(day, 'current') > 0,
           'first-col': ((prevMonthDays.length + index) % 7) === 0,
           'last-col': ((prevMonthDays.length + index) % 7) === 6
         }"
-        @click="selectDate(day)"
+        @click="selectDate(day, 'current')"
       >
         <span class="date-number">{{ day }}</span>
-        <div v-if="hasBookings(day)" :class="['month-booking-list', { expanded: isDayExpanded(day) }]">
+        <div
+          v-if="hasBookings(day, 'current')"
+          class="month-booking-list"
+        >
           <CalendarBookingPopover
-            v-for="(booking, idx) in getVisibleBookings(day)"
-            :key="booking.id ?? `b-${day}-${idx}`"
+            v-for="(booking, idx) in getVisibleBookings(day, 'current')"
+            :key="booking.id ?? `b-cur-${day}-${idx}`"
             :booking="booking"
             :current-date="currentDate"
             :fallback-day="day"
+            :rooms="selectedRooms"
             default-color="#f97316"
           >
             <template #reference>
               <div
                 class="month-event-bar"
-                :style="{ '--booking-accent': booking.color || '#f97316' }"
+                :class="{ 'is-blocked': booking.isBlocked }"
+                :style="getMonthEventStyle(booking)"
               >
                 <span class="month-event-text">{{ formatMonthEventLabel(booking) }}</span>
               </div>
             </template>
           </CalendarBookingPopover>
-          <div
-            v-if="getHiddenBookingCount(day) > 0"
-            class="month-more-footer"
-            @click.stop="toggleDayExpanded(day)"
-          >
-            +{{ getHiddenBookingCount(day) }}
-          </div>
         </div>
+        <MonthDayMorePopover
+          v-if="getHiddenBookingCount(day, 'current') > 0"
+          :cell-date="resolveCellDate(day, 'current')"
+          :current-date="currentDate"
+          :bookings="getBookingsForDay(day, 'current')"
+          :hidden-count="getHiddenBookingCount(day, 'current')"
+          :selected-rooms="selectedRooms"
+        />
       </div>
 
       <!-- 下个月的日期 -->
       <div
         v-for="(day, index) in nextMonthDays"
         :key="`next-${index}-${day}`"
-        class="date-cell empty"
+        class="date-cell"
         :class="{
+          empty: !hasBookings(day, 'next'),
+          'has-bookings': hasBookings(day, 'next'),
+          'has-more-trigger': getHiddenBookingCount(day, 'next') > 0,
           'first-col': ((prevMonthDays.length + daysInMonth + index) % 7) === 0,
           'last-col': ((prevMonthDays.length + daysInMonth + index) % 7) === 6
         }"
+        @click="selectDate(day, 'next')"
       >
         <span class="date-number">{{ day }}</span>
+        <div
+          v-if="hasBookings(day, 'next')"
+          class="month-booking-list"
+        >
+          <CalendarBookingPopover
+            v-for="(booking, idx) in getVisibleBookings(day, 'next')"
+            :key="booking.id ?? `b-next-${day}-${idx}`"
+            :booking="booking"
+            :current-date="currentDate"
+            :fallback-day="day"
+            :rooms="selectedRooms"
+            default-color="#f97316"
+          >
+            <template #reference>
+              <div
+                class="month-event-bar"
+                :class="{ 'is-blocked': booking.isBlocked }"
+                :style="getMonthEventStyle(booking)"
+              >
+                <span class="month-event-text">{{ formatMonthEventLabel(booking) }}</span>
+              </div>
+            </template>
+          </CalendarBookingPopover>
+        </div>
+        <MonthDayMorePopover
+          v-if="getHiddenBookingCount(day, 'next') > 0"
+          :cell-date="resolveCellDate(day, 'next')"
+          :current-date="currentDate"
+          :bookings="getBookingsForDay(day, 'next')"
+          :hidden-count="getHiddenBookingCount(day, 'next')"
+          :selected-rooms="selectedRooms"
+        />
       </div>
     </div>
   </div>
@@ -90,6 +172,8 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import CalendarBookingPopover from './CalendarBookingPopover.vue'
+import MonthDayMorePopover from './MonthDayMorePopover.vue'
+import { isSameCalendarDay, getCalendarBookingBlockStyle } from '@/utils/venueCalendarApi'
 
 const props = defineProps({
   currentDate: {
@@ -110,10 +194,21 @@ const emit = defineEmits(['day-click'])
 
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+
 const monthGridRef = ref(null)
-const monthCellHeight = ref(0)
-const expandedDaySet = ref(new Set())
+const monthCellHeight = ref(88)
 let gridResizeObserver = null
+
+/** 月历格布局常量（与 CSS 中条高 / 内边距一致） */
+const CELL_MIN_PX = 88
+const CELL_PAD_PX = 16
+const DATE_ROW_PX = 20
+const ROW_GAP_PX = 4
+/** 单条预订高度 ≈ min-height 1.35rem + 列表 gap 4px */
+const EVENT_LINE_PX = 22
+const MORE_FOOTER_PX = 18
+/** 布局测量允许 1–2px 误差，避免过早出现 +N */
+const LAYOUT_SLACK_PX = 2
 
 function formatMonthEventTime(startTime) {
   if (!startTime) return ''
@@ -130,15 +225,50 @@ function formatMonthEventLabel(booking) {
   return title ? `${time}：${title}` : time
 }
 
-function getMonthCellAvailableHeight() {
-  // date number + vertical gaps/paddings 预留
-  return Math.max(40, monthCellHeight.value - 36)
+function getMonthEventStyle (booking) {
+  return getCalendarBookingBlockStyle(booking, {}, props.selectedRooms)
 }
 
-function getBaseVisibleCount() {
-  // 事件条高度 + 行间距（按当前样式估算）
-  const perLine = 26
-  return Math.max(1, Math.floor((getMonthCellAvailableHeight() + 4) / perLine))
+function dayCellKey (day, segment = 'current') {
+  return `${segment}-${day}`
+}
+
+function heightForVisibleBars (visibleBars, totalBookings) {
+  const hasMore = totalBookings > visibleBars
+  return (
+    CELL_PAD_PX * 2 +
+    DATE_ROW_PX +
+    ROW_GAP_PX +
+    visibleBars * EVENT_LINE_PX +
+    (hasMore ? ROW_GAP_PX + MORE_FOOTER_PX : 0)
+  )
+}
+
+/** 按格子实测高度与预订数量：尽量多显示条数，放不下再 +N（行高由 1fr 均分视口） */
+function computeDayLayout (totalBookings, cellHeightPx) {
+  const cellH = Math.max(CELL_MIN_PX, cellHeightPx || CELL_MIN_PX)
+  const fitLimit = cellH + LAYOUT_SLACK_PX
+
+  if (totalBookings <= 0) {
+    return { visibleCount: 0, hiddenCount: 0 }
+  }
+
+  if (heightForVisibleBars(totalBookings, totalBookings) <= fitLimit) {
+    return { visibleCount: totalBookings, hiddenCount: 0 }
+  }
+
+  let visibleCount = 1
+  for (let n = totalBookings; n >= 1; n--) {
+    if (heightForVisibleBars(n, totalBookings) <= fitLimit) {
+      visibleCount = n
+      break
+    }
+  }
+
+  return {
+    visibleCount,
+    hiddenCount: Math.max(0, totalBookings - visibleCount)
+  }
 }
 
 // 当前月份的天数
@@ -186,27 +316,20 @@ const gridRows = computed(() => {
   return totalCells / 7 // 35格=5行，42格=6行
 })
 
-// 判断是否是今天
-function isToday(day) {
-  const today = new Date()
-  const date = new Date(props.currentDate)
-  return (
-    day === today.getDate() &&
-    date.getMonth() === today.getMonth() &&
-    date.getFullYear() === today.getFullYear()
-  )
+function resolveCellDate (day, segment = 'current') {
+  const y = props.currentDate.getFullYear()
+  const m = props.currentDate.getMonth()
+  if (segment === 'prev') return new Date(y, m - 1, day)
+  if (segment === 'next') return new Date(y, m + 1, day)
+  return new Date(y, m, day)
 }
 
-// 获取某一天的预订（根据选中的房间过滤）
-function getBookingsForDay(day) {
-  const date = new Date(props.currentDate)
-  const targetDate = new Date(date.getFullYear(), date.getMonth(), day)
-  const dayBookings = props.bookings.filter(booking => {
-    const bookingDate = new Date(booking.date)
-    return bookingDate.toDateString() === targetDate.toDateString()
-  })
+function getBookingsForDay (day, segment = 'current') {
+  const targetDate = resolveCellDate(day, segment)
+  const dayBookings = props.bookings.filter(booking =>
+    isSameCalendarDay(booking.date, targetDate)
+  )
 
-  // 与 Day/Week 一致：未选中任何房间（如 Clear All）时不显示预订
   if (!props.selectedRooms || props.selectedRooms.length === 0) {
     return []
   }
@@ -217,61 +340,76 @@ function getBookingsForDay(day) {
     .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
 }
 
-function isDayExpanded(day) {
-  return expandedDaySet.value.has(day)
-}
-
-function getCollapsedVisibleCount(day) {
-  const total = getBookingsForDay(day).length
-  const baseVisible = getBaseVisibleCount()
-  if (total <= baseVisible) return total
-  // 预留一行给 +num
-  return Math.max(1, baseVisible - 1)
-}
-
-function getVisibleBookings(day) {
-  const all = getBookingsForDay(day)
-  // 6行月份单格高度更小，直接显示完整列表并允许内部滚动
-  if (gridRows.value === 6) return all
-  if (isDayExpanded(day)) return all
-  return all.slice(0, getCollapsedVisibleCount(day))
-}
-
-function getHiddenBookingCount(day) {
-  if (gridRows.value === 6) return 0
-  const allCount = getBookingsForDay(day).length
-  const shownCount = getVisibleBookings(day).length
-  return Math.max(0, allCount - shownCount)
-}
-
-function toggleDayExpanded(day) {
-  const next = new Set(expandedDaySet.value)
-  if (next.has(day)) {
-    next.delete(day)
-  } else {
-    next.add(day)
+/** 与模板一致的 35/42 格顺序 */
+const monthCellsInGridOrder = computed(() => {
+  const cells = []
+  for (const day of prevMonthDays.value) {
+    cells.push({ day, segment: 'prev' })
   }
-  expandedDaySet.value = next
+  for (let day = 1; day <= daysInMonth.value; day++) {
+    cells.push({ day, segment: 'current' })
+  }
+  for (const day of nextMonthDays.value) {
+    cells.push({ day, segment: 'next' })
+  }
+  return cells
+})
+
+const dayLayoutByKey = computed(() => {
+  const cellH = monthCellHeight.value
+  const map = new Map()
+  for (const cell of monthCellsInGridOrder.value) {
+    const total = getBookingsForDay(cell.day, cell.segment).length
+    map.set(dayCellKey(cell.day, cell.segment), computeDayLayout(total, cellH))
+  }
+  return map
+})
+
+/** 各行均分网格高度，占满月历可视区域 */
+const monthGridStyle = computed(() => ({
+  gridTemplateRows: `repeat(${gridRows.value}, minmax(0, 1fr))`
+}))
+
+function getDayLayout (day, segment = 'current') {
+  return (
+    dayLayoutByKey.value.get(dayCellKey(day, segment)) ??
+    computeDayLayout(0, monthCellHeight.value)
+  )
 }
 
-function updateMonthCellHeight() {
+function updateMonthCellHeight () {
   const grid = monthGridRef.value
   if (!grid) return
   const rows = gridRows.value || 5
-  const gap = Math.max(0, rows - 1) // month-grid gap: 1px
-  monthCellHeight.value = Math.max(0, (grid.clientHeight - gap) / rows)
+  const gap = Math.max(0, rows - 1)
+  monthCellHeight.value = Math.max(
+    CELL_MIN_PX,
+    (grid.clientHeight - gap) / rows
+  )
 }
 
-// 判断某一天是否有预订
-function hasBookings(day) {
-  return getBookingsForDay(day).length > 0
+// 判断是否是今天
+function isToday (day) {
+  const target = resolveCellDate(day, 'current')
+  return isSameCalendarDay(target, new Date())
 }
 
-// 选择日期
-function selectDate(day) {
-  const date = new Date(props.currentDate)
-  date.setDate(day)
-  emit('day-click', date)
+function getVisibleBookings (day, segment = 'current') {
+  const all = getBookingsForDay(day, segment)
+  const { visibleCount } = getDayLayout(day, segment)
+  return all.slice(0, visibleCount)
+}
+
+function getHiddenBookingCount (day, segment = 'current') {
+  return getDayLayout(day, segment).hiddenCount
+}
+
+function hasBookings (day, segment = 'current') {
+  return getBookingsForDay(day, segment).length > 0
+}
+
+function selectDate (day, segment = 'current') {
+  emit('day-click', resolveCellDate(day, segment))
 }
 
 onMounted(() => {
@@ -286,16 +424,19 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (gridResizeObserver) {
-    gridResizeObserver.disconnect()
-    gridResizeObserver = null
-  }
+  gridResizeObserver?.disconnect()
+  gridResizeObserver = null
 })
 
 watch(
-  () => [props.currentDate.getFullYear(), props.currentDate.getMonth(), gridRows.value],
+  () => [
+    props.currentDate.getFullYear(),
+    props.currentDate.getMonth(),
+    gridRows.value,
+    props.bookings,
+    props.selectedRooms
+  ],
   async () => {
-    expandedDaySet.value = new Set()
     await nextTick()
     updateMonthCellHeight()
   }
@@ -358,6 +499,7 @@ watch(
 
 .date-cell {
   --cell-pad: 0.5rem;
+  --month-more-slot: 1.375rem;
   background-color: white;
   padding: var(--cell-pad);
   cursor: pointer;
@@ -368,7 +510,23 @@ watch(
   overflow: hidden;
   height: 100%;
   min-height: 0;
+  max-height: 100%;
   position: relative;
+  box-sizing: border-box;
+}
+
+.date-cell.has-bookings {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.25rem;
+  align-content: stretch;
+}
+
+.date-cell.has-bookings.has-more-trigger {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 2px 0;
+  padding-bottom: 0.25rem;
 }
 
 .date-cell:hover {
@@ -388,7 +546,7 @@ watch(
 }
 
 .date-cell.today {
-  background-color: #fef3c7;
+  background-color: #fffbeb;
 }
 
 .date-cell.first-col {
@@ -399,12 +557,20 @@ watch(
   border-right: 1px solid #e5e7eb;
 }
 
+/* 14" zoom + teleported=false：仅放开当前格子，避免整表 overflow 错乱 */
+.date-cell:has(> .month-more-root.is-popover-open) {
+  overflow: visible;
+  z-index: 45;
+}
+
 .date-number {
   position: relative;
   z-index: 1;
   font-weight: 600;
   color: #111827;
   font-size: 1rem;
+  grid-row: 1;
+  align-self: start;
 }
 
 .date-cell.empty .date-number {
@@ -412,30 +578,30 @@ watch(
 }
 
 .month-booking-list {
-  position: absolute;
-  left: var(--cell-pad);
-  right: var(--cell-pad);
-  top: calc(var(--cell-pad) + 1.35rem);
-  bottom: var(--cell-pad);
+  position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding-right: 2px;
+  grid-row: 2;
 }
 
-.month-booking-list.expanded {
-  max-height: 100%;
+.date-cell.has-more-trigger .month-more-root {
+  grid-row: 3;
+  flex-shrink: 0;
 }
 
 .month-event-bar {
   flex-shrink: 0;
   width: 100%;
   border-radius: 3px;
-  border-left: 4px solid var(--booking-accent, #f97316);
-  background-color: color-mix(in srgb, var(--booking-accent, #f97316) 42%, white);
+  border-left-width: 4px;
+  border-left-style: solid;
+  /* 色条颜色与背景由 getMonthEventStyle 内联设置 */
   padding: 3px 6px 3px 7px;
   box-sizing: border-box;
   min-height: 1.35rem;
@@ -455,19 +621,8 @@ watch(
   width: 100%;
 }
 
-.month-more-footer {
-  flex-shrink: 0;
-  width: 100%;
-  margin-top: 1px;
-  padding: 3px 6px;
-  border-radius: 3px;
-  background-color: #e5e7eb;
-  color: #4b5563;
-  font-size: 0.65rem;
-  font-weight: 600;
-  text-align: center;
-  line-height: 1.2;
-  cursor: pointer;
+.month-event-bar.is-blocked .month-event-text {
+  color: #dc2626;
 }
 
 @media (max-width: 389px) {
@@ -484,10 +639,6 @@ watch(
     font-size: 0.625rem;
   }
 
-  .month-more-footer {
-    font-size: 0.6rem;
-    padding: 2px 4px;
-  }
 }
 
 @media (min-width: 390px) and (max-width: 767px) {
@@ -504,10 +655,6 @@ watch(
     font-size: 0.625rem;
   }
 
-  .month-more-footer {
-    font-size: 0.6rem;
-    padding: 2px 4px;
-  }
 }
 
 @media (min-width: 768px) and (max-width: 1099px) {}

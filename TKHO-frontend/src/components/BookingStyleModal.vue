@@ -259,10 +259,16 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-/* Edit Booking: keep vertical scrolling on smaller laptop viewport */
+/* Edit Booking：时间/场地下拉 teleported=false，短表单时避免 modal-body 裁切 */
 .booking-style-modal-root.edit-booking-modal .modal-body {
+  overflow: visible;
+}
+
+/* Tea Service = Yes：整段表单在弹窗内容区统一上下滚动 */
+.booking-style-modal-root.edit-booking-modal.edit-booking-modal--unified-scroll .modal-body {
   overflow-y: auto;
   overflow-x: visible;
+  min-height: 0;
 }
 
 /* EV Important Note 等：Teleport 到 body，父页面 scoped 样式无法作用到此外壳，须在本组件内覆盖 */

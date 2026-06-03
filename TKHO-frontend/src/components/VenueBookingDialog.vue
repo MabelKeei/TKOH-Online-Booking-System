@@ -34,9 +34,10 @@
                   :label="room.name"
                   :value="room.name"
                 >
-                  <div class="room-option">
+                  <div class="room-option" :class="{ 'is-selected': form.room === room.name }">
                     <span class="room-color-dot" :style="{ backgroundColor: room.color }"></span>
-                    <span>{{ room.name }}</span>
+                    <span class="room-option-name">{{ room.name }}</span>
+                    <span class="room-option-cap">{{ formatRoomCapacity(room.roomCapacity) }}</span>
                   </div>
                 </el-option>
               </el-select>
@@ -44,49 +45,93 @@
 
             <!-- 修复后的日期选择框 -->
             <el-form-item label="Date" prop="date" :rules="[{ required: true, message: 'Please select a date' }]">
-              <el-date-picker
-                v-model="form.date"
-                type="date"
-                placeholder="Select date"
-                format="DD/MM/YYYY"
-                value-format="YYYY-MM-DD"
-                :disabled-date="disabledDate"
-                style="width: 100%"
-                :picker-options="{
-                  firstDayOfWeek: 1 // 周一作为每周第一天
-                }"
-                clearable
-                popper-class="date-picker-popper"
-              ></el-date-picker>
+              <div class="field-with-availability">
+                <el-date-picker
+                  v-model="form.date"
+                  class="field-with-availability__control"
+                  type="date"
+                  placeholder="Select date"
+                  format="DD/MM/YYYY"
+                  value-format="YYYY-MM-DD"
+                  :disabled-date="disabledDate"
+                  :picker-options="{
+                    firstDayOfWeek: 1 // 周一作为每周第一天
+                  }"
+                  clearable
+                  popper-class="date-picker-popper"
+                />
+                <span
+                  v-if="availabilityFieldOk.date"
+                  class="availability-ok"
+                  aria-hidden="true"
+                >✓</span>
+                <span
+                  v-else-if="availabilityFieldFail.date"
+                  class="availability-fail"
+                  aria-hidden="true"
+                >✕</span>
+              </div>
             </el-form-item>
 
             <div class="form-row">
               <el-form-item label="Start Time" prop="startTime" :rules="[{ required: true, message: 'Please select start time' }]" class="form-item-half">
-                <el-select
-                  v-model="form.startTime"
-                  placeholder="Select start time"
-                  style="width: 100%"
-                  filterable
-                  clearable
-                  :teleported="false"
-                  popper-class="time-select-popper"
-                >
-                  <el-option v-for="t in timeSlotOptions" :key="t" :label="t" :value="t" />
-                </el-select>
+                <div class="field-with-availability">
+                  <el-select
+                    v-model="form.startTime"
+                    class="field-with-availability__control"
+                    placeholder="Select start time"
+                    filterable
+                    clearable
+                    :teleported="false"
+                    popper-class="time-select-popper"
+                  >
+                    <el-option v-for="t in timeSlotOptions" :key="t" :label="t" :value="t" />
+                  </el-select>
+                  <span
+                    v-if="availabilityFieldOk.startTime"
+                    class="availability-ok"
+                    aria-hidden="true"
+                  >✓</span>
+                  <span
+                    v-else-if="availabilityFieldFail.startTime"
+                    class="availability-fail"
+                    aria-hidden="true"
+                  >✕</span>
+                </div>
               </el-form-item>
 
               <el-form-item label="End Time" prop="endTime" :rules="[{ required: true, message: 'Please select end time' }]" class="form-item-half">
-                <el-select
-                  v-model="form.endTime"
-                  placeholder="Select end time"
-                  style="width: 100%"
-                  filterable
-                  clearable
-                  :teleported="false"
-                  popper-class="time-select-popper"
-                >
-                  <el-option v-for="t in timeSlotOptions" :key="t" :label="t" :value="t" />
-                </el-select>
+                <div class="field-with-availability">
+                  <el-select
+                    ref="endTimeSelectRef"
+                    v-model="form.endTime"
+                    class="field-with-availability__control"
+                    placeholder="Select end time"
+                    filterable
+                    clearable
+                    :teleported="false"
+                    popper-class="end-time-select-popper time-select-popper"
+                    @visible-change="onEndTimeSelectVisible"
+                  >
+                    <el-option
+                      v-for="t in timeSlotOptions"
+                      :key="t"
+                      :label="t"
+                      :value="t"
+                      :disabled="isEndTimeOptionDisabled(t)"
+                    />
+                  </el-select>
+                  <span
+                    v-if="availabilityFieldOk.endTime"
+                    class="availability-ok"
+                    aria-hidden="true"
+                  >✓</span>
+                  <span
+                    v-else-if="availabilityFieldFail.endTime"
+                    class="availability-fail"
+                    aria-hidden="true"
+                  >✕</span>
+                </div>
               </el-form-item>
             </div>
 
@@ -125,11 +170,15 @@
               </el-form-item>
 
               <el-form-item label="No. of participants" prop="attendeeCount" class="no-wrap-label participants-item">
-                <p class="participants-hint">min: 1, max: {{ participantMax }}</p>
+                <p v-if="selectedVenueCapacity != null" class="participants-hint">
+                  min: 1, max: {{ selectedVenueCapacity }} (venue capacity)
+                </p>
+                <p v-else-if="form.room" class="participants-hint">min: 1</p>
+                <p v-else class="participants-hint">Select a room to see capacity limit</p>
                 <el-input-number
                   v-model="form.attendeeCount"
                   :min="1"
-                  :max="participantMax"
+                  :disabled="!form.room"
                   controls-position="right"
                   style="width: 100%"
                 />
@@ -147,7 +196,7 @@
             </div>
 
             <div class="paired-right">
-              <el-form-item prop="venueSetup" class="service-item service-label-left no-wrap-label">
+              <el-form-item class="service-item service-label-left no-wrap-label service-hint-item">
                 <template #label>
                   <span class="service-label-with-icon">
                     Venue Setup
@@ -165,7 +214,7 @@
                 </template>
               </el-form-item>
 
-              <el-form-item prop="equipment" class="service-item service-label-left no-wrap-label">
+              <el-form-item class="service-item service-label-left no-wrap-label service-hint-item">
                 <template #label>
                   <span class="service-label-with-icon">
                     Equipment
@@ -183,7 +232,7 @@
                 </template>
               </el-form-item>
 
-              <el-form-item prop="toolsMaterials" class="service-item service-label-left no-wrap-label">
+              <el-form-item class="service-item service-label-left no-wrap-label service-hint-item">
                 <template #label>
                   <span class="service-label-with-icon">
                     Tools and Materials
@@ -201,7 +250,7 @@
                 </template>
               </el-form-item>
 
-              <el-form-item prop="specialRequests" class="service-item service-label-left no-wrap-label">
+              <el-form-item class="service-item service-label-left no-wrap-label service-hint-item">
                 <template #label>
                   <span class="service-label-with-icon">
                     Others / Special Requests
@@ -303,10 +352,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import { InfoFilled } from '@element-plus/icons-vue'
-import { getMockPromptList } from '@/mocks/mockData'
+import { getPrompts } from '@/api/promptManagement'
+import { checkRoomAvailability } from '@/api/calendar'
 
 const props = defineProps({
   visible: {
@@ -344,8 +394,62 @@ const showNotice = (message, title = 'Notice') => {
   showNoticeDialog.value = true
 }
 
+const promptList = ref([])
+
+/** Check Availability 结果：Date / Start / End 右侧绿色 ✓ 或红色 ✕ */
+const availabilityFieldOk = ref({
+  date: false,
+  startTime: false,
+  endTime: false
+})
+
+const availabilityFieldFail = ref({
+  date: false,
+  startTime: false,
+  endTime: false
+})
+
+function clearAvailabilityIndicators () {
+  availabilityFieldOk.value = {
+    date: false,
+    startTime: false,
+    endTime: false
+  }
+  availabilityFieldFail.value = {
+    date: false,
+    startTime: false,
+    endTime: false
+  }
+}
+
+function setAvailabilityPass () {
+  availabilityFieldFail.value = {
+    date: false,
+    startTime: false,
+    endTime: false
+  }
+  availabilityFieldOk.value = {
+    date: true,
+    startTime: true,
+    endTime: true
+  }
+}
+
+function setAvailabilityFail () {
+  availabilityFieldOk.value = {
+    date: false,
+    startTime: false,
+    endTime: false
+  }
+  availabilityFieldFail.value = {
+    date: true,
+    startTime: true,
+    endTime: true
+  }
+}
+
 const promptContentByKey = computed(() => {
-  const list = getMockPromptList()
+  const list = promptList.value
   const pick = (key) => {
     const raw = list.find((p) => p.key === key)?.content
     if (raw == null || raw === '') return ''
@@ -403,10 +507,16 @@ function handleMouseUp() {
   document.removeEventListener('mouseup', handleMouseUp)
 }
 
-onMounted(() => {
+onMounted(async () => {
   updateVenueBookingDialogMaxHeight()
   venueBookingDialogModalMq = window.matchMedia(VENUE_BOOKING_DIALOG_MODAL_MQ)
   venueBookingDialogModalMq.addEventListener('change', updateVenueBookingDialogMaxHeight)
+  try {
+    const prompts = await getPrompts()
+    promptList.value = Array.isArray(prompts) ? prompts : []
+  } catch (error) {
+    console.error('Failed to load venue booking prompts:', error)
+  }
 })
 
 onUnmounted(() => {
@@ -429,10 +539,6 @@ const form = ref({
   teaOrWater: 'tea',
   serviceType: 'pot',
   teaServiceSpecialRequest: '',
-  venueSetup: '',
-  equipment: '',
-  toolsMaterials: '',
-  specialRequests: '',
   fullName: 'Karen SHEN',
   department: 'TKOH ASM (GA)',
   contactPhone: '1234 5678',
@@ -441,7 +547,9 @@ const form = ref({
 
 const availableRooms = computed(() => {
   if (Array.isArray(props.venueList) && props.venueList.length > 0) {
-    return props.venueList.map(room => ({
+    return props.venueList
+      .filter((room) => String(room?.status || 'active').toLowerCase() === 'active')
+      .map(room => ({
       name: room.name,
       color: room.color,
       roomCapacity: room.roomCapacity ?? room.capacity ?? null
@@ -450,11 +558,39 @@ const availableRooms = computed(() => {
   return []
 })
 
-const participantMax = computed(() => {
-  const selected = availableRooms.value.find(room => room.name === form.value.room)
-  const max = Number(selected?.roomCapacity)
-  return Number.isFinite(max) && max >= 1 ? max : 200
+const selectedVenue = computed(() =>
+  availableRooms.value.find((room) => room.name === form.value.room) ?? null
+)
+
+/** 所选场地容量；无有效值时为 null */
+const selectedVenueCapacity = computed(() => {
+  const cap = Number(selectedVenue.value?.roomCapacity)
+  return Number.isFinite(cap) && cap >= 1 ? cap : null
 })
+
+function formatRoomCapacity (value) {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return ''
+  return `cap ${n}`
+}
+
+function validateParticipantCount () {
+  if (!form.value.room) {
+    return { ok: false, message: 'Please select a room / venue' }
+  }
+  const count = Number(form.value.attendeeCount)
+  if (!Number.isFinite(count) || count < 1) {
+    return { ok: false, message: 'No. of participants must be at least 1' }
+  }
+  const cap = selectedVenueCapacity.value
+  if (cap != null && count > cap) {
+    return {
+      ok: false,
+      message: `No. of participants (${count}) exceeds the capacity of "${form.value.room}" (maximum: ${cap}).`
+    }
+  }
+  return { ok: true }
+}
 
 /** 与原 el-time-select start/end/step（07:00–21:00，30 分钟）一致；改用 el-select 以支持 :teleported="false"（html zoom 下不误位） */
 function buildHalfHourTimeOptions(start = '07:00', end = '21:00', stepMinutes = 30) {
@@ -471,6 +607,39 @@ function buildHalfHourTimeOptions(start = '07:00', end = '21:00', stepMinutes = 
   return list
 }
 const timeSlotOptions = buildHalfHourTimeOptions()
+const endTimeSelectRef = ref(null)
+
+function isEndTimeOptionDisabled (time) {
+  const start = form.value.startTime
+  return Boolean(start && time <= start)
+}
+
+/** 打开 End Time 下拉时，将列表滚动到已选 Start Time 所在行 */
+function onEndTimeSelectVisible (visible) {
+  if (!visible || !form.value.startTime) return
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      const select = endTimeSelectRef.value
+      const popperEl =
+        select?.popperRef?.contentRef?.$el ??
+        select?.popperRef?.contentRef
+      const wrap =
+        popperEl?.querySelector?.('.el-scrollbar__wrap') ??
+        document.querySelector('.end-time-select-popper .el-scrollbar__wrap')
+      if (!wrap) return
+
+      const items = wrap.querySelectorAll('.el-select-dropdown__item')
+      const start = form.value.startTime
+      for (const el of items) {
+        const label = (el.querySelector('span')?.textContent || el.textContent || '').trim()
+        if (label === start) {
+          wrap.scrollTop = Math.max(0, el.offsetTop - 4)
+          return
+        }
+      }
+    })
+  })
+}
 
 const isTeaServiceUnavailable = computed(() => {
   if (!form.value.date) return false
@@ -488,19 +657,68 @@ function disabledDate(date) {
   return date < today
 }
 
-function checkAvailability() {
+async function checkAvailability () {
+  clearAvailabilityIndicators()
+
   if (!form.value.room || !form.value.date || !form.value.startTime || !form.value.endTime) {
     showNotice('Please fill in Room, Date, Start Time and End Time first', 'Warning')
     return
   }
-  
-  // 简单的时间验证
+
   if (form.value.startTime >= form.value.endTime) {
     showNotice('End time must be after start time', 'Warning')
     return
   }
-  
-  showNotice('Room is available for the selected time slot!', 'Success')
+
+  const venue = (props.venueList || []).find(v => v.name === form.value.room)
+  if (!venue?.id) {
+    showNotice('Room not found', 'Warning')
+    return
+  }
+
+  try {
+    const result = await checkRoomAvailability(
+      String(venue.id),
+      form.value.date,
+      form.value.startTime,
+      form.value.endTime,
+      props.booking?.id != null ? String(props.booking.id) : undefined
+    )
+    if (result?.available) {
+      setAvailabilityPass()
+    } else {
+      const message = result?.message || 'Room is not available for the selected time slot'
+      setAvailabilityFail()
+      showNotice(message, 'Warning')
+    }
+  } catch (error) {
+    console.error('Availability check failed:', error)
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      'Availability check failed. Please try again.'
+    setAvailabilityFail()
+    showNotice(message, 'Warning')
+  }
+}
+
+/** 仅提交可持久化字段（场地布置/设备等 ℹ️ 行不入库） */
+function buildBookingConfirmPayload () {
+  return {
+    room: form.value.room,
+    roomName: form.value.room,
+    date: form.value.date,
+    startTime: form.value.startTime,
+    endTime: form.value.endTime,
+    topic: form.value.topic,
+    remark: form.value.remark,
+    attendeeCount: form.value.attendeeCount,
+    teaServiceRequired: form.value.teaServiceRequired,
+    teaOrWater: form.value.teaOrWater,
+    serviceType: form.value.serviceType,
+    teaServiceSpecialRequest: form.value.teaServiceSpecialRequest,
+    id: props.booking?.id
+  }
 }
 
 function initializeForm() {
@@ -522,10 +740,6 @@ function initializeForm() {
       teaOrWater: 'tea',
       serviceType: 'pot',
       teaServiceSpecialRequest: '',
-      venueSetup: '',
-      equipment: '',
-      toolsMaterials: '',
-      specialRequests: '',
       fullName: 'Karen SHEN',
       department: 'TKOH ASM (GA)',
       contactPhone: '1234 5678',
@@ -541,6 +755,13 @@ function initializeForm() {
 
 function handleConfirm() {
   if (!formRef.value) return
+
+  const participantCheck = validateParticipantCount()
+  if (!participantCheck.ok) {
+    showNotice(participantCheck.message, 'Error')
+    return
+  }
+
   formRef.value.validate((valid) => {
     if (valid) {
       // 验证结束时间是否晚于开始时间
@@ -548,12 +769,7 @@ function handleConfirm() {
         showNotice('End time must be later than start time', 'Error')
         return
       }
-      if (form.value.attendeeCount < 1 || form.value.attendeeCount > participantMax.value) {
-        showNotice(`No. of participants must be between 1 and ${participantMax.value}`, 'Error')
-        return
-      }
-      emit('confirm', { ...form.value, id: props.booking?.id || Date.now() })
-      showNotice('Booking submitted successfully!', 'Success')
+      emit('confirm', buildBookingConfirmPayload())
       handleClose()
     } else {
       showNotice('Please fill in all required fields', 'Error')
@@ -562,6 +778,7 @@ function handleConfirm() {
 }
 
 function handleClose() {
+  clearAvailabilityIndicators()
   emit('close')
   // 重置表单验证状态
   if (formRef.value) {
@@ -572,6 +789,7 @@ function handleClose() {
 watch(() => props.visible, (val) => {
   if (val) {
     initializeForm()
+    clearAvailabilityIndicators()
     // 重置对话框位置
     dialogX.value = 0
     dialogY.value = 0
@@ -579,19 +797,19 @@ watch(() => props.visible, (val) => {
 })
 
 watch(() => form.value.room, () => {
-  if (form.value.attendeeCount > participantMax.value) {
-    form.value.attendeeCount = participantMax.value
-  }
+  clearAvailabilityIndicators()
 })
 
-watch(() => form.value.attendeeCount, (val) => {
-  if (val == null) return
-  if (val < 1) {
-    form.value.attendeeCount = 1
-    return
+watch(
+  () => [form.value.date, form.value.startTime, form.value.endTime],
+  () => {
+    clearAvailabilityIndicators()
   }
-  if (val > participantMax.value) {
-    form.value.attendeeCount = participantMax.value
+)
+
+watch(() => form.value.startTime, (start) => {
+  if (start && form.value.endTime && form.value.endTime <= start) {
+    form.value.endTime = ''
   }
 })
 
@@ -723,6 +941,22 @@ watch(() => form.value.teaServiceRequired, (yes) => {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+}
+
+.room-option-name {
+  color: #111827;
+}
+
+.room-option-cap {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.room-option.is-selected .room-option-name,
+.room-option.is-selected .room-option-cap {
+  font-weight: 700;
 }
 
 .room-color-dot {
@@ -878,6 +1112,42 @@ watch(() => form.value.teaServiceRequired, (yes) => {
 .form-item-half.no-label-desktop :deep(.el-form-item__content),
 .form-item-third.no-label-desktop :deep(.el-form-item__content) {
   margin-left: 0 !important;
+}
+
+.field-with-availability {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.field-with-availability__control {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.field-with-availability__control.el-date-editor {
+  width: 100% !important;
+}
+
+.availability-ok,
+.availability-fail {
+  flex-shrink: 0;
+  width: 1.25rem;
+  text-align: center;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.availability-ok {
+  color: #16a34a;
+}
+
+.availability-fail {
+  color: #dc2626;
 }
 
 .check-availability-item {

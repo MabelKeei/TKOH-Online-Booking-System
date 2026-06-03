@@ -1505,10 +1505,7 @@ const handlePreview = (file) => {
   color: #1d4ed8;
 }
 
-.page-content :deep(.type-tag-discussion) {
-  background-color: #fef3c7;
-  color: #92400e;
-}
+ 
 
 .page-content :deep(.type-tag-other) {
   background-color: #dcfce7;

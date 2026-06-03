@@ -12,7 +12,7 @@ npm run prisma:generate
 npm run start:dev
 ```
 
-Swagger: `http://localhost:4001/api/docs`
+Swagger: `http://localhost:3210/api/docs`
 
 ## 已迁移模块
 
@@ -36,11 +36,11 @@ npm run prisma:seed
 ## 双服务并行切流方案
 
 1. 旧服务继续运行（`TKHO-backend`, 端口 4000）。
-2. 新服务运行在 4001。
+2. 新服务运行在 3210。
 3. 网关按路由切流：
-   - 第一步：`/api/health` -> 4001
-   - 第二步：`/api/auth/*` -> 4001
-   - 第三步：`/api/meta/*` 与 `/api/parking/*` -> 4001
+   - 第一步：`/api/health` -> 3210
+   - 第二步：`/api/auth/*` -> 3210
+   - 第三步：`/api/meta/*` 与 `/api/parking/*` -> 3210
 4. 每次切流后回归：登录、获取用户、场地列表、抢占车位。
 
 ## 回滚预案

@@ -1,0 +1,29 @@
+# Redis 缓存（独立部署）
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: tkho-booking-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-tkhoRedis123}
+    volumes:
+      - tkho_redis_data_volumes:/data
+    ports:
+      - "6279:6379"
+    networks:
+      - tkho-booking-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-tkhoRedis123}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  tkho_redis_data_volumes:
+    name: tkho_redis_data_volumes
+    driver: local
+
+networks:
+  tkho-booking-network:
+    external: true

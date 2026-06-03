@@ -13,3 +13,9 @@ test
 *.log
 
 test.vue
+
+# Docker 部署本地环境（含密钥）
+.env
+
+# Nginx SSL 私钥与证书（在 docker/nginx/ssl 下自行生成）
+docker/nginx/ssl/*.pem

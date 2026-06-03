@@ -1,0 +1,25 @@
+# Nginx 入口（蓝绿流量切换）
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: tkho-booking-nginx
+    restart: unless-stopped
+    ports:
+      - "3200:80"
+      - "3243:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - tkho-booking-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  tkho-booking-network:
+    external: true

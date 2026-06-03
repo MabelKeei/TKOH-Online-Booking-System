@@ -2,7 +2,7 @@
  * EV 抢订并发压测（Node 18+，无需额外依赖）
  *
  * 环境变量：
- *   BASE_URL          默认 http://127.0.0.1:4001
+ *   BASE_URL          默认 http://127.0.0.1:3210
  *   CONCURRENCY       并发请求数，默认 50
  *   BOOKING_DATE      预订日期 YYYY-MM-DD，默认明天
  *   PERIOD_ID         时段 id，默认 1
@@ -12,7 +12,7 @@
  *   DRY_RUN           1 时只登录不订位
  */
 
-const BASE_URL = (process.env.BASE_URL || 'http://127.0.0.1:4001').replace(/\/$/, '');
+const BASE_URL = (process.env.BASE_URL || 'http://127.0.0.1:3210').replace(/\/$/, '');
 const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY || 50));
 const USER_COUNT = Math.max(1, Number(process.env.USER_COUNT || CONCURRENCY));
 const USER_START = Math.max(1, Number(process.env.USER_START || 2));

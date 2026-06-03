@@ -1,0 +1,69 @@
+# 蓝环境应用
+version: '3.8'
+
+services:
+  backend-blue:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    image: tkho-booking-images-backend-blue
+    container_name: tkho-booking-backend-blue
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3210
+      - DATABASE_URL=postgresql://${DB_USER:-tkho}:${DB_PASSWORD:-tkho123456}@postgres:5432/${DB_NAME:-tkho_booking}?schema=public
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-tkhoRedis123}@redis:6379
+      - JWT_SECRET=${JWT_SECRET:-change-me-to-a-long-random-string}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - EV_CALENDAR_CACHE_TTL_SEC=${EV_CALENDAR_CACHE_TTL_SEC:-10}
+      - EV_ASSIGNMENT_PREVIEW_CACHE_TTL_SEC=${EV_ASSIGNMENT_PREVIEW_CACHE_TTL_SEC:-8}
+      - EV_BOOKING_WINDOW_CACHE_TTL_SEC=${EV_BOOKING_WINDOW_CACHE_TTL_SEC:-60}
+      - EV_BOOKING_RATE_LIMIT_PER_MIN=${EV_BOOKING_RATE_LIMIT_PER_MIN:-30}
+    ports:
+      - "3211:3210"
+    volumes:
+      - tkho_uploads_data_volumes:/app/uploads
+    networks:
+      - tkho-booking-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3210/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  frontend-blue:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+      args:
+        - VITE_USE_SAME_ORIGIN_API=true
+        - NODE_ENV=production
+        - BUILD_TIMESTAMP=${BUILD_TIMESTAMP:-0}
+    image: tkho-booking-images-frontend-blue
+    container_name: tkho-booking-frontend-blue
+    restart: unless-stopped
+    ports:
+      - "3212:80"
+    networks:
+      - tkho-booking-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  tkho_uploads_data_volumes:
+    name: tkho_uploads_data_volumes
+    driver: local
+
+networks:
+  tkho-booking-network:
+    external: true

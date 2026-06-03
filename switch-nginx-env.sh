@@ -1,0 +1,215 @@
+#!/bin/bash
+
+# TKHO 在线预订系统 — Docker Nginx 蓝绿流量切换
+# 用法: ./switch-nginx-env.sh [blue|green|status|help]
+
+set -e
+
+NGINX_CONTAINER="tkho-booking-nginx"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+detect_compose_cmd() {
+    if command -v docker-compose >/dev/null 2>&1; then
+        COMPOSE_CMD="docker-compose"
+    elif docker compose version >/dev/null 2>&1; then
+        COMPOSE_CMD="docker compose"
+    else
+        log_error "Docker Compose 未安装"
+        exit 1
+    fi
+}
+
+check_nginx() {
+    if ! docker ps --format '{{.Names}}' | grep -q "^${NGINX_CONTAINER}$"; then
+        log_warning "Nginx 容器未运行，正在启动..."
+        start_nginx
+    else
+        log_success "Nginx 容器运行正常"
+    fi
+}
+
+start_nginx() {
+    log_info "启动 Nginx 容器..."
+    $COMPOSE_CMD -f docker-compose.nginx.yml up -d
+    sleep 3
+    if docker ps --format '{{.Names}}' | grep -q "^${NGINX_CONTAINER}$"; then
+        log_success "Nginx 容器启动成功"
+    else
+        log_error "Nginx 容器启动失败"
+        exit 1
+    fi
+}
+
+reload_nginx() {
+    log_info "测试并重新加载 Nginx 配置..."
+    if docker exec "$NGINX_CONTAINER" nginx -t 2>&1; then
+        docker exec "$NGINX_CONTAINER" nginx -s reload
+        return 0
+    fi
+    return 1
+}
+
+rollback_nginx_conf() {
+    local latest_backup
+    latest_backup=$(ls -t docker/nginx/nginx.conf.backup.* 2>/dev/null | head -1)
+    if [ -n "$latest_backup" ]; then
+        cp "$latest_backup" docker/nginx/nginx.conf
+        reload_nginx || true
+        log_warning "已回滚到之前的 Nginx 配置"
+    fi
+}
+
+switch_to_blue() {
+    log_info "切换到蓝环境..."
+
+    if [ -f "docker/nginx/nginx.conf" ]; then
+        cp docker/nginx/nginx.conf "docker/nginx/nginx.conf.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+        log_info "已备份当前 nginx.conf"
+    fi
+
+    if [ ! -f "docker/nginx/nginx.blue.conf" ]; then
+        log_error "缺少 docker/nginx/nginx.blue.conf"
+        exit 1
+    fi
+
+    cp docker/nginx/nginx.blue.conf docker/nginx/nginx.conf
+    log_info "已更新 Nginx 配置为蓝环境"
+
+    if reload_nginx; then
+        log_success "已切换到蓝环境 (前端: tkho-booking-frontend-blue:80, 后端: tkho-booking-backend-blue:3210)"
+    else
+        log_error "Nginx 配置测试失败，尝试回滚..."
+        rollback_nginx_conf
+        exit 1
+    fi
+}
+
+switch_to_green() {
+    log_info "切换到绿环境..."
+
+    if [ -f "docker/nginx/nginx.conf" ]; then
+        cp docker/nginx/nginx.conf "docker/nginx/nginx.conf.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+        log_info "已备份当前 nginx.conf"
+    fi
+
+    if [ ! -f "docker/nginx/nginx.green.conf" ]; then
+        log_error "缺少 docker/nginx/nginx.green.conf"
+        exit 1
+    fi
+
+    cp docker/nginx/nginx.green.conf docker/nginx/nginx.conf
+    log_info "已更新 Nginx 配置为绿环境"
+
+    if reload_nginx; then
+        log_success "已切换到绿环境 (前端: tkho-booking-frontend-green:80, 后端: tkho-booking-backend-green:3210)"
+    else
+        log_error "Nginx 配置测试失败，尝试回滚..."
+        rollback_nginx_conf
+        exit 1
+    fi
+}
+
+show_status() {
+    log_info "Nginx 蓝绿状态:"
+    echo ""
+
+    if docker ps --format '{{.Names}}\t{{.Status}}' | grep -q "$NGINX_CONTAINER"; then
+        echo -e "${GREEN}✓${NC} Nginx: $(docker ps --format '{{.Status}}' --filter name=$NGINX_CONTAINER)"
+    else
+        echo -e "${RED}✗${NC} Nginx: 未运行"
+    fi
+
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    if [ -f "docker/nginx/nginx.conf" ]; then
+        if grep -q "tkho-booking-frontend-blue" docker/nginx/nginx.conf 2>/dev/null; then
+            echo -e "📍 当前流量: ${BLUE}蓝环境 (BLUE)${NC}"
+        elif grep -q "tkho-booking-frontend-green" docker/nginx/nginx.conf 2>/dev/null; then
+            echo -e "📍 当前流量: ${GREEN}绿环境 (GREEN)${NC}"
+        else
+            echo -e "📍 当前流量: ${YELLOW}未知${NC}"
+        fi
+    else
+        echo -e "📍 当前流量: ${RED}nginx.conf 不存在${NC}"
+    fi
+
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    echo "🔵 蓝环境:"
+    for c in tkho-booking-backend-blue tkho-booking-frontend-blue; do
+        if docker ps --format '{{.Names}}' | grep -q "^${c}$"; then
+            echo -e "   ${GREEN}✓${NC} $c: $(docker ps --format '{{.Status}}' --filter name=$c)"
+        else
+            echo -e "   ${RED}✗${NC} $c: 未运行"
+        fi
+    done
+
+    echo ""
+    echo "🟢 绿环境:"
+    for c in tkho-booking-backend-green tkho-booking-frontend-green; do
+        if docker ps --format '{{.Names}}' | grep -q "^${c}$"; then
+            echo -e "   ${GREEN}✓${NC} $c: $(docker ps --format '{{.Status}}' --filter name=$c)"
+        else
+            echo -e "   ${RED}✗${NC} $c: 未运行"
+        fi
+    done
+
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "🌐 访问地址:"
+    echo "   入口 HTTP:  http://localhost:3200"
+    echo "   入口 HTTPS: https://localhost:3243"
+    echo "   蓝后端直连: http://localhost:3211"
+    echo "   蓝前端直连: http://localhost:3212"
+    echo "   绿后端直连: http://localhost:3213"
+    echo "   绿前端直连: http://localhost:3214"
+    echo ""
+}
+
+main() {
+    detect_compose_cmd
+
+    case "${1:-help}" in
+        blue)
+            check_nginx
+            switch_to_blue
+            echo ""
+            show_status
+            ;;
+        green)
+            check_nginx
+            switch_to_green
+            echo ""
+            show_status
+            ;;
+        status)
+            show_status
+            ;;
+        help|*)
+            echo "TKHO Nginx 蓝绿流量切换"
+            echo ""
+            echo "用法:"
+            echo "  $0 blue      # 切换入口流量到蓝环境（nginx reload，不重建容器）"
+            echo "  $0 green     # 切换入口流量到绿环境"
+            echo "  $0 status    # 查看当前流量指向与容器状态"
+            echo ""
+            ;;
+    esac
+}
+
+main "$@"

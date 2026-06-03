@@ -1,0 +1,48 @@
+# 基础服务：PostgreSQL、Adminer
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tkho-booking-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-tkho_booking}
+      POSTGRES_USER: ${DB_USER:-tkho}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-tkho123456}
+    ports:
+      - "25432:5432"
+    volumes:
+      - tkho_postgres_data_volumes:/var/lib/postgresql/data
+    networks:
+      - tkho-booking-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-tkho} -d ${DB_NAME:-tkho_booking}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 数据库管理工具（参考 VisitorSystem）
+  adminer:
+    build:
+      context: .
+      dockerfile: docker/adminer/Dockerfile
+    image: tkho-booking-adminer
+    container_name: tkho-booking-adminer
+    restart: unless-stopped
+    ports:
+      - "3201:3201"
+    networks:
+      - tkho-booking-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  tkho_postgres_data_volumes:
+    name: tkho_postgres_data_volumes
+    driver: local
+
+networks:
+  tkho-booking-network:
+    external: true

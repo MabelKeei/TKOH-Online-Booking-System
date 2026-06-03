@@ -1,0 +1,321 @@
+# TKHO 在线预订系统 — Docker 部署指南
+
+参考 `orderFood-system/data-analysis-system-cloud` 的蓝绿部署结构，针对本项目技术栈做了适配：
+
+| 组件 | 参考项目 | TKHO 项目 |
+|------|----------|-----------|
+| 数据库 | MySQL | **PostgreSQL 16** |
+| 消息队列 | RabbitMQ | 无 |
+| 缓存 | Redis | Redis 7 |
+| 后端 | Express | **NestJS + Prisma** |
+| 前端 | Vite | Vue 3 + Vite |
+
+## 目录结构
+
+```
+TKOH-Online-Booking-System/
+├── TKHO-backend/              # NestJS 后端
+├── TKHO-frontend/             # Vue 前端
+├── docker/
+│   ├── backend/Dockerfile
+│   ├── backend/docker-entrypoint.sh   # 启动前 prisma migrate deploy
+│   ├── frontend/Dockerfile
+│   ├── adminer/Dockerfile     # 数据库 Web 管理（参考 VisitorSystem）
+│   └── nginx/                 # 入口与 SPA 配置
+│       └── ssl/               # HTTPS 证书（cert.pem、key.pem，见 ssl/README.md）
+├── docker-compose.base.yml    # PostgreSQL + Adminer
+├── docker-compose.redis.yml   # Redis
+├── docker-compose.blue.yml    # 蓝环境
+├── docker-compose.green.yml   # 绿环境
+├── docker-compose.nginx.yml   # 统一入口
+├── env.production             # 环境变量模板
+├── deploy.ps1                 # Windows 部署脚本
+├── deploy.sh                  # Linux 部署脚本
+└── switch-nginx-env.sh        # 仅切换 Nginx 蓝绿流量（nginx reload）
+```
+
+## 端口规划
+
+| 服务 | 宿主机端口 | 说明 |
+|------|-----------|------|
+| Nginx HTTP | **3200** | `http://localhost:3200` |
+| Nginx HTTPS | **3243** | `https://localhost:3243`（映射容器 **443**，需先配置 SSL 证书） |
+| **Adminer** | **3201** | 数据库 Web 管理（容器内外均为 3201）`http://localhost:3201` |
+| 后端蓝 | 3211 | 直连调试 |
+| 前端蓝 | 3212 | 直连调试 |
+| 后端绿 | 3213 | 绿环境 |
+| 前端绿 | 3214 | 绿环境 |
+| PostgreSQL | 25432 | 外部工具连接 |
+| Redis | 6279 | 外部工具连接 |
+
+## 部署与更新命令速查
+
+以下命令均在项目根目录 `TKOH-Online-Booking-System` 执行。Windows 用 `.\deploy.ps1`，Linux/macOS 用 `./deploy.sh`（将示例中的 `.\deploy.ps1` 换成 `./deploy.sh` 即可）。
+
+### 一、首次部署
+
+```powershell
+cd TKOH-Online-Booking-System
+
+# 1. 环境变量（仅首次）
+Copy-Item env.production .env
+notepad .env   # 修改 DB_PASSWORD、REDIS_PASSWORD、JWT_SECRET
+
+# 2. 一键部署：网络 + Postgres + Adminer + Redis + 蓝环境 + Nginx + 流量切到蓝
+.\deploy.ps1 blue
+```
+
+访问：HTTP `http://localhost:3200` · HTTPS `https://localhost:3243` · Adminer `http://localhost:3201`
+
+---
+
+### 二、发布新版本（蓝绿）
+
+| 步骤 | 命令 | 说明 |
+|------|------|------|
+| 1. 部署待上线环境 | `.\deploy.ps1 green` | 构建绿环境并启动；会停止蓝应用容器，**数据库/Redis 不重启** |
+| 2. 直连验证 | 浏览器访问 `http://localhost:3213/api/health`、`http://localhost:3214` | 不经过入口 Nginx |
+| 3. 切换流量 | `.\deploy.ps1 switch green` 或 `./switch-nginx-env.sh green` | 更新 Nginx 并 **reload**（不重建 Nginx 容器） |
+| 4. 回滚 | `.\deploy.ps1 switch blue` 或 `./switch-nginx-env.sh blue` | 流量切回蓝（需蓝容器仍在运行；若已 down 需先部署蓝环境） |
+
+仅切换流量、不重新构建应用：
+
+```bash
+chmod +x switch-nginx-env.sh deploy.sh
+./switch-nginx-env.sh green   # 或 blue / status
+```
+
+---
+
+### 三、日常更新（同环境重建）
+
+改代码后，在当前活跃环境上**重新构建并启动**：
+
+```powershell
+# 当前跑的是蓝环境
+.\deploy.ps1 blue
+
+# 当前跑的是绿环境
+.\deploy.ps1 green
+```
+
+等价于 compose 合并启动并 `--build`（脚本内已包含）。
+
+**只更新某一类服务**（需已存在 `.env` 与 `tkho-booking-network`）：
+
+```powershell
+# 仅重建蓝环境前后端
+docker compose -f docker-compose.base.yml -f docker-compose.redis.yml -f docker-compose.blue.yml up -d --build
+
+# 仅重建绿环境前后端
+docker compose -f docker-compose.base.yml -f docker-compose.redis.yml -f docker-compose.green.yml up -d --build
+
+# 仅重建 Nginx（改 nginx 配置或证书后）
+docker compose -f docker-compose.nginx.yml up -d --force-recreate nginx
+
+# 仅重建基础服务（Postgres / Adminer）
+docker compose -f docker-compose.base.yml up -d --build
+
+# 仅重建 Redis
+docker compose -f docker-compose.redis.yml up -d --force-recreate redis
+```
+
+---
+
+### 四、运维与排查
+
+```powershell
+# 查看各 compose 栈状态
+.\deploy.ps1 status
+
+# 查看帮助
+.\deploy.ps1 help
+
+# 查看日志（将容器名换成实际名称）
+docker logs -f tkho-booking-backend-blue
+docker logs -f tkho-booking-backend-green
+docker logs -f tkho-booking-nginx
+docker logs -f tkho-booking-postgres
+
+# 进入后端容器
+docker exec -it tkho-booking-backend-blue sh
+
+# 手动执行数据库迁移（一般 entrypoint 已自动 migrate deploy）
+docker exec -it tkho-booking-backend-blue npx prisma migrate deploy
+```
+
+---
+
+### 五、停止与清理
+
+```powershell
+# 停止所有 TKHO 相关容器并删除网络（数据卷默认保留）
+.\deploy.ps1 cleanup
+
+# 连数据卷一并删除（会清空库与上传文件，慎用）
+.\deploy.ps1 cleanup
+docker volume rm tkho_postgres_data_volumes tkho_redis_data_volumes tkho_uploads_data_volumes
+```
+
+---
+
+### 六、HTTPS 证书
+
+```powershell
+# 部署脚本会在启动 Nginx 前尝试自动生成自签名证书（需本机有 openssl）
+.\deploy.ps1 blue
+
+# 或手动生成后重建 Nginx
+cd docker\nginx\ssl
+openssl genrsa -out key.pem 2048
+openssl req -new -x509 -key key.pem -out cert.pem -days 365 -subj "/CN=localhost"
+cd ..\..\..
+docker compose -f docker-compose.nginx.yml up -d --force-recreate nginx
+```
+
+---
+
+### 七、Linux / macOS 完整指令
+
+```bash
+cd TKOH-Online-Booking-System
+
+# 赋予执行权限（首次）
+chmod +x deploy.sh switch-nginx-env.sh
+
+# ---------- 首次部署 ----------
+cp env.production .env
+vim .env    # 修改 DB_PASSWORD、REDIS_PASSWORD、JWT_SECRET
+
+./deploy.sh blue
+
+# ---------- 发布新版本（蓝绿）----------
+./deploy.sh green
+curl -s http://localhost:3213/api/health
+./switch-nginx-env.sh green    # 推荐：仅 reload Nginx，零停机切换
+# 或: ./deploy.sh switch green
+
+# ---------- 回滚流量 ----------
+./switch-nginx-env.sh blue
+# 或: ./deploy.sh switch blue
+
+# ---------- 同环境更新（重建镜像）----------
+./deploy.sh blue    # 或 ./deploy.sh green
+
+# ---------- 仅切换 Nginx（不构建应用）----------
+./switch-nginx-env.sh status
+./switch-nginx-env.sh blue
+./switch-nginx-env.sh green
+
+# ---------- 按需 compose ----------
+docker compose -f docker-compose.base.yml -f docker-compose.redis.yml -f docker-compose.blue.yml up -d --build
+docker compose -f docker-compose.nginx.yml up -d --force-recreate nginx
+
+# ---------- 运维 ----------
+./deploy.sh status
+docker logs -f tkho-booking-backend-blue
+docker exec -it tkho-booking-backend-blue npx prisma migrate deploy
+
+# ---------- 清理 ----------
+./deploy.sh cleanup
+```
+
+| Windows | Linux / macOS |
+|---------|----------------|
+| `.\deploy.ps1 blue` | `./deploy.sh blue` |
+| `.\deploy.ps1 green` | `./deploy.sh green` |
+| `.\deploy.ps1 switch green` | `./deploy.sh switch green` 或 `./switch-nginx-env.sh green` |
+| `.\deploy.ps1 status` | `./deploy.sh status` 或 `./switch-nginx-env.sh status` |
+| `.\deploy.ps1 cleanup` | `./deploy.sh cleanup` |
+
+访问：`http://localhost:3200` · `https://localhost:3243` · Adminer `http://localhost:3201`
+
+---
+
+## 快速开始（Windows）
+
+```powershell
+cd TKOH-Online-Booking-System
+
+# 1. 准备环境变量
+Copy-Item env.production .env
+notepad .env   # 修改 DB_PASSWORD、REDIS_PASSWORD、JWT_SECRET
+
+# 2.（可选）生成 HTTPS 自签名证书
+cd docker\nginx\ssl
+openssl genrsa -out key.pem 2048
+openssl req -new -x509 -key key.pem -out cert.pem -days 365 -subj "/CN=localhost"
+cd ..\..\..
+
+# 3. 首次部署（蓝环境 + Nginx）
+.\deploy.ps1 blue
+
+# 4. 访问
+# HTTP:  http://localhost:3200
+# HTTPS: https://localhost:3243
+# API 文档: http://localhost:3200/api/docs
+# Adminer: http://localhost:3201
+```
+
+> 未放置 `cert.pem` / `key.pem` 时，Nginx 可能无法启动 HTTPS；HTTP（3200）与健康检查仍可用。证书说明见 `docker/nginx/ssl/README.md`。
+
+### Adminer 登录（与 `.env` 一致）
+
+| 字段 | 值 |
+|------|-----|
+| 系统 | PostgreSQL |
+| 服务器 | `postgres`（已默认，容器内服务名） |
+| 用户名 | `DB_USER`（默认 `tkho`） |
+| 密码 | `DB_PASSWORD` |
+| 数据库 | `DB_NAME`（默认 `tkho_booking`） |
+
+## 蓝绿发布流程
+
+1. 当前生产在蓝环境：`.\deploy.ps1 switch blue`（默认）
+2. 构建并启动绿环境：`.\deploy.ps1 green`（会停蓝环境容器，数据库与 Redis 保持运行）
+3. 验证绿环境直连：`http://localhost:3213`（API）、`http://localhost:3214`（前端）
+4. 切换流量：`./switch-nginx-env.sh green`（或 `./deploy.sh switch green`）
+5. 回滚：`./switch-nginx-env.sh blue`
+
+> 更稳妥的零停机方式：先 `docker compose ... green up` 不 down 蓝环境，验证后再 `switch`。当前脚本与参考项目一致，绿部署时会 down 蓝应用容器。
+
+## 环境变量说明
+
+`env.production` / `.env` 中需配置：
+
+- `DB_NAME`、`DB_USER`、`DB_PASSWORD` — PostgreSQL
+- `REDIS_PASSWORD` — Redis 认证
+- `JWT_SECRET` — 必须与开发环境区分，使用强随机串
+
+`DATABASE_URL`、`REDIS_URL` 在 compose 文件中按容器网络自动拼接，无需手写主机名。
+
+## 数据持久化
+
+| 卷名 | 内容 |
+|------|------|
+| `tkho_postgres_data_volumes` | 数据库文件 |
+| `tkho_redis_data_volumes` | Redis AOF |
+| `tkho_uploads_data_volumes` | 场馆/展示上传图片 |
+
+清理容器不会删除卷。完全重置需手动：
+
+```powershell
+.\deploy.ps1 cleanup
+docker volume rm tkho_postgres_data_volumes tkho_redis_data_volumes tkho_uploads_data_volumes
+```
+
+## 前端 API 策略
+
+Docker 构建时设置 `VITE_USE_SAME_ORIGIN_API=true`，浏览器请求走 Nginx 同源 `/api`，由入口代理到后端，无需配置 ngrok。
+
+## 常见问题
+
+**迁移失败**：确认 PostgreSQL 健康、`DB_PASSWORD` 与 compose 一致，查看日志：
+
+```powershell
+docker logs tkho-booking-backend-blue
+```
+
+**上传图片 404**：确认 `tkho_uploads_data_volumes` 已挂载，且通过 `http://localhost:3200/api/uploads/...` 访问。
+
+**与本地开发共存**：本地后端与 Docker 后端容器内均为 **3210**；若同时跑 Docker 蓝/绿（宿主机 3211/3213），注意勿与本地同端口冲突。Postgres 本地 5432、Docker 25432 可并存。

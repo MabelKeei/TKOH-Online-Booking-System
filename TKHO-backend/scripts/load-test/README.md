@@ -13,7 +13,7 @@
    ```powershell
    npm run prisma:seed
    ```
-3. 后端已启动（默认 `http://127.0.0.1:4001`）：
+3. 后端已启动（默认 `http://127.0.0.1:3210`）：
    ```powershell
    npm run start:dev
    ```
@@ -140,7 +140,7 @@ node scripts/load-test/ev-booking-concurrent.mjs
 
 | 变量 | 说明 | 默认 |
 |------|------|------|
-| `BASE_URL` | API 根地址 | `http://127.0.0.1:4001` |
+| `BASE_URL` | API 根地址 | `http://127.0.0.1:3210` |
 | `CONCURRENCY` | 同时发多少预订请求 | `50` |
 | `USER_COUNT` | 使用多少个 seed 账号（循环） | 同 `CONCURRENCY` |
 | `USER_START` | 从第几个用户开始（2 = E002） | `2` |

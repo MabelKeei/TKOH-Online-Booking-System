@@ -5,7 +5,7 @@
  * 每个 (日期, 时段) 最多成功数 = active 车位数（seed 默认 3）。
  *
  * 环境变量：
- *   BASE_URL          http://127.0.0.1:4001
+ *   BASE_URL          http://127.0.0.1:3210
  *   CONCURRENCY       并发订位数，默认 100
  *   USER_COUNT        登录用户数，默认 100
  *   USER_START        起始用户 id（2 = E002），默认 2
@@ -19,7 +19,7 @@
  *   DRY_RUN           1 只登录
  */
 
-const BASE_URL = (process.env.BASE_URL || 'http://127.0.0.1:4001').replace(/\/$/, '');
+const BASE_URL = (process.env.BASE_URL || 'http://127.0.0.1:3210').replace(/\/$/, '');
 const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY || 100));
 const USER_COUNT = Math.max(1, Number(process.env.USER_COUNT || CONCURRENCY));
 const USER_START = Math.max(1, Number(process.env.USER_START || 2));

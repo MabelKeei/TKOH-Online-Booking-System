@@ -4,7 +4,7 @@
 
 | 组件 | 参考项目 | TKHO 项目 |
 |------|----------|-----------|
-| 数据库 | MySQL | **PostgreSQL 16** |
+| 数据库 | MySQL | **PostgreSQL 15**（`postgres:15-alpine`，与 VisitorSystem 一致） |
 | 消息队列 | RabbitMQ | 无 |
 | 缓存 | Redis | Redis 7 |
 | 后端 | Express | **NestJS + Prisma** |
@@ -148,11 +148,38 @@ docker exec -it tkho-booking-backend-blue npx prisma migrate deploy
 
 ### 五、停止与清理
 
-```powershell
-# 停止所有 TKHO 相关容器并删除网络（数据卷默认保留）
-.\deploy.ps1 cleanup
+**云端 Linux 服务器**（在项目目录执行，使用 `docker-compose` 或 `docker compose` 与现场一致即可）：
 
-# 连数据卷一并删除（会清空库与上传文件，慎用）
+```bash
+cd /path/to/TKOH-Online-Booking-System
+
+# 1. 停掉所有 TKHO 栈
+docker-compose -f docker-compose.nginx.yml down
+docker-compose -f docker-compose.base.yml down
+docker-compose -f docker-compose.redis.yml down
+docker-compose -f docker-compose.blue.yml down
+docker-compose -f docker-compose.green.yml down 2>/dev/null || true
+
+# 2. 删除本项目相关容器（若仍有残留）
+docker ps -a --filter "name=tkho-booking" -q | xargs -r docker rm -f
+
+# 3. 删除本项目自建镜像（Nginx 已改为官方 nginx:alpine，可删旧 tkho-booking-nginx）
+docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^tkho-booking' | xargs -r docker rmi -f
+docker rmi -f tkho-booking-nginx 2>/dev/null || true
+
+# 4. 从 16 换到 15 必须删库卷，否则 Postgres 无法启动
+docker volume rm tkho_postgres_data_volumes tkho_redis_data_volumes tkho_uploads_data_volumes
+
+# 5. 拉最新代码后全量重部署
+git pull
+./deploy.sh blue
+```
+
+> **注意**：删 `tkho_postgres_data_volumes` 会清空数据库，需靠 `prisma migrate deploy` 重新建表；若有生产数据请先备份。
+
+**本地 Windows**：
+
+```powershell
 .\deploy.ps1 cleanup
 docker volume rm tkho_postgres_data_volumes tkho_redis_data_volumes tkho_uploads_data_volumes
 ```
@@ -326,7 +353,7 @@ docker logs --tail 100 tkho-booking-frontend-blue
 docker logs --tail 100 tkho-booking-backend-blue
 
 # 3. 在容器内手动探测（绕过 healthcheck）
-docker exec tkho-booking-nginx curl -f http://127.0.0.1/health
+docker exec tkho-booking-nginx wget -q -O- http://127.0.0.1/health
 docker exec tkho-booking-frontend-blue curl -f http://127.0.0.1/health
 docker exec tkho-booking-backend-blue curl -f http://127.0.0.1:3210/api/health
 ```
@@ -335,7 +362,7 @@ docker exec tkho-booking-backend-blue curl -f http://127.0.0.1:3210/api/health
 
 | 现象 | 原因 | 处理 |
 |------|------|------|
-| Nginx / 前端 unhealthy | 探针用 `localhost` 解析到 IPv6 `::1`，或镜像无 `wget` | 已改为 `curl http://127.0.0.1/health`；拉代码后重建 Nginx/前端镜像 |
+| Nginx unhealthy | 探针用 `localhost` 解析到 IPv6 `::1` | Nginx 使用官方 `nginx:alpine`，探针为 `wget http://127.0.0.1/health`；`force-recreate nginx` 即可 |
 | 后端 `health: starting` 很久 | 启动时要跑 `prisma migrate deploy`，超过原 60s 宽限期 | 已把 `start_period` 改为 **120s**；看 `docker logs` 是否迁移失败 |
 | 后端反复重启，`Cannot find module '/app/dist/main.js'` | 构建产物在 `dist/src/main.js`，与启动命令不一致 | 已修正 `tsconfig.build.json`；服务器上 **必须 `--build` 重建后端镜像** |
 | 后端 `Cannot find module './ev-management.controller'` | 误提交 `tsconfig.build.tsbuildinfo`，Docker 增量编译漏编部分文件 | 已从仓库删除并加入 `.dockerignore`；重建时加 **`--no-cache`** |
@@ -347,8 +374,8 @@ docker exec tkho-booking-backend-blue curl -f http://127.0.0.1:3210/api/health
 修复配置后，在服务器上重建：
 
 ```bash
-docker compose -f docker-compose.nginx.yml up -d --build
-docker compose -f docker-compose.base.yml -f docker-compose.redis.yml -f docker-compose.blue.yml up -d --build
+docker-compose -f docker-compose.nginx.yml up -d --force-recreate nginx
+docker-compose -f docker-compose.base.yml -f docker-compose.redis.yml -f docker-compose.blue.yml up -d --build
 ```
 
 **迁移失败**：确认 PostgreSQL 健康、`DB_PASSWORD` 与 compose 一致，查看日志：

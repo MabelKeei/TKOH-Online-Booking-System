@@ -28,7 +28,7 @@ RUN apk add --no-cache curl
 COPY TKHO-backend/package*.json ./
 COPY TKHO-backend/prisma ./prisma/
 
-RUN npm ci --omit=dev && npm install prisma@6.16.2 --no-save && \
+RUN npm ci --omit=dev && npm install prisma@6.16.2 ts-node typescript --no-save && \
     npx prisma generate --schema=prisma/schema.prisma
 
 COPY --from=builder /app/dist ./dist

@@ -142,6 +142,11 @@ docker exec -it tkho-booking-backend-blue sh
 
 # 手动执行数据库迁移（一般 entrypoint 已自动 migrate deploy）
 docker exec -it tkho-booking-backend-blue npx prisma migrate deploy
+
+# 空库灌演示数据（会 deleteMany 重建 seed 表数据，仅适合测试库）
+docker exec tkho-booking-backend-blue npm run prisma:seed
+# 或（需在 package.json 配置 prisma.seed，且镜像含 ts-node）
+docker exec tkho-booking-backend-blue npx prisma db seed
 ```
 
 ---
@@ -163,8 +168,9 @@ docker-compose -f docker-compose.green.yml down 2>/dev/null || true
 # 2. 删除本项目相关容器（若仍有残留）
 docker ps -a --filter "name=tkho-booking" -q | xargs -r docker rm -f
 
-# 3. 删除本项目自建镜像（Nginx 已改为官方 nginx:alpine，可删旧 tkho-booking-nginx）
-docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^tkho-booking' | xargs -r docker rmi -f
+# 3. 删除本项目自建镜像（勿用 awk 解析 docker images 表格，新版会报 invalid reference format）
+docker images --format '{{.Repository}}:{{.Tag}}' | grep tkho-booking | xargs -r docker rmi -f
+docker images --filter "reference=*tkho-booking-images*" -q | xargs -r docker rmi -f
 docker rmi -f tkho-booking-nginx 2>/dev/null || true
 
 # 4. 从 16 换到 15 必须删库卷，否则 Postgres 无法启动
@@ -385,5 +391,7 @@ docker logs tkho-booking-backend-blue
 ```
 
 **上传图片 404**：确认 `tkho_uploads_data_volumes` 已挂载，且通过 `http://localhost:3200/api/uploads/...` 访问。
+
+**`npx prisma db seed` 无输出**：旧镜像未配置 `package.json` 的 `prisma.seed`，或缺少 `ts-node`。应看到 `[seed] data source` 与 `[seed] done`。临时可用：`docker exec tkho-booking-backend-blue sh -c 'cd /app && npx -y ts-node prisma/seed.ts'`；长期请 `git pull` 后重建后端镜像再执行 `npm run prisma:seed`。
 
 **与本地开发共存**：本地后端与 Docker 后端容器内均为 **3210**；若同时跑 Docker 蓝/绿（宿主机 3211/3213），注意勿与本地同端口冲突。Postgres 本地 5432、Docker 25432 可并存。

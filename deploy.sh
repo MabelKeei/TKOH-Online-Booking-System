@@ -62,10 +62,21 @@ start_redis_service() {
     log_success "Redis 已启动"
 }
 
+apply_nginx_env_conf() {
+    local env="$1"
+    local cert="docker/nginx/ssl/cert.pem"
+    local key="docker/nginx/ssl/key.pem"
+    if [ -f "$cert" ] && [ -f "$key" ] && [ -f "docker/nginx/nginx.${env}.https.conf" ]; then
+        cp "docker/nginx/nginx.${env}.https.conf" docker/nginx/nginx.conf
+    else
+        cp "docker/nginx/nginx.${env}.conf" docker/nginx/nginx.conf
+    fi
+}
+
 deploy_blue() {
     log_info "部署蓝环境 ..."
     $COMPOSE_CMD -f docker-compose.green.yml down 2>/dev/null || true
-    cp docker/nginx/nginx.blue.conf docker/nginx/nginx.conf
+    apply_nginx_env_conf blue
     $COMPOSE_CMD -f docker-compose.base.yml -f docker-compose.redis.yml -f docker-compose.blue.yml up -d --build
     log_info "等待服务就绪（约 60 秒）..."
     sleep 60

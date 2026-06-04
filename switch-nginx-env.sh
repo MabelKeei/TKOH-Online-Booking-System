@@ -69,6 +69,44 @@ rollback_nginx_conf() {
     fi
 }
 
+# 有 SSL 证书用 *.https.conf，否则用仅 HTTP 配置（避免缺证书时 Nginx 无法启动）
+apply_nginx_env_conf() {
+    local env="$1"
+    local cert="docker/nginx/ssl/cert.pem"
+    local key="docker/nginx/ssl/key.pem"
+    local http_conf="docker/nginx/nginx.${env}.conf"
+    local https_conf="docker/nginx/nginx.${env}.https.conf"
+
+    if [ ! -f "$http_conf" ]; then
+        log_error "缺少 $http_conf"
+        exit 1
+    fi
+
+    if [ -f "$cert" ] && [ -f "$key" ] && [ -f "$https_conf" ]; then
+        cp "$https_conf" docker/nginx/nginx.conf
+        log_info "已应用 ${env} 配置（HTTP + HTTPS）"
+    else
+        cp "$http_conf" docker/nginx/nginx.conf
+        log_warning "未找到 SSL 证书，使用仅 HTTP 配置（入口 http://服务器:3200）"
+    fi
+}
+
+activate_nginx_config() {
+    if docker ps --format '{{.Names}}' | grep -q "^${NGINX_CONTAINER}$"; then
+        if reload_nginx; then
+            return 0
+        fi
+    fi
+    log_info "重新创建 Nginx 容器以加载新配置..."
+    $COMPOSE_CMD -f docker-compose.nginx.yml up -d --force-recreate nginx
+    sleep 3
+    if docker ps --format '{{.Names}}' | grep -q "^${NGINX_CONTAINER}$"; then
+        docker exec "$NGINX_CONTAINER" nginx -t
+        return 0
+    fi
+    return 1
+}
+
 switch_to_blue() {
     log_info "切换到蓝环境..."
 
@@ -77,18 +115,12 @@ switch_to_blue() {
         log_info "已备份当前 nginx.conf"
     fi
 
-    if [ ! -f "docker/nginx/nginx.blue.conf" ]; then
-        log_error "缺少 docker/nginx/nginx.blue.conf"
-        exit 1
-    fi
+    apply_nginx_env_conf blue
 
-    cp docker/nginx/nginx.blue.conf docker/nginx/nginx.conf
-    log_info "已更新 Nginx 配置为蓝环境"
-
-    if reload_nginx; then
+    if activate_nginx_config; then
         log_success "已切换到蓝环境 (前端: tkho-booking-frontend-blue:80, 后端: tkho-booking-backend-blue:3210)"
     else
-        log_error "Nginx 配置测试失败，尝试回滚..."
+        log_error "Nginx 启动失败，请执行: docker logs tkho-booking-nginx"
         rollback_nginx_conf
         exit 1
     fi
@@ -102,18 +134,12 @@ switch_to_green() {
         log_info "已备份当前 nginx.conf"
     fi
 
-    if [ ! -f "docker/nginx/nginx.green.conf" ]; then
-        log_error "缺少 docker/nginx/nginx.green.conf"
-        exit 1
-    fi
+    apply_nginx_env_conf green
 
-    cp docker/nginx/nginx.green.conf docker/nginx/nginx.conf
-    log_info "已更新 Nginx 配置为绿环境"
-
-    if reload_nginx; then
+    if activate_nginx_config; then
         log_success "已切换到绿环境 (前端: tkho-booking-frontend-green:80, 后端: tkho-booking-backend-green:3210)"
     else
-        log_error "Nginx 配置测试失败，尝试回滚..."
+        log_error "Nginx 启动失败，请执行: docker logs tkho-booking-nginx"
         rollback_nginx_conf
         exit 1
     fi

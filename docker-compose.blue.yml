@@ -1,5 +1,4 @@
-# 蓝环境应用
-version: '3.8'
+# 蓝环境应用（postgres/redis 由 base/redis compose 单独启动，勿在本文件 depends_on）
 
 services:
   backend-blue:
@@ -26,11 +25,6 @@ services:
       - tkho_uploads_data_volumes:/app/uploads
     networks:
       - tkho-booking-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:3210/api/health"]
       interval: 30s

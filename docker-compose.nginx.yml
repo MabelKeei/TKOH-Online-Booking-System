@@ -1,5 +1,4 @@
 # Nginx 入口（蓝绿流量切换）
-version: '3.8'
 
 services:
   nginx:

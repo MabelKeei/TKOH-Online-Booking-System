@@ -1,5 +1,4 @@
 # 基础服务：PostgreSQL、Adminer
-version: '3.8'
 
 services:
   postgres:

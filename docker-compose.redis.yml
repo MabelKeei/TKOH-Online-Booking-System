@@ -1,5 +1,4 @@
 # Redis 缓存（独立部署）
-version: '3.8'
 
 services:
   redis:

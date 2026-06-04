@@ -339,7 +339,7 @@ docker volume rm tkho_postgres_data_volumes tkho_redis_data_volumes tkho_uploads
 
 ## 前端 API 策略
 
-Docker 构建时设置 `VITE_USE_SAME_ORIGIN_API=true`，浏览器请求走 Nginx 同源 `/api`，由入口代理到后端，无需配置 ngrok。
+Docker 构建时 `VITE_USE_SAME_ORIGIN_API=true`（见 `TKHO-frontend/.env.production`），浏览器请求走 Nginx 同源 `/api`，由入口代理到后端。**不需要 ngrok**；外网访问请用服务器公网 IP/域名 + 反向代理或防火墙放行 **3200**（入口 Nginx）。
 
 ## 常见问题
 
@@ -390,7 +390,16 @@ docker-compose -f docker-compose.base.yml -f docker-compose.redis.yml -f docker-
 docker logs tkho-booking-backend-blue
 ```
 
-**上传图片 404**：确认 `tkho_uploads_data_volumes` 已挂载，且通过 `http://localhost:3200/api/uploads/...` 访问。
+**上传图片 404**：
+
+1. **请通过入口 Nginx 访问**（`http://服务器:3200`），不要只打开前端直连端口 `3212`/`3214`。前端容器会把 `*.jpeg` 当静态文件查找并返回 404，且不会代理 `/api`。
+2. 确认卷已挂载且文件存在：
+   ```bash
+   docker exec tkho-booking-backend-blue ls -la /app/uploads/venues/
+   curl -I http://127.0.0.1:3200/api/uploads/venues/你的文件名.jpeg
+   ```
+3. 数据库里的 `imageUrl` 只在**上传当时**写入磁盘；本地开发上传后只把库迁到服务器、未拷贝 `uploads` 卷，也会 404。需在服务器管理后台重新上传，或把文件复制进卷的 `venues/` 目录。
+4. 修改 `.env.production` 或前端代码后需 **重建前端镜像**（`--build`），浏览器强刷缓存后再试。
 
 **seed 报错 `Unknown file extension ".ts"`**：生产镜像不要用 `ts-node` 直接跑 `prisma/seed.ts`。请 `git pull` 重建后端镜像后执行 `docker exec tkho-booking-backend-blue node prisma/seed-dist/seed.js`。未重建前临时：`docker exec tkho-booking-backend-blue sh -c 'cd /app && npx -y ts-node --transpile-only -O "{\"module\":\"commonjs\"}" prisma/seed.ts'`。成功时应看到 `[seed] done`。
 

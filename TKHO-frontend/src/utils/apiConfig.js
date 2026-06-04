@@ -1,8 +1,8 @@
 /**
  * API 基址策略
  * - 本地 dev：/api → Vite 代理 → localhost:3210
- * - Netlify 默认：VITE_API_ORIGIN 直连 ngrok（axios 带 ngrok-skip-browser-warning）
- * - 仅当 VITE_USE_SAME_ORIGIN_API=true 时整站走 /api（需 Edge 代理并附带 ngrok 头，勿仅用 _redirects）
+ * - Docker / 自建：VITE_USE_SAME_ORIGIN_API=true，整站 /api 经入口 Nginx（:3200）
+ * - 静态托管 + 外部 API：设 VITE_API_ORIGIN（见 .env.netlify.example）
  */
 export function useSameOriginApi () {
   if (import.meta.env.DEV) {

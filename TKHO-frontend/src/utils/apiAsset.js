@@ -1,10 +1,21 @@
 /**
  * 上传静态资源（/api/uploads/...）
- * - 开发：相对路径，走 Vite 代理
- * - Netlify 生产：<img> 不能带头；用 fetch + ngrok 头拉取后转 blob URL（与 axios API 同源策略）
+ * - 开发 / Docker 同源：相对路径 /api/uploads/...（Vite 或入口 Nginx 代理）
+ * - 外部 API 域（VITE_API_ORIGIN）：fetch 后转 blob URL（Netlify 等场景）
  */
 
+import { useSameOriginApi } from '@/utils/apiConfig'
+
 const blobCache = new Map()
+
+/** 拉取上传文件时使用的 origin（不含尾斜杠） */
+function getAssetFetchOrigin () {
+  if (import.meta.env.DEV) return ''
+  if (useSameOriginApi() && typeof window !== 'undefined') {
+    return window.location.origin.replace(/\/+$/, '')
+  }
+  return import.meta.env.VITE_API_ORIGIN?.replace(/\/+$/, '') || ''
+}
 
 /** @returns {string} 规范化后的 /api/uploads/... 路径 */
 export function normalizeUploadAssetPath (raw) {
@@ -44,8 +55,8 @@ export function resolveApiAssetUrl (raw) {
   }
 
   if (value.startsWith('/api/')) {
-    const origin = import.meta.env.VITE_API_ORIGIN?.replace(/\/+$/, '')
-    if (origin && !import.meta.env.DEV) {
+    const origin = getAssetFetchOrigin()
+    if (origin) {
       return `${origin}${value}`
     }
     return value
@@ -55,8 +66,8 @@ export function resolveApiAssetUrl (raw) {
 }
 
 /**
- * 生产环境加载上传文件（绕过 ngrok 浏览器拦截页）
- * @returns {Promise<string>} 可用于 img src 的 URL
+ * 加载上传文件为可用于 img src 的 URL
+ * @returns {Promise<string>}
  */
 export async function loadProtectedAssetUrl (raw) {
   const path = normalizeUploadAssetPath(raw)
@@ -64,7 +75,7 @@ export async function loadProtectedAssetUrl (raw) {
     return resolveApiAssetUrl(raw)
   }
 
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV || useSameOriginApi()) {
     return path
   }
 
@@ -72,15 +83,20 @@ export async function loadProtectedAssetUrl (raw) {
     return blobCache.get(path)
   }
 
-  const origin = import.meta.env.VITE_API_ORIGIN?.replace(/\/+$/, '')
+  const origin = getAssetFetchOrigin()
   if (!origin) {
     return path
+  }
+
+  const headers = {}
+  if (origin.includes('ngrok')) {
+    headers['ngrok-skip-browser-warning'] = 'true'
   }
 
   try {
     const res = await fetch(`${origin}${path}`, {
       method: 'GET',
-      headers: { 'ngrok-skip-browser-warning': 'true' },
+      headers,
       credentials: 'omit'
     })
     if (!res.ok) {

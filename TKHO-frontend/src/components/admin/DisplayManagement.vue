@@ -44,18 +44,6 @@
                     />
                   </template>
                 </el-table-column>
-                <el-table-column label="Arrow Direction" min-width="170">
-                  <template #default="{ row }">
-                    <el-select v-model="row.arrowDirection" placeholder="Direction" style="width: 100%" :disabled="row.venueId == null">
-                      <el-option
-                        v-for="option in arrowDirectionOptions"
-                        :key="option.value"
-                        :label="option.label"
-                        :value="option.value"
-                      />
-                    </el-select>
-                  </template>
-                </el-table-column>
               </el-table>
 
               <div v-if="rulesTotalPages > 1" class="pagination-bar">
@@ -257,16 +245,6 @@ const mergePanelTitlePlaceholder = 'Conference Room | 8/F Ambulatory Care Block\
 const rulesCurrentPage = ref(1)
 const rulesPageSize = ref(20)
 const loading = ref(false)
-const arrowDirectionOptions = [
-  { label: 'Up', value: 'up' },
-  { label: 'Up Right', value: 'up-right' },
-  { label: 'Right', value: 'right' },
-  { label: 'Down Right', value: 'down-right' },
-  { label: 'Down', value: 'down' },
-  { label: 'Down Left', value: 'down-left' },
-  { label: 'Left', value: 'left' },
-  { label: 'Up Left', value: 'up-left' }
-]
 
 const config = ref(null)
 const showNoticeDialog = ref(false)

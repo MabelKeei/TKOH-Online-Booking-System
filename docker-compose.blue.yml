@@ -9,6 +9,7 @@ services:
     container_name: tkho-booking-backend-blue
     restart: unless-stopped
     environment:
+      - TZ=Asia/Hong_Kong
       - NODE_ENV=production
       - PORT=3210
       - DATABASE_URL=postgresql://${DB_USER:-tkho}:${DB_PASSWORD:-tkho123456}@postgres:5432/${DB_NAME:-tkho_booking}?schema=public

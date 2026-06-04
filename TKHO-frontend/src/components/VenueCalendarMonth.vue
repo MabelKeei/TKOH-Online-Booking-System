@@ -23,6 +23,7 @@
       <div
         v-for="(day, index) in prevMonthDays"
         :key="`prev-${index}-${day}`"
+        :data-cell-key="dayCellKey(day, 'prev')"
         class="date-cell"
         :class="{
           empty: !hasBookings(day, 'prev'),
@@ -72,6 +73,7 @@
       <div
         v-for="(day, index) in daysInMonth"
         :key="`current-${day}`"
+        :data-cell-key="dayCellKey(day, 'current')"
         class="date-cell"
         :class="{
           'today': isToday(day),
@@ -121,6 +123,7 @@
       <div
         v-for="(day, index) in nextMonthDays"
         :key="`next-${index}-${day}`"
+        :data-cell-key="dayCellKey(day, 'next')"
         class="date-cell"
         :class="{
           empty: !hasBookings(day, 'next'),
@@ -166,6 +169,14 @@
         />
       </div>
     </div>
+
+    <!-- 隐藏：测量单条 / +N 底栏真实高度（随 zoom、断点变化） -->
+    <div class="month-layout-probes" aria-hidden="true">
+      <div ref="measureBarRef" class="month-event-bar">
+        <span class="month-event-text">00:00 Measure</span>
+      </div>
+      <div ref="measureMoreRef" class="month-more-footer">+9</div>
+    </div>
   </div>
 </template>
 
@@ -196,19 +207,22 @@ const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 
 const monthGridRef = ref(null)
-const monthCellHeight = ref(88)
+const measureBarRef = ref(null)
+const measureMoreRef = ref(null)
+/** 每格可见条数（DOM 实测后写入，key = dayCellKey） */
+const dayLayoutMap = ref(new Map())
+const layoutEpoch = ref(0)
 let gridResizeObserver = null
+let layoutRafId = null
 
-/** 月历格布局常量（与 CSS 中条高 / 内边距一致） */
-const CELL_MIN_PX = 88
-const CELL_PAD_PX = 16
-const DATE_ROW_PX = 20
-const ROW_GAP_PX = 4
-/** 单条预订高度 ≈ min-height 1.35rem + 列表 gap 4px */
-const EVENT_LINE_PX = 22
-const MORE_FOOTER_PX = 18
-/** 布局测量允许 1–2px 误差，避免过早出现 +N */
-const LAYOUT_SLACK_PX = 2
+const LAYOUT_SLACK_PX = 6
+const EMPTY_DAY_LAYOUT = { visibleCount: 0, hiddenCount: 0 }
+
+function remPx (multiplier = 1) {
+  if (typeof document === 'undefined') return 16 * multiplier
+  const root = parseFloat(getComputedStyle(document.documentElement).fontSize)
+  return (Number.isFinite(root) ? root : 16) * multiplier
+}
 
 function formatMonthEventTime(startTime) {
   if (!startTime) return ''
@@ -233,33 +247,79 @@ function dayCellKey (day, segment = 'current') {
   return `${segment}-${day}`
 }
 
-function heightForVisibleBars (visibleBars, totalBookings) {
-  const hasMore = totalBookings > visibleBars
-  return (
-    CELL_PAD_PX * 2 +
-    DATE_ROW_PX +
-    ROW_GAP_PX +
-    visibleBars * EVENT_LINE_PX +
-    (hasMore ? ROW_GAP_PX + MORE_FOOTER_PX : 0)
-  )
+function stackBarsHeight (n, barPx, gapPx) {
+  if (n <= 0) return 0
+  return n * barPx + (n - 1) * gapPx
 }
 
-/** 按格子实测高度与预订数量：尽量多显示条数，放不下再 +N（行高由 1fr 均分视口） */
-function computeDayLayout (totalBookings, cellHeightPx) {
-  const cellH = Math.max(CELL_MIN_PX, cellHeightPx || CELL_MIN_PX)
-  const fitLimit = cellH + LAYOUT_SLACK_PX
+function measureEventBarPx () {
+  const probe = measureBarRef.value
+  if (probe) {
+    const h = probe.getBoundingClientRect().height
+    if (h > 0) return Math.ceil(h)
+  }
+  const live = monthGridRef.value?.querySelector('.month-event-bar')
+  if (live) {
+    const h = live.getBoundingClientRect().height
+    if (h > 0) return Math.ceil(h)
+  }
+  return Math.ceil(remPx(1.35))
+}
 
-  if (totalBookings <= 0) {
-    return { visibleCount: 0, hiddenCount: 0 }
+function measureMoreFooterPx () {
+  const probe = measureMoreRef.value
+  if (probe) {
+    const h = probe.getBoundingClientRect().height
+    if (h > 0) return Math.ceil(h)
+  }
+  return Math.ceil(remPx(1.375))
+}
+
+function measureListGapPx () {
+  const listEl = monthGridRef.value?.querySelector('.month-booking-list')
+  if (listEl) {
+    const gap = parseFloat(getComputedStyle(listEl).gap)
+    if (Number.isFinite(gap) && gap >= 0) return gap
+  }
+  return 4
+}
+
+/** 从已渲染格子 DOM 扣出中间列表区可用高度（用整格高度，不用已渲染条数撑开的列表高度） */
+function measureListAreaPx (cellEl, reserveMoreFooter) {
+  if (!cellEl) return 0
+
+  const cellH = cellEl.getBoundingClientRect().height
+  if (cellH < 1) return 0
+
+  const dateEl = cellEl.querySelector('.date-number')
+  const dateH = dateEl ? dateEl.offsetHeight : 0
+  const cs = getComputedStyle(cellEl)
+  const pad =
+    (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)
+  const rowGap = parseFloat(cs.rowGap) || parseFloat(cs.gap) || 0
+
+  const footerEl = cellEl.querySelector('.month-more-footer')
+  let moreBlock = 0
+  if (footerEl) {
+    moreBlock = footerEl.offsetHeight + 2
+  } else if (reserveMoreFooter) {
+    moreBlock = 2 + measureMoreFooterPx()
   }
 
-  if (heightForVisibleBars(totalBookings, totalBookings) <= fitLimit) {
-    return { visibleCount: totalBookings, hiddenCount: 0 }
+  return Math.max(0, cellH - pad - dateH - rowGap - moreBlock)
+}
+
+function computeLayoutFromListAreas (total, listNoMore, listWithMore, barPx, gapPx) {
+  if (total <= 0) return EMPTY_DAY_LAYOUT
+
+  const stack = (n) => stackBarsHeight(n, barPx, gapPx)
+  if (stack(total) <= listNoMore + LAYOUT_SLACK_PX) {
+    return { visibleCount: total, hiddenCount: 0 }
   }
 
   let visibleCount = 1
-  for (let n = totalBookings; n >= 1; n--) {
-    if (heightForVisibleBars(n, totalBookings) <= fitLimit) {
+  for (let n = total; n >= 1; n--) {
+    if (stack(n) <= listWithMore + LAYOUT_SLACK_PX) {
       visibleCount = n
       break
     }
@@ -267,8 +327,80 @@ function computeDayLayout (totalBookings, cellHeightPx) {
 
   return {
     visibleCount,
-    hiddenCount: Math.max(0, totalBookings - visibleCount)
+    hiddenCount: Math.max(0, total - visibleCount)
   }
+}
+
+function layoutMapSignature (map) {
+  return [...map.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}:${v.visibleCount}/${v.hiddenCount}`)
+    .join('|')
+}
+
+/** 读取网格中任意一格的真实高度（同月各行等高） */
+function getReferenceCellEl () {
+  const grid = monthGridRef.value
+  if (!grid) return null
+  return (
+    grid.querySelector('.date-cell.has-bookings') ||
+    grid.querySelector('.date-cell')
+  )
+}
+
+function recalculateDayLayoutsOnce () {
+  const grid = monthGridRef.value
+  if (!grid) return false
+
+  const refCell = getReferenceCellEl()
+  const refHeight = refCell?.getBoundingClientRect().height ?? 0
+  if (refHeight < 12) return false
+
+  const barPx = measureEventBarPx()
+  const gapPx = measureListGapPx()
+  const newMap = new Map()
+
+  for (const cell of monthCellsInGridOrder.value) {
+    const key = dayCellKey(cell.day, cell.segment)
+    const total = getBookingsForDay(cell.day, cell.segment).length
+    if (total <= 0) {
+      newMap.set(key, EMPTY_DAY_LAYOUT)
+      continue
+    }
+
+    const el =
+      grid.querySelector(`[data-cell-key="${key}"]`) || refCell
+    const listNoMore = measureListAreaPx(el, false)
+    const listWithMore = measureListAreaPx(el, true)
+    newMap.set(
+      key,
+      computeLayoutFromListAreas(total, listNoMore, listWithMore, barPx, gapPx)
+    )
+  }
+
+  dayLayoutMap.value = newMap
+  layoutEpoch.value += 1
+  return true
+}
+
+async function runLayoutRecalcStable () {
+  let lastSig = ''
+  for (let pass = 0; pass < 5; pass++) {
+    await nextTick()
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    if (!recalculateDayLayoutsOnce()) continue
+    const sig = layoutMapSignature(dayLayoutMap.value)
+    if (sig && sig === lastSig) break
+    lastSig = sig
+  }
+}
+
+function scheduleLayoutRecalc () {
+  if (layoutRafId != null) cancelAnimationFrame(layoutRafId)
+  layoutRafId = requestAnimationFrame(() => {
+    layoutRafId = null
+    void runLayoutRecalcStable()
+  })
 }
 
 // 当前月份的天数
@@ -355,37 +487,30 @@ const monthCellsInGridOrder = computed(() => {
   return cells
 })
 
-const dayLayoutByKey = computed(() => {
-  const cellH = monthCellHeight.value
-  const map = new Map()
-  for (const cell of monthCellsInGridOrder.value) {
-    const total = getBookingsForDay(cell.day, cell.segment).length
-    map.set(dayCellKey(cell.day, cell.segment), computeDayLayout(total, cellH))
-  }
-  return map
-})
-
-/** 各行均分网格高度，占满月历可视区域 */
+/** 各行均分网格高度，占满月历可视区域（5 行 / 6 行月格子高度不同） */
 const monthGridStyle = computed(() => ({
   gridTemplateRows: `repeat(${gridRows.value}, minmax(0, 1fr))`
 }))
 
 function getDayLayout (day, segment = 'current') {
-  return (
-    dayLayoutByKey.value.get(dayCellKey(day, segment)) ??
-    computeDayLayout(0, monthCellHeight.value)
-  )
-}
+  void layoutEpoch.value
+  const key = dayCellKey(day, segment)
+  const cached = dayLayoutMap.value.get(key)
+  if (cached) return cached
 
-function updateMonthCellHeight () {
-  const grid = monthGridRef.value
-  if (!grid) return
-  const rows = gridRows.value || 5
-  const gap = Math.max(0, rows - 1)
-  monthCellHeight.value = Math.max(
-    CELL_MIN_PX,
-    (grid.clientHeight - gap) / rows
-  )
+  const total = getBookingsForDay(day, segment).length
+  if (total <= 0) return EMPTY_DAY_LAYOUT
+
+  const refCell = getReferenceCellEl()
+  if (!refCell) {
+    return { visibleCount: total, hiddenCount: 0 }
+  }
+
+  const barPx = measureEventBarPx()
+  const gapPx = measureListGapPx()
+  const listNoMore = measureListAreaPx(refCell, false)
+  const listWithMore = measureListAreaPx(refCell, true)
+  return computeLayoutFromListAreas(total, listNoMore, listWithMore, barPx, gapPx)
 }
 
 // 判断是否是今天
@@ -412,20 +537,45 @@ function selectDate (day, segment = 'current') {
   emit('day-click', resolveCellDate(day, segment))
 }
 
+function observeLayoutTargets () {
+  if (!monthGridRef.value || typeof ResizeObserver === 'undefined') return
+  gridResizeObserver?.disconnect()
+  gridResizeObserver = new ResizeObserver(() => {
+    scheduleLayoutRecalc()
+  })
+  const targets = new Set()
+  const add = (el) => {
+    if (el && !targets.has(el)) {
+      targets.add(el)
+      gridResizeObserver.observe(el)
+    }
+  }
+  add(monthGridRef.value)
+  add(monthGridRef.value.closest('.calendar-month'))
+  add(monthGridRef.value.closest('.month-view'))
+  add(monthGridRef.value.closest('.calendar-container'))
+  add(monthGridRef.value.closest('.calendar-main'))
+  add(monthGridRef.value.closest('.calendar-page'))
+}
+
 onMounted(() => {
   nextTick(() => {
-    updateMonthCellHeight()
-    if (!monthGridRef.value) return
-    gridResizeObserver = new ResizeObserver(() => {
-      updateMonthCellHeight()
-    })
-    gridResizeObserver.observe(monthGridRef.value)
+    observeLayoutTargets()
+    scheduleLayoutRecalc()
   })
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', scheduleLayoutRecalc)
+  }
 })
 
 onUnmounted(() => {
+  if (layoutRafId != null) cancelAnimationFrame(layoutRafId)
+  layoutRafId = null
   gridResizeObserver?.disconnect()
   gridResizeObserver = null
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', scheduleLayoutRecalc)
+  }
 })
 
 watch(
@@ -436,10 +586,10 @@ watch(
     props.bookings,
     props.selectedRooms
   ],
-  async () => {
-    await nextTick()
-    updateMonthCellHeight()
-  }
+  () => {
+    scheduleLayoutRecalc()
+  },
+  { deep: true }
 )
 </script>
 
@@ -450,6 +600,17 @@ watch(
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+}
+
+.month-layout-probes {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 140px;
+  visibility: hidden;
+  pointer-events: none;
+  overflow: hidden;
 }
 
 .weekday-header {

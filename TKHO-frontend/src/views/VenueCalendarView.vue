@@ -197,7 +197,7 @@
           <span>Loading bookings...</span>
         </div>
         <!-- Month view -->
-        <div v-if="currentView === 'month'" class="month-view h-full relative">
+        <div v-if="currentView === 'month'" class="month-view h-full min-h-0 flex flex-col relative">
           <VenueCalendarMonth
             :current-date="currentDate"
             :bookings="calendarBookings"
@@ -371,6 +371,11 @@ import {
 import { unwrapCalendarBookings, isSameCalendarDay, isActiveVenue, parseCalendarDateLocal } from '@/utils/venueCalendarApi'
 import { getVenueManagementVenues, getVenueBookingWindow, createVenueBlock } from '@/api/venueManagement'
 import { notifyAdminPendingUpdated } from '@/utils/adminPendingSync'
+import {
+  loadVenueCalendarRoomFilter,
+  saveVenueCalendarRoomFilter,
+  applyVenueCalendarRoomFilter
+} from '@/utils/venueCalendarRoomFilter'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -447,6 +452,9 @@ const venueWindowRange = computed(() => ({
 
 const conferenceRooms = ref([])
 const otherVenues = ref([])
+/** 已从 sessionStorage 恢复筛选时，不再用预订列表自动勾选场地 */
+const roomFilterRestoredFromStorage = ref(false)
+const roomFilterPersistenceReady = ref(false)
 
 function getRouteRoomType () {
   const q = route.query.roomType
@@ -501,6 +509,9 @@ function loadBlockRecordsFromVenues () {
 /** 拉取结果里出现的场地自动勾选，避免预订被筛选藏掉（从 VenueBooking 带 roomType 进入时不覆盖路由筛选） */
 function syncSelectedRoomsWithBookings (bookingList) {
   if (route.query.roomType === 'conference' || route.query.roomType === 'other') {
+    return
+  }
+  if (roomFilterRestoredFromStorage.value) {
     return
   }
   const names = new Set(
@@ -1095,7 +1106,18 @@ async function loadCalendarData () {
     }
     applyVenueListToRoomFilters()
     loadBlockRecordsFromVenues()
-    applyRoomTypeRouteFilter()
+    roomFilterRestoredFromStorage.value = false
+    const hasRouteRoomType =
+      route.query.roomType === 'conference' || route.query.roomType === 'other'
+    if (hasRouteRoomType) {
+      applyRoomTypeRouteFilter()
+    } else {
+      const savedIds = loadVenueCalendarRoomFilter()
+      if (savedIds !== null) {
+        applyVenueCalendarRoomFilter(allRooms.value, savedIds)
+        roomFilterRestoredFromStorage.value = true
+      }
+    }
     if (!isDateInVenueWindow(currentDate.value)) {
       currentDate.value = new Date(`${venueBookingWindow.value.currentStartDate}T00:00:00`)
     }
@@ -1103,6 +1125,8 @@ async function loadCalendarData () {
   } catch (error) {
     console.error('Failed to load calendar data:', error)
     showNotice('Failed to load calendar data', 'Error')
+  } finally {
+    roomFilterPersistenceReady.value = true
   }
 }
 
@@ -1115,9 +1139,21 @@ watch(
   (val) => {
     if (val !== 'conference' && val !== 'other') return
     roomType.value = val
+    roomFilterRestoredFromStorage.value = false
     if (conferenceRooms.value.length || otherVenues.value.length) {
       applyRoomTypeRouteFilter()
     }
+  }
+)
+
+watch(
+  () => allRooms.value.map((room) => `${room.id}:${room.selected}`).join(','),
+  () => {
+    if (!roomFilterPersistenceReady.value) return
+    if (route.query.roomType === 'conference' || route.query.roomType === 'other') {
+      return
+    }
+    saveVenueCalendarRoomFilter(allRooms.value)
   }
 )
 

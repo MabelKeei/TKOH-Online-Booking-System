@@ -27,7 +27,13 @@
           <!-- Room, Date, Time Section -->
           <div class="form-section">
             <el-form-item label="Room / Venue" prop="room" :rules="[{ required: true, message: 'Please select a room' }]">
-              <el-select v-model="form.room" placeholder="Select a room" style="width: 100%;" popper-class="room-select-popper">
+              <el-select
+                v-model="form.room"
+                placeholder="Select a room"
+                style="width: 100%;"
+                :teleported="bookingPopperTeleported"
+                popper-class="room-select-popper"
+              >
                 <el-option
                   v-for="room in availableRooms"
                   :key="room.name"
@@ -58,6 +64,7 @@
                     firstDayOfWeek: 1 // 周一作为每周第一天
                   }"
                   clearable
+                  :teleported="bookingPopperTeleported"
                   popper-class="date-picker-popper"
                 />
                 <span
@@ -169,7 +176,12 @@
                 ></el-input>
               </el-form-item>
 
-              <el-form-item label="No. of participants" prop="attendeeCount" class="no-wrap-label participants-item">
+              <el-form-item
+                label="No. of participants"
+                prop="attendeeCount"
+                class="no-wrap-label participants-item"
+                :rules="[{ required: true, message: 'Please enter no. of participants', trigger: 'change' }]"
+              >
                 <p v-if="selectedVenueCapacity != null" class="participants-hint">
                   min: 1, max: {{ selectedVenueCapacity }} (venue capacity)
                 </p>
@@ -357,6 +369,7 @@ import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import { InfoFilled } from '@element-plus/icons-vue'
 import { getPrompts } from '@/api/promptManagement'
 import { checkRoomAvailability } from '@/api/calendar'
+import { HTML_ZOOM_BREAKPOINT_MQ } from '@/utils/venueCalendarApi'
 
 const props = defineProps({
   visible: {
@@ -471,12 +484,16 @@ const dialogX = ref(0)
 const dialogY = ref(0)
 
 /** 14" 视口（1100–1599）：弹窗略增高，与 MeetingApproval / UserManagement 一致 */
-const VENUE_BOOKING_DIALOG_MODAL_MQ = '(min-width: 1100px) and (max-width: 1599px)'
+const VENUE_BOOKING_DIALOG_MODAL_MQ = HTML_ZOOM_BREAKPOINT_MQ
 const venueBookingDialogMaxHeight = ref('')
+/** 14" html zoom：Room / Date 等 Popper 勿挂 body；断点外 teleported 保持 modal-body 可滚动 */
+const bookingPopperTeleported = ref(true)
 
 function updateVenueBookingDialogMaxHeight () {
   if (typeof window === 'undefined') return
-  venueBookingDialogMaxHeight.value = window.matchMedia(VENUE_BOOKING_DIALOG_MODAL_MQ).matches ? '124vh' : ''
+  const mq = window.matchMedia(VENUE_BOOKING_DIALOG_MODAL_MQ)
+  venueBookingDialogMaxHeight.value = mq.matches ? '124vh' : ''
+  bookingPopperTeleported.value = !mq.matches
 }
 
 let venueBookingDialogModalMq = null
@@ -535,7 +552,7 @@ const form = ref({
   topic: '',
   remark: '',
   teaServiceRequired: false,
-  attendeeCount: 1,
+  attendeeCount: null,
   teaOrWater: 'tea',
   serviceType: 'pot',
   teaServiceSpecialRequest: '',
@@ -578,7 +595,11 @@ function validateParticipantCount () {
   if (!form.value.room) {
     return { ok: false, message: 'Please select a room / venue' }
   }
-  const count = Number(form.value.attendeeCount)
+  const raw = form.value.attendeeCount
+  if (raw === null || raw === undefined || raw === '') {
+    return { ok: false, message: 'Please enter no. of participants' }
+  }
+  const count = Number(raw)
   if (!Number.isFinite(count) || count < 1) {
     return { ok: false, message: 'No. of participants must be at least 1' }
   }
@@ -725,7 +746,8 @@ function initializeForm() {
   if (props.booking) {
     form.value = {
       teaServiceSpecialRequest: '',
-      ...props.booking
+      ...props.booking,
+      attendeeCount: props.booking.attendeeCount ?? null
     }
   } else {
     form.value = {
@@ -736,7 +758,7 @@ function initializeForm() {
       topic: '',
       remark: '',
       teaServiceRequired: false,
-      attendeeCount: 1,
+      attendeeCount: null,
       teaOrWater: 'tea',
       serviceType: 'pot',
       teaServiceSpecialRequest: '',
@@ -846,8 +868,8 @@ watch(() => form.value.teaServiceRequired, (yes) => {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
-  /* teleported=false 时下拉在弹窗内，避免 overflow:hidden 裁切 */
-  overflow: visible;
+  /* 保持 hidden，茶歇展开时由 modal-body 滚动；浮层用条件 teleported / 局部 z-index */
+  overflow: hidden;
   position: relative;
   z-index: 10000;
   /* 修复小屏滚动：确保容器在flex布局中正确计算高度 */
@@ -996,10 +1018,9 @@ watch(() => form.value.teaServiceRequired, (yes) => {
   color: #333;
 }
 
-/* 确保日期选择器浮层不被遮挡 */
+/* teleported=false：相对触发器定位；勿用 fixed（html zoom 0.8 挂 body 时会偏移） */
 :deep(.date-picker-popper) {
   z-index: 100000 !important;
-  position: fixed !important;
 }
 
 /* Tooltip 默认挂到 body，scoped 的 :deep(.el-popper) 无法作用到其上，会被 modal-overlay(9999) 挡住 */
@@ -1472,7 +1493,7 @@ watch(() => form.value.teaServiceRequired, (yes) => {
 @media (min-width: 1100px) and (max-width: 1599px) {
   .booking-dialog-wrapper {
     width: 95% !important;
-    /* max-height：110vh 由脚本 dialogWrapperStyle 控制（与 MeetingApproval 一致） */
+    /* max-height：124vh 由脚本 dialogWrapperStyle 控制（与 MeetingApproval 一致） */
   }
 }
 

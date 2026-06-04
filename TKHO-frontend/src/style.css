@@ -66,6 +66,7 @@ body {
    * Admin「Pending Approval Details」内 Department/Role 下拉：UserManagement.vue 中
    * pendingApprovalSelectTeleported 与本断点同步（断点内 false，断点外 true）。
    * 月视图「+N」当日列表：断点内 :teleported="false"（MonthDayMorePopover），勿改 month-grid overflow。
+   * Venue Booking Add Booking 弹窗 Room / Date：14" 断点内 :teleported="false"（bookingPopperTeleported），断点外 true；勿用 :has(.date-picker-popper) 改 modal-body overflow。
    */
   html {
     zoom: 0.8;  /* 让内容整体缩小（和浏览器缩放一样） */

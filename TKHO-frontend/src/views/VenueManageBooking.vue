@@ -48,8 +48,8 @@
                   <span>Past</span>
                 </label>
                 <label class="status-checkbox">
-                  <input type="checkbox" v-model="statusFilters.canceled" />
-                  <span>Canceled</span>
+                  <input type="checkbox" v-model="statusFilters.cancelled" />
+                  <span>Cancelled</span>
                 </label>
                 <label class="status-checkbox select-all-option">
                   <input type="checkbox" v-model="allStatusesSelected" />
@@ -334,7 +334,12 @@
                   </button>
                 </div>
                 <div v-else-if="!isAdminAllBookingsView" class="card-footer-actions">
-                  <button type="button" class="btn-action btn-edit" @click="editBooking(booking.id)">
+                  <button
+                    v-if="canShowEditButton(booking)"
+                    type="button"
+                    class="btn-action btn-edit"
+                    @click="editBooking(booking.id)"
+                  >
                     Edit
                   </button>
                   <button
@@ -483,7 +488,12 @@
                         </button>
                       </template>
                       <template v-else>
-                        <button type="button" class="btn-action btn-edit" @click="editBooking(booking.id)">
+                        <button
+                          v-if="canShowEditButton(booking)"
+                          type="button"
+                          class="btn-action btn-edit"
+                          @click="editBooking(booking.id)"
+                        >
                           Edit
                         </button>
                         <button
@@ -933,6 +943,10 @@ const canShowToggleBookingButton = (booking) => {
   return s === 'upcoming' || s === 'canceled' || s === 'cancelled'
 }
 
+const canShowEditButton = (booking) => {
+  return String(booking?.status || '').toLowerCase() === 'upcoming'
+}
+
 const canShowHandleButton = (booking) => {
   const status = String(booking?.status || '').toLowerCase()
   const approvalStatus = String(booking?.approvalStatus || 'pending').toLowerCase()
@@ -1336,7 +1350,7 @@ let handleBookingModalMq = null
 const statusFilters = ref({
   upcoming: true,
   past: false,
-  canceled: false
+  cancelled: false
 })
 
 // Available columns for table view
@@ -1669,7 +1683,7 @@ const allStatusesSelected = computed({
     statusFilters.value = {
       upcoming: checked,
       past: checked,
-      canceled: checked
+      cancelled: checked
     }
   }
 })
@@ -2049,7 +2063,7 @@ const confirmCancel = async () => {
 
 const editBooking = (id) => {
   const booking = bookings.value.find(b => b.id === id)
-  if (!booking) return
+  if (!booking || !canShowEditButton(booking)) return
   const [startTime = '', endTime = ''] = String(booking.time || '').split(' - ')
   currentEditBookingId.value = id
   currentEditBookingApprovalStatus.value = booking.approvalStatus || ''
@@ -2634,7 +2648,7 @@ onUnmounted(() => {
   border-left: 4px solid #9ca3af;
 }
 
-.booking-card.status-canceled {
+.booking-card.status-cancelled {
   border-left: 4px solid #ef4444;
 }
 
@@ -2759,7 +2773,7 @@ onUnmounted(() => {
   color: #4b5563;
 }
 
-.badge-canceled {
+.badge-cancelled {
   background-color: #fee2e2;
   color: #991b1b;
 }

@@ -1,11 +1,13 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
 import { EvManagementService } from './ev-management.service';
 import { CreateEvParkingDto } from './dto/create-ev-parking.dto';
 import { UpdateEvParkingDto } from './dto/update-ev-parking.dto';
 import { CreateEvTimePeriodDto } from './dto/create-ev-time-period.dto';
 import { UpdateEvTimePeriodDto } from './dto/update-ev-time-period.dto';
 import { PublishEvWindowDto } from './dto/publish-ev-window.dto';
+import { EvPublicDisplayQueryDto } from './dto/ev-public-display-query.dto';
 import { ListEvBookingsQueryDto } from './dto/list-ev-bookings-query.dto';
 
 @ApiTags('ev-management')
@@ -13,6 +15,12 @@ import { ListEvBookingsQueryDto } from './dto/list-ev-bookings-query.dto';
 @Controller('api/ev-management')
 export class EvManagementController {
   constructor(private readonly evManagementService: EvManagementService) {}
+
+  @Public()
+  @Get('public/display')
+  getPublicDisplay(@Query() query: EvPublicDisplayQueryDto) {
+    return this.evManagementService.getPublicDisplayData(query.date);
+  }
 
   @Get('parking')
   listParking() {

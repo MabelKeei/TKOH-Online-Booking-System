@@ -45,6 +45,16 @@ const isPublicPointsToNoteRequest = (config) =>
 const isPublicBookingNoticesRequest = (config) =>
   (config?.url || '').includes('/prompt-management/public/booking-notices')
 
+const isPublicTeaServiceDisplayRequest = (config) =>
+  (config?.url || '').includes('/venue-management/public/tea-service-display')
+
+const isPublicVenueDisplayRequest = (config) =>
+  (config?.url || '').includes('/venue-management/public/venue-display') ||
+  (config?.url || '').includes('/venue-management/public/venue-merge-display')
+
+const isPublicEvDisplayRequest = (config) =>
+  (config?.url || '').includes('/ev-management/public/display')
+
 const isOnPublicEntryPage = () => {
   const path = router.currentRoute.value?.path || ''
   return path === '/login' || path === '/register'
@@ -71,6 +81,9 @@ const skipsGlobalErrorDialog = (config) =>
   isLoginRequest(config) ||
   isPublicPointsToNoteRequest(config) ||
   isPublicBookingNoticesRequest(config) ||
+  isPublicTeaServiceDisplayRequest(config) ||
+  isPublicVenueDisplayRequest(config) ||
+  isPublicEvDisplayRequest(config) ||
   isRegistrationSubmitRequest(config) ||
   isEvBookingCreateRequest(config) ||
   isEvManageBookingRequest(config) ||
@@ -83,14 +96,14 @@ request.interceptors.response.use(
     // 仅当后端显式返回 { code } 信封时按 code 判错（如 200 业务码）
     if (res && typeof res === 'object' && 'code' in res && res.code !== 200) {
       if (!skipsGlobalErrorDialog(response.config)) {
-        showStatusDialog(res.message || '请求失败', 'error')
+        showStatusDialog(res.message || 'Request failed', 'error')
       }
-      return Promise.reject(new Error(res.message || '请求失败'))
+      return Promise.reject(new Error(res.message || 'Request failed'))
     }
     return res
   },
   (error) => {
-    const normalizeMessage = (payload, fallback = '请求失败') => {
+    const normalizeMessage = (payload, fallback = 'Request failed') => {
       const raw = payload?.message
       if (Array.isArray(raw)) return raw[0] || fallback
       if (typeof raw === 'string') return raw
@@ -107,11 +120,14 @@ request.interceptors.response.use(
           if (
             !isLoginAttempt &&
             !isPublicPointsToNoteRequest(config) &&
-            !isPublicBookingNoticesRequest(config)
+            !isPublicBookingNoticesRequest(config) &&
+            !isPublicTeaServiceDisplayRequest(config) &&
+            !isPublicVenueDisplayRequest(config) &&
+            !isPublicEvDisplayRequest(config)
           ) {
             userStore.logout()
             if (!isOnPublicEntryPage()) {
-              showStatusDialog('未授权，请重新登录', 'error')
+              showStatusDialog('Unauthorized, please log in again', 'error')
               router.push('/login')
             }
           }
@@ -119,17 +135,17 @@ request.interceptors.response.use(
         }
         case 403:
           if (!skipGlobalDialog) {
-            showStatusDialog(normalizeMessage(response.data, '拒绝访问'), 'error')
+            showStatusDialog(normalizeMessage(response.data, 'Access denied'), 'error')
           }
           break
         case 404:
           if (!skipGlobalDialog) {
-            showStatusDialog('请求的资源不存在', 'error')
+            showStatusDialog('Requested resource not found', 'error')
           }
           break
         case 500:
           if (!skipGlobalDialog) {
-            showStatusDialog('服务器错误', 'error')
+            showStatusDialog('Server error', 'error')
           }
           break
         default:
@@ -138,7 +154,7 @@ request.interceptors.response.use(
           }
       }
     } else if (!skipGlobalDialog) {
-      showStatusDialog('网络错误，请检查网络连接', 'error')
+      showStatusDialog('Network error, please check your connection', 'error')
     }
     return Promise.reject(error)
   }

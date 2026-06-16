@@ -110,10 +110,9 @@ const loginFormRef = ref(null)
 const loading = ref(false)
 const statusDialogStore = useStatusDialogStore()
 
-// TODO: 临时默认账号，上线前删除
 const loginForm = reactive({
-  corpId: 'Admin-test',
-  password: '123456',
+  corpId: '',
+  password: '',
   system: ''
 })
 

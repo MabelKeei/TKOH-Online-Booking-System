@@ -7,6 +7,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { getAppTodayYmd } from '../common/app-timezone';
+import { DisplayManagementService } from '../display-management/display-management.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EvRedisCacheService } from '../redis/ev-redis-cache.service';
 import { CreateEvParkingDto } from './dto/create-ev-parking.dto';
@@ -38,10 +40,24 @@ export class EvManagementService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly evCache: EvRedisCacheService,
+    private readonly displayManagementService: DisplayManagementService,
   ) {}
 
   private toDateOnly(date: Date) {
     return date.toISOString().slice(0, 10);
+  }
+
+  private parseBookingDateYmd(ymd: string): Date {
+    const dateKey = String(ymd || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+      throw new BadRequestException('date must be YYYY-MM-DD');
+    }
+    return new Date(`${dateKey}T00:00:00.000Z`);
+  }
+
+  private resolveDisplayDateYmd(optional?: string) {
+    const raw = String(optional ?? '').trim();
+    return raw || getAppTodayYmd();
   }
 
   private parseHHmm(s: string): Date {
@@ -463,6 +479,63 @@ export class EvManagementService {
       corpId: row.userCorpId ?? owner?.corpId,
       reservedBy: owner?.corpId ?? row.userCorpId ?? undefined,
       email: owner?.email ?? undefined,
+    };
+  }
+
+  private mapDisplayBookingRow(row: {
+    bookingDate: Date;
+    status: string;
+    licensePlate: { plate_number: string } | null;
+    slot: { evSpace: string };
+    period: { period: string; startTime: Date; endTime: Date } | null;
+  }) {
+    const uiStatus = this.deriveUiStatus(row.bookingDate, row.period, row.status);
+    return {
+      licensePlate: row.licensePlate?.plate_number ?? '',
+      space: row.slot.evSpace,
+      date: this.formatDisplayDate(row.bookingDate),
+      dateSortKey: this.toDateOnly(row.bookingDate),
+      period: row.period?.period ?? '',
+      time: this.formatPeriodTime(row.period),
+      status: uiStatus,
+    };
+  }
+
+  async listDisplayBookings(dateYmd?: string) {
+    const dateKey = this.resolveDisplayDateYmd(dateYmd);
+    const bookingDate = this.parseBookingDateYmd(dateKey);
+
+    const rows = await this.prisma.evBookings.findMany({
+      where: { bookingDate },
+      include: {
+        licensePlate: { select: { plate_number: true } },
+        slot: { select: { evSpace: true } },
+        period: { select: { period: true, startTime: true, endTime: true } },
+      },
+      orderBy: [{ period: { id: 'asc' } }, { slot: { id: 'asc' } }, { id: 'asc' }],
+    });
+
+    return {
+      displayDate: dateKey,
+      bookings: rows.map((row) => this.mapDisplayBookingRow(row)),
+    };
+  }
+
+  async getPublicDisplayData(dateYmd?: string) {
+    const dateKey = this.resolveDisplayDateYmd(dateYmd);
+    const [bookingResult, timePeriods, evDisplaySettings] = await Promise.all([
+      this.listDisplayBookings(dateKey),
+      this.listTimePeriods(),
+      this.displayManagementService.getEvDisplayPublicSettings(),
+    ]);
+
+    return {
+      displayDate: dateKey,
+      bookings: bookingResult.bookings,
+      timePeriods: timePeriods.filter(
+        (item) => String(item.status || 'active').toLowerCase() === 'active',
+      ),
+      evDisplaySettings,
     };
   }
 

@@ -6,8 +6,8 @@
       <button
         type="button"
         class="top-tip-toggle-btn"
-        aria-label="显示重要提示"
-        title="显示重要提示"
+        aria-label="Show important note"
+        title="Show important note"
         @click="showTopTip = true"
       ></button>
     </div>
@@ -15,7 +15,7 @@
       <div class="booking-window-tip">
         <span>Important Note: {{ evRuleNoticeBannerText }}</span>
         <button type="button" class="read-more-link" @click="noticeDialogVisible = true">Read more...</button>
-        <button type="button" class="tip-close-btn" aria-label="关闭重要提示" @click="showTopTip = false">
+        <button type="button" class="tip-close-btn" aria-label="Hide important note" @click="showTopTip = false">
           &times;
         </button>
       </div>
@@ -133,7 +133,9 @@ import { useEvBookingRuleNotice } from '@/composables/useEvBookingRuleNotice'
 import { getEvCalendarAvailability, createEvBooking } from '@/api/parking'
 import { fetchActiveEvTimePeriods } from '@/utils/evTimePeriods'
 import { fetchEvBookingWindow } from '@/utils/evBookingWindow'
-import { createDateAtMidnight, isEvSlotPast } from '@/utils/evSlotPast'
+import { resolveEvVisibleBookingRange } from '@/utils/evBookingVisibleRange'
+import { todayYmdInAppTimeZone } from '@/utils/appTimezone'
+import { isEvSlotPast } from '@/utils/evSlotPast'
 import '@/styles/rich-content.css'
 
 // 对话框状态
@@ -174,6 +176,12 @@ const evWindowRange = computed(() => ({
   start: new Date(`${evBookingWindow.value.currentStartDate}T00:00:00`),
   end: new Date(`${evBookingWindow.value.currentEndDate}T23:59:59`)
 }))
+
+/** 用户可见的预订日：在已发布年度窗口内，含今天起共 14 天 */
+const visibleBookingRange = computed(() => {
+  const { currentStartDate, currentEndDate } = evBookingWindow.value
+  return resolveEvVisibleBookingRange(currentStartDate, currentEndDate)
+})
 
 const timePeriods = ref([])
 
@@ -317,20 +325,25 @@ function isSlotPast (dateYmd, periodId) {
   return isEvSlotPast(dateYmd, periodId, timePeriods.value)
 }
 
-// 生成两周的数据（动态显示：明天到第14天）
+// 在已发布年度范围内，显示含今天在内的未来 14 天
 const weeks = computed(() => {
-  const { start, end } = evWindowRange.value
+  const { startYmd, endYmd } = visibleBookingRange.value
+  if (!startYmd || !endYmd) return []
+
   const result = []
-  const today = createDateAtMidnight()
+  const todayYmd = todayYmdInAppTimeZone()
   const allDays = []
+  const start = new Date(`${startYmd}T00:00:00`)
+  const end = new Date(`${endYmd}T00:00:00`)
 
   for (let dateMs = start.getTime(); dateMs <= end.getTime(); dateMs += DAY_MS) {
     const date = new Date(dateMs)
+    const ymd = formatDateToYmd(date)
     allDays.push({
-      date: formatDateToYmd(date),
+      date: ymd,
       dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
       dayNumber: String(date.getDate()).padStart(2, '0'),
-      isToday: date.toDateString() === today.toDateString()
+      isToday: ymd === todayYmd
     })
   }
 
@@ -447,16 +460,16 @@ function closeDialog () {
 const bookingSubmitting = ref(false)
 
 const loadCalendarAvailability = async () => {
-  const { currentStartDate, currentEndDate } = evBookingWindow.value
-  if (!currentStartDate || !currentEndDate) {
+  const { startYmd, endYmd } = visibleBookingRange.value
+  if (!startYmd || !endYmd) {
     bookings.value = {}
     availabilityLoaded.value = false
     return
   }
   try {
     const data = await getEvCalendarAvailability({
-      startDate: currentStartDate,
-      endDate: currentEndDate
+      startDate: startYmd,
+      endDate: endYmd
     })
     totalParkingSpaces.value = Number(data?.totalSpaces) || 0
     bookings.value = data?.availability && typeof data.availability === 'object'

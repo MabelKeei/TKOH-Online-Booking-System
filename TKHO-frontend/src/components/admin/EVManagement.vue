@@ -164,7 +164,7 @@
                 :teleported="false"
               />
               <el-button type="default" class="submit-btn" @click="handlePublishEvWindow">Publish</el-button>
-              <el-button type="default" @click="applyNext14Days">Next 14 Days</el-button>
+              <el-button type="default" @click="applyCurrentCalendarYear">Current Year</el-button>
             </div>
             <div class="booking-window-meta">
               Last published by {{ evWindow.updatedBy }} at {{ formatDateTime(evWindow.updatedAt) }}
@@ -260,6 +260,7 @@ import {
   publishEvBookingWindow
 } from '@/api/evManagement'
 import { notifyEvBookingWindowUpdated } from '@/utils/evBookingWindowSync'
+import { getCurrentCalendarYearBoundsYmd } from '@/utils/appTimezone'
 
 const activeTab = ref('parking')
 const parkingList = ref([])
@@ -523,13 +524,10 @@ const handlePublishEvWindow = async () => {
   }
 }
 
-const applyNext14Days = () => {
-  const start = new Date()
-  const end = new Date(start)
-  end.setDate(end.getDate() + 13)
-  const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-  evWindowForm.value.startDate = formatDate(start)
-  evWindowForm.value.endDate = formatDate(end)
+const applyCurrentCalendarYear = () => {
+  const { startDate, endDate } = getCurrentCalendarYearBoundsYmd()
+  evWindowForm.value.startDate = startDate
+  evWindowForm.value.endDate = endDate
 }
 
 const handleEdit = (row) => {

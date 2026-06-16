@@ -8,6 +8,12 @@ import {
 import { Prisma } from '@prisma/client';
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import { getAppTodayYmd } from '../common/app-timezone';
+import {
+  DisplayConfigKey,
+  DISPLAY_CONFIG_DEFAULTS,
+} from '../display-management/display-config.keys';
+import { DisplayManagementService } from '../display-management/display-management.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertVenueDto } from './dto/upsert-venue.dto';
 import { PublishVenueWindowDto } from './dto/publish-venue-window.dto';
@@ -18,9 +24,39 @@ import {
   RejectVenueManageBookingDto,
 } from './dto/review-venue-booking.dto';
 
+const teaDisplayBookingInclude = {
+  venue: { select: { id: true, name: true, nameZh: true } },
+  venueTeaService: { select: { teaService: true, completed: true } },
+} satisfies Prisma.VenueBookingsInclude;
+
+const venueDisplayBookingInclude = {
+  venue: {
+    select: {
+      id: true,
+      name: true,
+      nameZh: true,
+      location: true,
+      locationZh: true,
+      displayType: true,
+    },
+  },
+  reservedBy: { select: { name: true } },
+} satisfies Prisma.VenueBookingsInclude;
+
+type TeaDisplayBookingRow = Prisma.VenueBookingsGetPayload<{
+  include: typeof teaDisplayBookingInclude;
+}>;
+
+type VenueDisplayBookingRow = Prisma.VenueBookingsGetPayload<{
+  include: typeof venueDisplayBookingInclude;
+}>;
+
 @Injectable()
 export class VenueManagementService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly displayManagementService: DisplayManagementService,
+  ) {}
   private readonly uploadsBasePath = '/api/uploads/venues/';
   private readonly displayMonths = [
     'Jan',
@@ -330,7 +366,7 @@ export class VenueManagementService {
 
   private isCanceledStatus(status?: string | null) {
     const s = String(status || '').toLowerCase();
-    return s === 'cancelled';
+    return s === 'cancelled' || s === 'canceled';
   }
 
   private bookingSlotEnd(
@@ -708,6 +744,394 @@ export class VenueManagementService {
       },
     });
     return { booking: this.mapManageBookingRow(updated) };
+  }
+
+  private parseBookingDateYmd(ymd: string): Date {
+    const dateKey = String(ymd || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+      throw new BadRequestException('date must be YYYY-MM-DD');
+    }
+    return new Date(`${dateKey}T00:00:00.000Z`);
+  }
+
+  private resolveTeaDisplayFromDate(optional?: string) {
+    const raw = String(optional ?? '').trim();
+    return raw || getAppTodayYmd();
+  }
+
+  private formatTeaDisplayDate(value: Date | null | undefined): string {
+    if (!value) return '';
+    const y = value.getUTCFullYear();
+    const m = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(value.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private formatTeaDisplayTimeRange(
+    start: Date | null | undefined,
+    end: Date | null | undefined,
+  ): string {
+    const startText = this.formatTimeValue(start);
+    const endText = this.formatTimeValue(end);
+    if (!startText && !endText) return '';
+    if (!endText) return startText;
+    return `${startText}-${endText}`;
+  }
+
+  private mapTeaDisplayRequestRow(row: TeaDisplayBookingRow) {
+    const tea = this.normalizeTeaService(row.venueTeaService?.teaService);
+    return {
+      id: row.id.toString(),
+      bookingId: row.id.toString(),
+      venueId: row.venueId != null ? row.venueId.toString() : '',
+      venueName: row.venue?.name ?? '',
+      venueNameZh: row.venue?.nameZh || row.venue?.name || '',
+      meetingTitle: row.meetingTitle ?? '',
+      date: this.formatTeaDisplayDate(row.bookingDate),
+      time: this.formatTeaDisplayTimeRange(row.startTime, row.endTime),
+      teaService: tea ? { ...tea } : null,
+      completed: Boolean(row.venueTeaService?.completed),
+      approvalStatus: String(row.approvalStatus || '').toLowerCase() || 'pending',
+    };
+  }
+
+  private async loadTeaNoRequestCompletedMap(): Promise<Record<string, boolean>> {
+    const row = await this.prisma.display_config_settings.findUnique({
+      where: { config_key: DisplayConfigKey.teaNoRequestCompleted },
+    });
+    const raw = row?.config_value ?? DISPLAY_CONFIG_DEFAULTS[DisplayConfigKey.teaNoRequestCompleted];
+    try {
+      const parsed = JSON.parse(raw || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return {};
+      }
+      const result: Record<string, boolean> = {};
+      for (const [key, value] of Object.entries(parsed)) {
+        if (value) result[key] = true;
+      }
+      return result;
+    } catch {
+      return {};
+    }
+  }
+
+  private async saveTeaNoRequestCompletedMap(map: Record<string, boolean>) {
+    const now = new Date();
+    await this.prisma.display_config_settings.upsert({
+      where: { config_key: DisplayConfigKey.teaNoRequestCompleted },
+      create: {
+        config_key: DisplayConfigKey.teaNoRequestCompleted,
+        config_value: JSON.stringify(map),
+        updated_at: now,
+      },
+      update: {
+        config_value: JSON.stringify(map),
+        updated_at: now,
+      },
+    });
+  }
+
+  private buildTeaNoRequestKey(date: string, venueName: string) {
+    return `${date}-${venueName}`;
+  }
+
+  private buildTeaDisplayVenuesFromRows(rows: TeaDisplayBookingRow[]) {
+    const map = new Map<string, { id: string; name: string; nameZh: string }>();
+    for (const row of rows) {
+      const id = row.venueId != null ? row.venueId.toString() : '';
+      const nameZh = row.venue?.nameZh || row.venue?.name || '';
+      if (!id && !nameZh) continue;
+      const key = id || nameZh;
+      if (map.has(key)) continue;
+      map.set(key, {
+        id,
+        name: row.venue?.name ?? '',
+        nameZh,
+      });
+    }
+    return [...map.values()].sort((a, b) => {
+      const idA = a.id;
+      const idB = b.id;
+      if (/^\d+$/.test(idA) && /^\d+$/.test(idB)) {
+        const diff = BigInt(idA) - BigInt(idB);
+        if (diff < 0n) return -1;
+        if (diff > 0n) return 1;
+        return 0;
+      }
+      return (a.nameZh || a.name).localeCompare(b.nameZh || b.name, 'zh-Hant');
+    });
+  }
+
+  async getPublicTeaServiceDisplay(fromDateYmd?: string) {
+    const fromDate = this.resolveTeaDisplayFromDate(fromDateYmd);
+    const bookingDateFrom = this.parseBookingDateYmd(fromDate);
+
+    const rows = await this.prisma.venueBookings.findMany({
+      where: {
+        bookingType: 'venue',
+        OR: [
+          { approvalStatus: { equals: 'pending', mode: 'insensitive' } },
+          { approvalStatus: { equals: 'approved', mode: 'insensitive' } },
+        ],
+        status: { notIn: ['canceled', 'cancelled'] },
+        teaServiceRequired: true,
+        venueTeaService: { isNot: null },
+        bookingDate: { gte: bookingDateFrom },
+      },
+      include: teaDisplayBookingInclude,
+      orderBy: [
+        { bookingDate: 'asc' },
+        { startTime: 'asc' },
+        { id: 'asc' },
+      ],
+    });
+
+    const requests = rows.map((row) => this.mapTeaDisplayRequestRow(row));
+
+    return {
+      fromDate,
+      venues: this.buildTeaDisplayVenuesFromRows(rows),
+      requests,
+    };
+  }
+
+  async setPublicTeaServiceCompleted(bookingIdRaw: string, completed: boolean) {
+    const bookingId = BigInt(bookingIdRaw);
+    const row = await this.prisma.venueBookings.findUnique({
+      where: { id: bookingId },
+      include: teaDisplayBookingInclude,
+    });
+    if (!row || !row.venueTeaService) {
+      throw new NotFoundException('Tea service request not found');
+    }
+    if (String(row.approvalStatus || '').toLowerCase() === 'rejected') {
+      throw new BadRequestException('Rejected bookings cannot be updated on the tea display');
+    }
+
+    await this.prisma.venueTeaService.update({
+      where: { venueBookingId: bookingId },
+      data: { completed },
+    });
+
+    const refreshed = await this.prisma.venueBookings.findUnique({
+      where: { id: bookingId },
+      include: teaDisplayBookingInclude,
+    });
+    if (!refreshed?.venueTeaService) {
+      throw new NotFoundException('Tea service request not found');
+    }
+
+    return {
+      request: this.mapTeaDisplayRequestRow(refreshed),
+    };
+  }
+
+  async setPublicTeaNoRequestCompleted(
+    date: string,
+    venueName: string,
+    completed: boolean,
+  ) {
+    const dateKey = this.resolveTeaDisplayFromDate(date);
+    const venueNameZh = String(venueName || '').trim();
+    if (!venueNameZh) {
+      throw new BadRequestException('venueName is required');
+    }
+
+    const map = await this.loadTeaNoRequestCompletedMap();
+    const key = this.buildTeaNoRequestKey(dateKey, venueNameZh);
+    if (completed) {
+      map[key] = true;
+    } else {
+      delete map[key];
+    }
+    await this.saveTeaNoRequestCompletedMap(map);
+
+    return {
+      date: dateKey,
+      venueName: venueNameZh,
+      completed,
+      noRequestCompleted: map,
+    };
+  }
+
+  private resolveVenueDisplayDate(optional?: string) {
+    const raw = String(optional ?? '').trim();
+    return raw || getAppTodayYmd();
+  }
+
+  private normalizeVenueDisplayType(value: string | null | undefined): string {
+    const x = String(value ?? '').trim().toLowerCase();
+    return x === 'merge' ? 'merge' : 'single';
+  }
+
+  private venueDisplayBookingWhere(
+    bookingDate: Date,
+    venueId?: bigint,
+  ): Prisma.VenueBookingsWhereInput {
+    return {
+      bookingType: 'venue',
+      bookingDate,
+      status: { notIn: ['canceled', 'cancelled'] },
+      OR: [
+        { approvalStatus: { equals: 'pending', mode: 'insensitive' } },
+        { approvalStatus: { equals: 'approved', mode: 'insensitive' } },
+      ],
+      ...(venueId != null ? { venueId } : {}),
+    };
+  }
+
+  private mapVenueDisplayEventRow(row: VenueDisplayBookingRow) {
+    return {
+      id: row.id.toString(),
+      bookingId: row.id.toString(),
+      venueId: row.venueId != null ? row.venueId.toString() : '',
+      startTime: this.formatTimeValue(row.startTime),
+      endTime: this.formatTimeValue(row.endTime),
+      topic: row.meetingTitle || '',
+      reservedBy: row.reservedBy?.name || '',
+      attendees: row.attendees ?? null,
+      time: this.formatTeaDisplayTimeRange(row.startTime, row.endTime),
+    };
+  }
+
+  private mapVenueInfoRow(venue: {
+    id: bigint;
+    name: string;
+    nameZh: string | null;
+    location: string | null;
+    locationZh: string | null;
+    displayType: string | null;
+  }) {
+    return {
+      id: venue.id.toString(),
+      name: venue.name,
+      nameZh: venue.nameZh || '',
+      location: venue.location || '',
+      locationZh: venue.locationZh || '',
+      displayType: this.normalizeVenueDisplayType(venue.displayType),
+    };
+  }
+
+  async getPublicVenueDisplay(venueIdRaw: string, dateYmd?: string) {
+    const venueIdText = String(venueIdRaw || '').trim();
+    if (!/^\d+$/.test(venueIdText)) {
+      throw new BadRequestException('venueId is required');
+    }
+    const venueId = BigInt(venueIdText);
+    const displayDate = this.resolveVenueDisplayDate(dateYmd);
+    const bookingDate = this.parseBookingDateYmd(displayDate);
+
+    const venue = await this.prisma.venues.findUnique({
+      where: { id: venueId },
+      select: {
+        id: true,
+        name: true,
+        nameZh: true,
+        location: true,
+        locationZh: true,
+        displayType: true,
+        status: true,
+      },
+    });
+    if (!venue || String(venue.status || '').toLowerCase() === 'inactive') {
+      throw new NotFoundException('Venue not found');
+    }
+
+    const rows = await this.prisma.venueBookings.findMany({
+      where: this.venueDisplayBookingWhere(bookingDate, venueId),
+      include: venueDisplayBookingInclude,
+      orderBy: [{ startTime: 'asc' }, { id: 'asc' }],
+    });
+
+    return {
+      displayDate,
+      venue: this.mapVenueInfoRow(venue),
+      events: rows.map((row) => this.mapVenueDisplayEventRow(row)),
+    };
+  }
+
+  async getPublicVenueMergeDisplay(dateYmd?: string) {
+    const displayDate = this.resolveVenueDisplayDate(dateYmd);
+    const bookingDate = this.parseBookingDateYmd(displayDate);
+
+    const [mergeDisplaySettings, venues, rules, bookingRows] = await Promise.all([
+      this.displayManagementService.getMergeDisplayPublicSettings(),
+      this.prisma.venues.findMany({
+        where: {
+          status: { equals: 'active', mode: 'insensitive' },
+          displayType: { equals: 'merge', mode: 'insensitive' },
+        },
+        orderBy: { id: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          nameZh: true,
+          location: true,
+          locationZh: true,
+          displayType: true,
+        },
+      }),
+      this.prisma.display_venue_rules.findMany({
+        select: {
+          venue_id: true,
+          display_name: true,
+          arrow_direction: true,
+        },
+      }),
+      this.prisma.venueBookings.findMany({
+        where: this.venueDisplayBookingWhere(bookingDate),
+        include: venueDisplayBookingInclude,
+        orderBy: [{ venueId: 'asc' }, { startTime: 'asc' }, { id: 'asc' }],
+      }),
+    ]);
+
+    const ruleByVenueId = new Map(
+      rules.map((rule) => [rule.venue_id.toString(), rule]),
+    );
+    const bookingsByVenueId = new Map<string, VenueDisplayBookingRow[]>();
+    for (const row of bookingRows) {
+      const key = row.venueId != null ? row.venueId.toString() : '';
+      if (!key) continue;
+      if (!bookingsByVenueId.has(key)) bookingsByVenueId.set(key, []);
+      bookingsByVenueId.get(key)!.push(row);
+    }
+
+    const pmCutoffMinutes = 13 * 60;
+    const scheduleRows = venues.map((venue, idx) => {
+      const id = venue.id.toString();
+      const rule = ruleByVenueId.get(id);
+      const displayName =
+        (rule?.display_name && String(rule.display_name).trim()) || `CR${idx + 1}`;
+      const arrowDirection = rule?.arrow_direction || 'right';
+      const venueMeetings = (bookingsByVenueId.get(id) || []).map((row) => {
+        const event = this.mapVenueDisplayEventRow(row);
+        const startMinutes = this.timeToMinutes(row.startTime);
+        return {
+          id: event.id,
+          startMinutes,
+          time: event.time,
+          title: event.topic,
+        };
+      });
+
+      return {
+        id,
+        room: displayName,
+        arrowDirection,
+        am: venueMeetings.filter(
+          (item) => (item.startMinutes ?? 9999) < pmCutoffMinutes,
+        ),
+        pm: venueMeetings.filter(
+          (item) => (item.startMinutes ?? 0) >= pmCutoffMinutes,
+        ),
+      };
+    });
+
+    return {
+      displayDate,
+      mergeDisplaySettings,
+      scheduleRows,
+    };
   }
 
   async saveVenueImage(id: string, filename: string) {

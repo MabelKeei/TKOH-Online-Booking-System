@@ -72,10 +72,16 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { getMockVenueList, getMockDisplayConfig, getMockMeetingPendingList } from '@/mocks/mockData'
+import { getVenueMergePublicDisplay } from '@/api/venueManagement'
+import {
+  getAppDisplayDateTimeParts,
+  msUntilNextAppMinute,
+  todayYmdInAppTimeZone
+} from '@/utils/appTimezone'
 
 /** 与 VenueDisplayView.vue 保持一致，可整体缩放 */
 const DISPLAY_SCALE = 1.8
+const DATA_POLL_MS = 20_000
 
 const currentDate = ref('')
 const currentWeekdayZh = ref('')
@@ -91,6 +97,7 @@ const defaultTicker = '請在會議期間佩戴外科口罩並保持安靜。For
 const tickerText = ref(defaultTicker)
 
 const scheduleRows = ref([])
+let lastDisplayYmd = ''
 const VENUE_PAGE_SIZE = 3
 const AUTO_ROTATE_MS = 8000
 const currentVenuePage = ref(0)
@@ -116,62 +123,32 @@ const ARROW_ROTATION_MAP = {
 }
 
 function updateDateTime () {
-  const now = new Date()
-  const day = String(now.getDate()).padStart(2, '0')
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const year = now.getFullYear()
-  const weekdayEn = now.toLocaleDateString('en-US', { weekday: 'long' })
-  const weekdaysZh = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
-  currentWeekdayZh.value = weekdaysZh[now.getDay()]
-  currentDate.value = `${day}/${month}/${year} ${weekdayEn}`
-  currentTime.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-}
+  const parts = getAppDisplayDateTimeParts()
+  currentWeekdayZh.value = parts.weekdayZh
+  currentDate.value = `${parts.day}/${parts.month}/${parts.year} ${parts.weekdayEn}`
+  currentTime.value = `${parts.hour}:${parts.minute}`
 
-function getStartMinutes (timeRange = '') {
-  const [start = ''] = String(timeRange).split('-')
-  const [h, m] = start.split(':').map(n => Number.parseInt(n, 10))
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return null
-  return h * 60 + m
-}
-
-function buildScheduleRows () {
-  const displayCfg = getMockDisplayConfig()
-  const rules = displayCfg.venueRules || []
-  const ruleByVenue = new Map(rules.map(r => [r.venueId, r]))
-  const mergeRules = rules.filter(r => r.displayType === 'merge')
-  const venueList = getMockVenueList()
-  let mergedVenues = mergeRules
-    .map(r => venueList.find(v => v.id === r.venueId))
-    .filter(Boolean)
-  if (mergedVenues.length === 0) {
-    mergedVenues = venueList.filter(v => v.displayType === 'merge')
+  const ymd = todayYmdInAppTimeZone()
+  if (lastDisplayYmd && ymd !== lastDisplayYmd) {
+    void refreshDisplayData()
   }
+}
 
-  const pendingMeetings = getMockMeetingPendingList()
+function applyMergeDisplaySettings (settings) {
+  const m = settings || {}
+  qrCodeImage.value = (m.qrCodeImage && String(m.qrCodeImage).trim()) ? m.qrCodeImage : DEFAULT_QR_SRC
+  tickerText.value = m.footerTickerText || defaultTicker
+  const raw = String(m.panelTitleText || '').trim()
+  panelTitleText.value = raw || defaultPanelTitleText
+}
 
-  scheduleRows.value = mergedVenues.map((venue, idx) => {
-    const rule = ruleByVenue.get(venue.id)
-    const displayName = (rule?.displayName && String(rule.displayName).trim()) || `CR${idx + 1}`
-    const arrowDirection = rule?.arrowDirection || 'right'
-    const venueMeetings = pendingMeetings
-      .filter(item => item.venueId === venue.id)
-      .map(item => ({
-        id: item.bookingId || item.id,
-        startMinutes: getStartMinutes(item.time),
-        time: item.time,
-        title: item.meetingTitle
-      }))
-      .sort((a, b) => (a.startMinutes ?? 9999) - (b.startMinutes ?? 9999))
-
-    return {
-      id: venue.id,
-      room: displayName,
-      arrowDirection,
-      // 13:00 前算 AM；13:00(含) 后算 PM
-      am: venueMeetings.filter(item => (item.startMinutes ?? 9999) < (13 * 60)),
-      pm: venueMeetings.filter(item => (item.startMinutes ?? 0) >= (13 * 60))
-    }
-  })
+async function refreshDisplayData () {
+  const date = todayYmdInAppTimeZone()
+  const data = await getVenueMergePublicDisplay(date)
+  applyMergeDisplaySettings(data?.mergeDisplaySettings)
+  scheduleRows.value = Array.isArray(data?.scheduleRows) ? data.scheduleRows : []
+  lastDisplayYmd = date
+  await measureMeetingViewports()
 }
 
 function getArrowStyle (direction) {
@@ -221,13 +198,12 @@ async function measureMeetingViewports () {
 let rotationTimer = null
 
 function rotateMeetingOnceForCurrentVenuePage () {
-  const visibleRowIds = new Set(visibleScheduleRows.value.map(row => row.id))
+  const visibleRowIds = new Set(visibleScheduleRows.value.map(row => String(row.id)))
   const next = { ...currentMeetingPage.value }
   let changed = false
   Object.entries(meetingViewportMeta.value).forEach(([key, meta]) => {
     const [rowIdStr] = key.split('-')
-    const rowId = Number.parseInt(rowIdStr, 10)
-    if (!visibleRowIds.has(rowId)) return
+    if (!visibleRowIds.has(rowIdStr)) return
     if ((meta?.pageCount || 1) > 1) {
       next[key] = ((next[key] || 0) + 1) % meta.pageCount
       changed = true
@@ -262,14 +238,50 @@ function startRotationLoop () {
   }, AUTO_ROTATE_MS)
 }
 
-function loadDisplayConfig () {
-  const cfg = getMockDisplayConfig()
-  const m = cfg.mergeDisplaySettings || {}
-  qrCodeImage.value = (m.qrCodeImage && String(m.qrCodeImage).trim()) ? m.qrCodeImage : DEFAULT_QR_SRC
-  tickerText.value = m.footerTickerText || defaultTicker
-  const legacyTitle = [m.panelTitleLine1, m.panelTitleLine2].filter(Boolean).join('\n')
-  const raw = (m.panelTitleText ?? legacyTitle ?? '').trim()
-  panelTitleText.value = raw || defaultPanelTitleText
+let clockTimer = null
+let dataPollTimer = null
+let dataPollInFlight = false
+
+function scheduleClockTick () {
+  clockTimer = setTimeout(() => {
+    updateDateTime()
+    scheduleClockTick()
+  }, msUntilNextAppMinute())
+}
+
+function stopClock () {
+  if (clockTimer) {
+    clearTimeout(clockTimer)
+    clockTimer = null
+  }
+}
+
+function startClock () {
+  stopClock()
+  updateDateTime()
+  scheduleClockTick()
+}
+
+async function pollDisplayDataFromServer () {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    return
+  }
+  if (dataPollInFlight) return
+  dataPollInFlight = true
+  try {
+    await refreshDisplayData()
+  } catch {
+    /* 保留當前展示，下一輪輪詢重試 */
+  } finally {
+    dataPollInFlight = false
+  }
+}
+
+function onDocumentVisibilityChange () {
+  if (document.visibilityState === 'visible') {
+    startClock()
+    void pollDisplayDataFromServer()
+  }
 }
 
 /** 与 VenueDisplayView.vue 的 forceFullscreen 一致：用 % + vw/vh，避免 visualViewport 与 scale 组合导致右下溢出 */
@@ -299,17 +311,14 @@ function forceFullscreen () {
   document.body.style.overflow = 'hidden'
 }
 
-let timer = null
-
 onMounted(() => {
   document.documentElement.classList.add('merge-display-fullscreen')
-  updateDateTime()
-  buildScheduleRows()
-  loadDisplayConfig()
+  void refreshDisplayData().catch(() => { /* 首次失敗仍顯示框架 */ })
   currentVenuePage.value = 0
-  timer = setInterval(updateDateTime, 60000)
+  startClock()
+  dataPollTimer = setInterval(pollDisplayDataFromServer, DATA_POLL_MS)
+  document.addEventListener('visibilitychange', onDocumentVisibilityChange)
   forceFullscreen()
-  measureMeetingViewports()
   startRotationLoop()
   window.addEventListener('resize', forceFullscreen)
   window.addEventListener('resize', measureMeetingViewports)
@@ -321,7 +330,9 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.documentElement.classList.remove('merge-display-fullscreen')
-  if (timer) clearInterval(timer)
+  stopClock()
+  if (dataPollTimer) clearInterval(dataPollTimer)
+  document.removeEventListener('visibilitychange', onDocumentVisibilityChange)
   if (rotationTimer) clearInterval(rotationTimer)
   window.removeEventListener('resize', forceFullscreen)
   window.removeEventListener('resize', measureMeetingViewports)

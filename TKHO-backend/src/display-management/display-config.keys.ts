@@ -6,6 +6,7 @@ export const DisplayConfigKey = {
   mergeFooterTickerText: 'merge.footer_ticker_text',
   mergeQrCodeImage: 'merge.qr_code_image',
   evFooterTickerText: 'ev.footer_ticker_text',
+  teaNoRequestCompleted: 'tea.no_request_completed',
   metaUpdatedBy: 'meta.updated_by',
   metaUpdatedAt: 'meta.updated_at',
 } as const;
@@ -22,6 +23,7 @@ export const DISPLAY_CONFIG_DEFAULTS: Record<DisplayConfigKeyName, string> = {
   [DisplayConfigKey.mergeQrCodeImage]: '',
   [DisplayConfigKey.evFooterTickerText]:
     '請依照已預約之時段及車位泊車，並於離場前移走車輛。',
+  [DisplayConfigKey.teaNoRequestCompleted]: '{}',
   [DisplayConfigKey.metaUpdatedBy]: 'System',
   [DisplayConfigKey.metaUpdatedAt]: '',
 };

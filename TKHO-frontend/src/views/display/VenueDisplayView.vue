@@ -1,27 +1,39 @@
 <template>
   <div class="display-container">
-    <!-- Header -->
-    <div class="display-header">
-      <div class="date-time">
-        <span class="date">{{ currentDate }}</span>
-        <span class="time">{{ currentTime }}</span>
+    <div class="display-above-footer">
+      <!-- Header -->
+      <div class="display-header">
+        <div class="date-time">
+          <span class="date">{{ currentDate }}</span>
+          <span class="time">{{ currentTime }}</span>
+        </div>
+        <img v-if="displayType === 'merge' && qrCodeImage" :src="qrCodeImage" alt="QR Code" class="header-qr" />
       </div>
-      <img v-if="displayType === 'merge' && qrCodeImage" :src="qrCodeImage" alt="QR Code" class="header-qr" />
-    </div>
 
-    <!-- Main content -->
-    <div class="display-content">
-      <div v-if="hasEvents" class="events-list">
-        <div v-for="event in todayEvents" :key="event.id" class="event-card">
-          <div class="event-time">{{ event.startTime }} - {{ event.endTime }}</div>
-          <div class="event-topic">{{ event.topic }}</div>
-          <div v-if="event.reservedBy" class="event-organizer">{{ event.reservedBy }}</div>
+      <!-- Main content：在排除 footer 后的区域内垂直居中 -->
+      <div class="display-content">
+      <div v-if="currentEvent" class="event-info">
+        <div class="event-time">
+          <el-icon class="clock-icon"><Clock /></el-icon>
+          <span>{{ currentEvent.startTime }} - {{ currentEvent.endTime }}</span>
+        </div>
+        <div class="event-topic">{{ currentEvent.topic }}</div>
+        <div v-if="currentEvent.reservedBy || eventAttendeeCount" class="event-organizer">
+          <span v-if="currentEvent.reservedBy">{{ currentEvent.reservedBy }}</span>
+          <template v-if="currentEvent.reservedBy && eventAttendeeCount">
+            <span class="organizer-sep"> | </span>
+          </template>
+          <span v-if="eventAttendeeCount" class="event-attendees">
+            <el-icon class="person-icon"><User /></el-icon>
+            <span class="attendee-count">{{ eventAttendeeCount }}</span>
+          </span>
         </div>
       </div>
       <div v-else class="no-events">
         <div class="no-events-text-en">NO EVENTS</div>
         <div class="no-events-text-zh">沒有活動</div>
       </div>
+    </div>
     </div>
 
     <!-- Footer -->
@@ -43,104 +55,163 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getMockVenueList, getMockDisplayConfig } from '@/mocks/mockData'
+import {
+  getVenueMergePublicDisplay,
+  getVenuePublicDisplay
+} from '@/api/venueManagement'
+import {
+  getAppDisplayDateTimeParts,
+  msUntilNextAppMinute,
+  todayYmdInAppTimeZone
+} from '@/utils/appTimezone'
 
 const route = useRoute()
 const DISPLAY_SCALE = 1.8
+const DATA_POLL_MS = 20_000
 
-// Get venue info from query params
 const venueId = ref(route.query.venueId)
 const displayType = ref(route.query.displayType || 'single')
 
-// Current date and time
 const currentDate = ref('')
 const currentTime = ref('')
-const currentDay = ref('')
 
-// Venue info
 const venueName = ref('')
 const venueNameZh = ref('')
 const venueLocation = ref('')
 const venueLocationZh = ref('')
 const qrCodeImage = ref('')
 
-// Events data
-const todayEvents = ref([])
+const allTodayEvents = ref([])
+let lastDisplayYmd = ''
 
-// Computed
-const hasEvents = computed(() => todayEvents.value.length > 0)
-
-// Update date and time
-function updateDateTime() {
-  const now = new Date()
-
-  // Format date: 16/03/2026 Monday 星期一
-  const day = String(now.getDate()).padStart(2, '0')
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const year = now.getFullYear()
-  const weekdayEn = now.toLocaleDateString('en-US', { weekday: 'long' })
-  const weekdayZh = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][now.getDay()]
-
-  currentDate.value = `${day}/${month}/${year} ${weekdayEn} ${weekdayZh}`
-  currentDay.value = weekdayEn
-
-  // Format time: 16:45
-  const hours = String(now.getHours()).padStart(2, '0')
-  const minutes = String(now.getMinutes()).padStart(2, '0')
-  currentTime.value = `${hours}:${minutes}`
+function parseHmToMinutes (hm) {
+  const m = String(hm || '').match(/^(\d{1,2}):(\d{2})$/)
+  if (!m) return null
+  const h = Number.parseInt(m[1], 10)
+  const min = Number.parseInt(m[2], 10)
+  if (Number.isNaN(h) || Number.isNaN(min)) return null
+  return h * 60 + min
 }
 
-// Load venue data
-function loadVenueData() {
-  const venueList = getMockVenueList()
-  const displayConfig = getMockDisplayConfig()
+/** 僅展示當前時刻正在進行的活動（含起止時刻） */
+const currentEvent = computed(() => {
+  const nowMin = parseHmToMinutes(currentTime.value)
+  if (nowMin == null) return null
 
-  if (displayType.value === 'single' && venueId.value) {
-    // Single venue display
-    qrCodeImage.value = ''
-    const venue = venueList.find(v => v.id === parseInt(venueId.value))
-    if (venue) {
-      venueName.value = venue.name
-      venueNameZh.value = venue.nameZh || ''
-      venueLocation.value = venue.location || ''
-      venueLocationZh.value = venue.locationZh || ''
-    }
-  } else if (displayType.value === 'merge') {
-    // Merged venues display
-    const mergedVenues = venueList.filter(v => v.displayType === 'merge')
-    if (mergedVenues.length > 0) {
-      venueName.value = mergedVenues.map(v => v.name).join(' | ')
-      venueNameZh.value = mergedVenues.map(v => v.nameZh).filter(Boolean).join(' | ')
-      venueLocation.value = mergedVenues.map(v => v.location).filter(Boolean).join(' | ')
-      venueLocationZh.value = mergedVenues.map(v => v.locationZh).filter(Boolean).join(' | ')
-    }
-    const footerLine1 = displayConfig.mergeDisplaySettings?.footerLine1 || ''
-    const footerLine2 = displayConfig.mergeDisplaySettings?.footerLine2 || ''
-    if (footerLine1) venueName.value = footerLine1
-    if (footerLine2) venueNameZh.value = footerLine2
-    qrCodeImage.value = displayConfig.mergeDisplaySettings?.qrCodeImage || ''
+  const matches = allTodayEvents.value.filter((ev) => {
+    const start = parseHmToMinutes(ev.startTime)
+    const end = parseHmToMinutes(ev.endTime)
+    if (start == null || end == null) return false
+    return nowMin >= start && nowMin <= end
+  })
+
+  if (!matches.length) return null
+  return matches.sort(
+    (a, b) => (parseHmToMinutes(a.startTime) ?? 0) - (parseHmToMinutes(b.startTime) ?? 0)
+  )[0]
+})
+
+const eventAttendeeCount = computed(() => {
+  const n = Number(currentEvent.value?.attendees)
+  return Number.isFinite(n) && n > 0 ? n : null
+})
+
+function applyPanelTitleFooter (panelTitleText) {
+  const lines = String(panelTitleText || '').split('\n').map(s => s.trim()).filter(Boolean)
+  if (lines[0]) venueName.value = lines[0]
+  if (lines[1]) venueNameZh.value = lines[1]
+}
+
+function applyVenueInfo (venue) {
+  if (!venue) return
+  venueName.value = venue.name || ''
+  venueNameZh.value = venue.nameZh || ''
+  venueLocation.value = venue.location || ''
+  venueLocationZh.value = venue.locationZh || ''
+}
+
+function updateDateTime () {
+  const parts = getAppDisplayDateTimeParts()
+  currentDate.value = `${parts.day}/${parts.month}/${parts.year} ${parts.weekdayEn} ${parts.weekdayZh}`
+  currentTime.value = `${parts.hour}:${parts.minute}`
+
+  const ymd = todayYmdInAppTimeZone()
+  if (lastDisplayYmd && ymd !== lastDisplayYmd) {
+    void refreshDisplayData()
   }
 }
 
-// Load today's events (mock data for now)
-function loadTodayEvents() {
-  // TODO: Fetch real booking data from API
-  // For now, using empty array - will show "NO EVENTS"
-  todayEvents.value = []
+async function refreshDisplayData () {
+  const date = todayYmdInAppTimeZone()
 
-  // Example with events:
-  // todayEvents.value = [
-  //   {
-  //     id: 1,
-  //     startTime: '09:00',
-  //     endTime: '11:00',
-  //     topic: 'Team Meeting',
-  //     reservedBy: 'John Smith'
-  //   }
-  // ]
+  if (displayType.value === 'merge') {
+    const data = await getVenueMergePublicDisplay(date)
+    const settings = data?.mergeDisplaySettings || {}
+    applyPanelTitleFooter(settings.panelTitleText)
+    qrCodeImage.value = settings.qrCodeImage || ''
+    allTodayEvents.value = []
+    lastDisplayYmd = date
+    return
+  }
+
+  if (!venueId.value) {
+    allTodayEvents.value = []
+    lastDisplayYmd = date
+    return
+  }
+
+  const data = await getVenuePublicDisplay(venueId.value, date)
+  applyVenueInfo(data?.venue)
+  qrCodeImage.value = ''
+  allTodayEvents.value = Array.isArray(data?.events) ? data.events : []
+  lastDisplayYmd = date
 }
 
-let timeInterval = null
+let clockTimer = null
+let dataPollTimer = null
+let dataPollInFlight = false
+
+function scheduleClockTick () {
+  clockTimer = setTimeout(() => {
+    updateDateTime()
+    scheduleClockTick()
+  }, msUntilNextAppMinute())
+}
+
+function stopClock () {
+  if (clockTimer) {
+    clearTimeout(clockTimer)
+    clockTimer = null
+  }
+}
+
+function startClock () {
+  stopClock()
+  updateDateTime()
+  scheduleClockTick()
+}
+
+async function pollDisplayDataFromServer () {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    return
+  }
+  if (dataPollInFlight) return
+  dataPollInFlight = true
+  try {
+    await refreshDisplayData()
+  } catch {
+    /* 保留當前展示，下一輪輪詢重試 */
+  } finally {
+    dataPollInFlight = false
+  }
+}
+
+function onDocumentVisibilityChange () {
+  if (document.visibilityState === 'visible') {
+    startClock()
+    void pollDisplayDataFromServer()
+  }
+}
 
 // Force fullscreen layout
 function forceFullscreen() {
@@ -172,20 +243,14 @@ function forceFullscreen() {
 }
 
 onMounted(() => {
-  updateDateTime()
-  loadVenueData()
-  loadTodayEvents()
+  void refreshDisplayData().catch(() => { /* 首次失敗仍顯示框架 */ })
+  startClock()
+  dataPollTimer = setInterval(pollDisplayDataFromServer, DATA_POLL_MS)
+  document.addEventListener('visibilitychange', onDocumentVisibilityChange)
 
-  // Update time every minute
-  timeInterval = setInterval(updateDateTime, 60000)
-
-  // Force fullscreen
   forceFullscreen()
-
-  // Re-apply on resize to handle zoom changes
   window.addEventListener('resize', forceFullscreen)
 
-  // Prevent zoom on mobile
   const viewport = document.querySelector('meta[name="viewport"]')
   if (viewport) {
     viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
@@ -193,11 +258,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (timeInterval) {
-    clearInterval(timeInterval)
-  }
+  stopClock()
+  if (dataPollTimer) clearInterval(dataPollTimer)
+  document.removeEventListener('visibilitychange', onDocumentVisibilityChange)
 
-  // Remove resize listener
   window.removeEventListener('resize', forceFullscreen)
 
   // Restore styles
@@ -254,9 +318,19 @@ onUnmounted(() => {
   touch-action: manipulation;
 }
 
+.display-above-footer {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-areas: 'stack';
+}
+
 .display-header {
+  grid-area: stack;
+  align-self: start;
+  justify-self: stretch;
+  z-index: 1;
   padding: 0.5rem 0.5rem;
-  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -295,57 +369,95 @@ onUnmounted(() => {
 }
 
 .display-content {
-  flex: 1;
+  grid-area: stack;
+  align-self: stretch;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: center;
-  padding: 2rem 1.25rem;
-  overflow-y: auto;
+  padding: 1rem 1.25rem;
+  overflow: hidden;
   min-height: 0;
 }
 
-.events-list {
+/* 竖屏：整块活动信息垂直居中，内部文字左对齐 */
+.event-info {
   width: 100%;
-  max-width: 900px;
+  padding: 0 2.25rem;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  align-items: flex-start;
+  text-align: left;
 }
 
-.event-card {
-  background: rgba(255, 255, 255, 0.88);
-  border-radius: 12px;
-  padding: 1.5rem 2rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: transform 0.2s ease;
-}
-
-.event-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+.event-time,
+.event-topic,
+.event-organizer {
+  width: 100%;
+  text-align: left;
 }
 
 .event-time {
-  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 2.2rem;
   font-weight: 700;
-  color: #FF9800;
-  margin-bottom: 0.5rem;
+  color: #111111;
+  margin-bottom: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.clock-icon {
+  font-size: 1.1em;
+  flex-shrink: 0;
+  color: #111111;
 }
 
 .event-topic {
-  font-size: 1.75rem;
-  font-weight: 600;
-  color: #212121;
-  margin-bottom: 0.5rem;
+  font-size: 3rem;
+  font-weight: 700;
+  color: #111111;
+  line-height: 1.22;
+  margin-bottom: 0.85rem;
+  word-break: break-word;
 }
 
 .event-organizer {
-  font-size: 1.125rem;
-  color: #616161;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 1.9rem;
+  color: #333333;
+  font-weight: 500;
+}
+
+.organizer-sep {
+  color: #333333;
+  font-weight: 500;
+}
+
+.event-attendees {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.person-icon {
+  font-size: 1em;
+  flex-shrink: 0;
+  color: #333333;
+}
+
+.attendee-count {
+  font-size: inherit;
   font-weight: 500;
 }
 
 .no-events {
+  flex-shrink: 0;
   text-align: center;
   color: #111111;
 }
@@ -411,25 +523,6 @@ onUnmounted(() => {
   font-size: 1.1rem;
 }
 
-/* Scrollbar styling */
-.display-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.display-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.08);
-  border-radius: 4px;
-}
-
-.display-content::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.22);
-  border-radius: 4px;
-}
-
-.display-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.32);
-}
-
 /* Responsive adjustments for different screen sizes */
 @media (max-width: 768px) {
   .date {
@@ -484,7 +577,23 @@ onUnmounted(() => {
   }
 
   .display-content {
-    padding: 1rem 0.75rem;
+    padding: 0.75rem 1rem 1rem;
+  }
+
+  .event-info {
+    padding: 0 1.75rem;
+  }
+
+  .event-time {
+    font-size: 1.8rem;
+  }
+
+  .event-topic {
+    font-size: 2.35rem;
+  }
+
+  .event-organizer {
+    font-size: 1.6rem;
   }
 }
 </style>

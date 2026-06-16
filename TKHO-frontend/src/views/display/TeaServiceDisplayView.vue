@@ -16,67 +16,50 @@
         <div class="col-done">{{ t.done }}</div>
       </div>
 
-      <div v-if="teaRequests.length === 0" class="empty-state">
-        {{ t.empty }}
-      </div>
-
-      <div v-else class="list-body">
+      <div class="list-body">
         <div v-for="(dateGroup, dateIdx) in groupedByDate" :key="dateGroup.date" class="date-section">
           <div class="date-divider" :class="dateGroup.colorScheme">
             <span class="date-label">{{ formatDateLabel(dateGroup.date) }}</span>
           </div>
 
-          <div v-for="(venueGroup, venueIdx) in dateGroup.venues" :key="venueGroup.venueName"
-               class="venue-group"
-               :class="[dateGroup.colorScheme, `venue-${venueIdx}`]">
-            <template v-if="venueGroup.hasRequests">
-              <div
-                v-for="(request, idx) in venueGroup.requests"
-                :key="request.id"
-                class="request-row"
-                :class="{ completed: request.completed, 'first-row': idx === 0 }"
-                @click="toggleRequest(request)"
-              >
-                <div class="col-venue">
-                  <span v-if="idx === 0" class="venue-name">{{ venueGroup.venueName }}</span>
-                </div>
-
-                <div class="col-time">
-                  <span class="period-label">{{ periodLabelZh(request.time) }}</span>
-                  <span class="time-range">{{ request.time }}</span>
-                </div>
-
-                <div class="col-details">
-                  {{ formatTeaDetails(request.teaService) }}
-                </div>
-
-                <div class="col-done">
-                  <el-checkbox
-                    :model-value="request.completed"
-                    size="large"
-                    @click.stop
-                    @change="(val) => setRequestCompleted(request, val)"
-                  />
-                </div>
+          <div
+            v-for="(venueGroup, venueIdx) in dateGroup.venues"
+            :key="`${dateGroup.date}-${venueGroup.venueKey}`"
+            class="venue-group"
+            :class="[dateGroup.colorScheme, `venue-${venueIdx % 4}`]"
+          >
+            <div
+              v-for="(request, idx) in venueGroup.requests"
+              :key="`${request.bookingId || request.id}-${idx}`"
+              class="request-row"
+              :class="{
+                completed: request.completed,
+                'first-row': idx === 0,
+                'continuation-row': idx > 0
+              }"
+              @click="toggleRequest(request)"
+            >
+              <div class="col-venue">
+                <span v-if="idx === 0" class="venue-name">{{ venueGroup.venueName }}</span>
               </div>
-            </template>
-            <template v-else>
-              <div class="request-row no-request" :class="{ completed: getNoRequestCompleted(dateGroup.date, venueGroup.venueName) }" @click="toggleNoRequest(dateGroup.date, venueGroup.venueName)">
-                <div class="col-venue">
-                  <span class="venue-name">{{ venueGroup.venueName }}</span>
-                </div>
-                <div class="col-time"></div>
-                <div class="col-details">X</div>
-                <div class="col-done">
-                  <el-checkbox
-                    :model-value="getNoRequestCompleted(dateGroup.date, venueGroup.venueName)"
-                    size="large"
-                    @click.stop
-                    @change="(val) => setNoRequestCompleted(dateGroup.date, venueGroup.venueName, val)"
-                  />
-                </div>
+
+              <div class="col-time">
+                <span class="period-label">{{ periodLabelZh(request.time) }}</span>
+                <span class="time-range">{{ request.time }}</span>
               </div>
-            </template>
+
+              <div class="col-details">
+                {{ formatTeaDetails(request.teaService) }}
+              </div>
+
+              <div class="col-done" @click.stop>
+                <el-checkbox
+                  :model-value="request.completed"
+                  size="large"
+                  @update:model-value="(val) => setRequestCompleted(request, val)"
+                />
+              </div>
+            </div>
           </div>
 
           <div class="completed-banner">完</div>
@@ -88,13 +71,21 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { getMockTeaServiceRequests, setMockTeaServiceRequestCompleted } from '@/mocks/mockData'
+import {
+  getTeaServicePublicDisplay,
+  setTeaServiceRequestCompleted
+} from '@/api/venueManagement'
+import {
+  getAppDisplayDateTimeParts,
+  msUntilNextAppMinute,
+  todayYmdInAppTimeZone
+} from '@/utils/appTimezone'
 
 const language = ref('zh-Hant') // Fixed to Traditional Chinese
 const currentDate = ref('')
 const currentTime = ref('')
 const teaRequests = ref([])
-const noRequestCompleted = ref({})
+let lastDisplayFromDate = ''
 const I18N = {
   'zh-Hant': {
     title: '茶水服務',
@@ -128,15 +119,14 @@ const I18N = {
 const t = computed(() => I18N[language.value] || I18N['zh-Hant'])
 
 function updateDateTime () {
-  const now = new Date()
-  const day = String(now.getDate()).padStart(2, '0')
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const year = now.getFullYear()
-  const weekdayEn = now.toLocaleDateString('en-US', { weekday: 'long' })
-  const weekdaysZh = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
-  const weekdayZh = weekdaysZh[now.getDay()]
-  currentDate.value = `${day}/${month}/${year} ${weekdayEn} ${weekdayZh}`
-  currentTime.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  const parts = getAppDisplayDateTimeParts()
+  currentDate.value = `${parts.day}/${parts.month}/${parts.year} ${parts.weekdayEn} ${parts.weekdayZh}`
+  currentTime.value = `${parts.hour}:${parts.minute}`
+
+  const fromDate = todayYmdInAppTimeZone()
+  if (lastDisplayFromDate && fromDate !== lastDisplayFromDate) {
+    void refreshDisplayData()
+  }
 }
 
 function parseStartTime (timeStr) {
@@ -157,8 +147,39 @@ function periodLabelZh (timeStr) {
   return minutes < 12 * 60 ? '上午' : '下午'
 }
 
+function compareVenueId (a, b) {
+  const sa = String(a ?? '')
+  const sb = String(b ?? '')
+  if (/^\d+$/.test(sa) && /^\d+$/.test(sb)) {
+    const diff = BigInt(sa) - BigInt(sb)
+    return diff < 0n ? -1 : diff > 0n ? 1 : 0
+  }
+  return sa.localeCompare(sb)
+}
+
+function buildVenueRowsForDate (requests) {
+  const buckets = new Map()
+
+  for (const request of requests) {
+    const venueId = String(request.venueId || '')
+    const venueKey = venueId || String(request.venueNameZh || request.venueName || '')
+    const venueName = request.venueNameZh || request.venueName || '-'
+    if (!venueKey) continue
+    if (!buckets.has(venueKey)) {
+      buckets.set(venueKey, { venueKey, venueId, venueName, requests: [] })
+    }
+    buckets.get(venueKey).requests.push(request)
+  }
+
+  return [...buckets.values()]
+    .map(group => {
+      group.requests.sort((a, b) => parseStartTime(a.time).localeCompare(parseStartTime(b.time)))
+      return group
+    })
+    .sort((a, b) => compareVenueId(a.venueId || a.venueKey, b.venueId || b.venueKey))
+}
+
 const groupedByDate = computed(() => {
-  const FIXED_VENUES = ['會議室1', '會議室2', '會議室3', '演講廳']
   const dateGroups = new Map()
 
   for (const request of teaRequests.value) {
@@ -168,33 +189,16 @@ const groupedByDate = computed(() => {
     dateGroups.get(request.date).push(request)
   }
 
+  if (!dateGroups.size) {
+    const today = todayYmdInAppTimeZone()
+    dateGroups.set(today, [])
+  }
+
   const result = []
   let dateIndex = 0
 
   for (const [date, requests] of dateGroups) {
-    const venueGroups = new Map()
-
-    for (const request of requests) {
-      const venueName = request.venueNameZh || request.venueName || '-'
-      if (!venueGroups.has(venueName)) {
-        venueGroups.set(venueName, [])
-      }
-      venueGroups.get(venueName).push(request)
-    }
-
-    const venues = []
-    for (const fixedVenue of FIXED_VENUES) {
-      if (venueGroups.has(fixedVenue)) {
-        const venueRequests = venueGroups.get(fixedVenue)
-        venueRequests.sort((a, b) => {
-          return parseStartTime(a.time).localeCompare(parseStartTime(b.time))
-        })
-        venues.push({ venueName: fixedVenue, requests: venueRequests, hasRequests: true })
-      } else {
-        venues.push({ venueName: fixedVenue, requests: [], hasRequests: false })
-      }
-    }
-
+    const venues = buildVenueRowsForDate(requests)
     const completedCount = requests.filter(r => r.completed).length
     const colorScheme = dateIndex % 2 === 0 ? 'blue' : 'purple'
 
@@ -225,66 +229,169 @@ function formatTeaDetails (teaService) {
   return result || '-'
 }
 
+function formatSlashDateFromYmd (ymd) {
+  if (!ymd || !ymd.includes('-')) return ymd
+  const [year, month, day] = ymd.split('-')
+  return `${month}/${day}/${year}`
+}
+
+function addDaysToYmd (ymd, days) {
+  const dt = new Date(`${ymd}T00:00:00.000Z`)
+  dt.setUTCDate(dt.getUTCDate() + days)
+  const y = dt.getUTCFullYear()
+  const m = String(dt.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(dt.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 function formatDateLabel (dateStr) {
-  let displayDate = dateStr
-  if (dateStr.includes('-')) {
-    const [year, month, day] = dateStr.split('-')
-    displayDate = `${month}/${day}/${year}`
-  }
+  const displayDate = formatSlashDateFromYmd(dateStr)
+  const todayYmd = todayYmdInAppTimeZone()
+  const todaySlash = formatSlashDateFromYmd(todayYmd)
+  const tomorrowSlash = formatSlashDateFromYmd(addDaysToYmd(todayYmd, 1))
 
-  const now = new Date()
-  const today = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}`
-
-  const tomorrow = new Date(now)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowStr = `${String(tomorrow.getMonth() + 1).padStart(2, '0')}/${String(tomorrow.getDate()).padStart(2, '0')}/${tomorrow.getFullYear()}`
-
-  if (displayDate === today) {
+  if (displayDate === todaySlash) {
     return `${displayDate} (今天)`
-  } else if (displayDate === tomorrowStr) {
+  }
+  if (displayDate === tomorrowSlash) {
     return `${displayDate} (明天)`
   }
 
   return displayDate
 }
 
-function loadRequests () {
-  teaRequests.value = getMockTeaServiceRequests()
+/** 打勾請求進行中，避免輪詢覆蓋樂觀更新 */
+const pendingCompletedUpdates = new Map()
+const completingBookingIds = new Set()
+
+function patchRequestInList (bookingId, completed) {
+  const id = String(bookingId)
+  const idx = teaRequests.value.findIndex(item => String(item.bookingId || item.id) === id)
+  if (idx < 0) return
+  teaRequests.value = [
+    ...teaRequests.value.slice(0, idx),
+    { ...teaRequests.value[idx], completed: Boolean(completed) },
+    ...teaRequests.value.slice(idx + 1)
+  ]
 }
 
-function setRequestCompleted (request, completed) {
-  teaRequests.value = setMockTeaServiceRequestCompleted(request.bookingId, Boolean(completed))
+function mergePendingCompleted (requests) {
+  if (!pendingCompletedUpdates.size) return requests
+  return requests.map((row) => {
+    const id = String(row.bookingId || row.id)
+    const pending = pendingCompletedUpdates.get(id)
+    return pending !== undefined ? { ...row, completed: pending } : row
+  })
+}
+
+async function refreshDisplayData () {
+  const fromDate = todayYmdInAppTimeZone()
+  const data = await getTeaServicePublicDisplay(fromDate)
+  const requests = Array.isArray(data?.requests) ? data.requests : []
+  teaRequests.value = mergePendingCompleted(requests)
+  lastDisplayFromDate = fromDate
+}
+
+async function setRequestCompleted (request, completed) {
+  const bookingId = String(request.bookingId || request.id)
+  if (!bookingId) return
+
+  const normalized = Boolean(completed)
+  const idx = teaRequests.value.findIndex(item => String(item.bookingId || item.id) === bookingId)
+  const previous = idx >= 0 ? Boolean(teaRequests.value[idx].completed) : Boolean(request.completed)
+  if (previous === normalized || completingBookingIds.has(bookingId)) return
+
+  completingBookingIds.add(bookingId)
+  pendingCompletedUpdates.set(bookingId, normalized)
+  patchRequestInList(bookingId, normalized)
+
+  try {
+    const data = await setTeaServiceRequestCompleted(bookingId, normalized)
+    const next = data?.request
+    if (next) {
+      patchRequestInList(bookingId, next.completed)
+    } else {
+      await refreshDisplayData()
+    }
+  } catch {
+    patchRequestInList(bookingId, previous)
+  } finally {
+    completingBookingIds.delete(bookingId)
+    pendingCompletedUpdates.delete(bookingId)
+  }
 }
 
 function toggleRequest (request) {
   setRequestCompleted(request, !request.completed)
 }
 
-function getNoRequestCompleted (date, venueName) {
-  const key = `${date}-${venueName}`
-  return noRequestCompleted.value[key] || false
+/** 展示数据轮询（标签可见时），茶水需求变更后自动上屏 */
+const DATA_POLL_MS = 20_000
+
+let clockTimer = null
+let dataPollTimer = null
+let dataPollInFlight = false
+
+function scheduleClockTick () {
+  clockTimer = setTimeout(() => {
+    updateDateTime()
+    scheduleClockTick()
+  }, msUntilNextAppMinute())
 }
 
-function setNoRequestCompleted (date, venueName, completed) {
-  const key = `${date}-${venueName}`
-  noRequestCompleted.value[key] = completed
+function stopClock () {
+  if (clockTimer) {
+    clearTimeout(clockTimer)
+    clockTimer = null
+  }
 }
 
-function toggleNoRequest (date, venueName) {
-  setNoRequestCompleted(date, venueName, !getNoRequestCompleted(date, venueName))
-}
-
-let timer = null
-onMounted(() => {
+function startClock () {
+  stopClock()
   updateDateTime()
-  loadRequests()
-  timer = setInterval(updateDateTime, 60000)
+  scheduleClockTick()
+}
+
+async function pollDisplayDataFromServer () {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    return
+  }
+  if (dataPollInFlight) return
+  dataPollInFlight = true
+  try {
+    await refreshDisplayData()
+  } catch {
+    /* 保留上一屏数据，下一轮轮询重试 */
+  } finally {
+    dataPollInFlight = false
+  }
+}
+
+function onDocumentVisibilityChange () {
+  if (document.visibilityState === 'visible') {
+    startClock()
+    void pollDisplayDataFromServer()
+  }
+}
+
+onMounted(async () => {
+  try {
+    await refreshDisplayData()
+  } catch {
+    teaRequests.value = []
+    lastDisplayFromDate = todayYmdInAppTimeZone()
+  }
+  startClock()
+  dataPollTimer = setInterval(pollDisplayDataFromServer, DATA_POLL_MS)
+  document.addEventListener('visibilitychange', onDocumentVisibilityChange)
   document.documentElement.style.overflow = 'hidden'
   document.body.style.overflow = 'hidden'
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
+  stopClock()
+  if (dataPollTimer) clearInterval(dataPollTimer)
+  document.removeEventListener('visibilitychange', onDocumentVisibilityChange)
   document.documentElement.style.overflow = ''
   document.body.style.overflow = ''
 })
@@ -464,6 +571,10 @@ onUnmounted(() => {
   color: #999;
 }
 
+.request-row.continuation-row {
+  border-top: 1px solid rgba(0, 0, 0, 0.01);
+}
+
 .col-venue {
   text-align: center;
 }
@@ -521,13 +632,4 @@ onUnmounted(() => {
   margin: 0;
 }
 
-.empty-state {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: #666;
-}
 </style>

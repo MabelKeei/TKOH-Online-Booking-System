@@ -48,3 +48,9 @@ export function listEvManageBookings(scope = 'my') {
 export function cancelEvManageBooking(id) {
   return request.patch(`/ev-management/bookings/${id}/cancel`)
 }
+
+/** 公開 EV 展示屏數據（無需登入）；date 為香港業務日 YYYY-MM-DD */
+export function getEvPublicDisplayData(date) {
+  const params = date ? { date } : undefined
+  return request.get('/ev-management/public/display', { params })
+}

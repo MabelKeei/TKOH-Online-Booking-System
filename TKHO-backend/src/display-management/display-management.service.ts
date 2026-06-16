@@ -215,6 +215,22 @@ export class DisplayManagementService {
     return { qrCodeImage: '' };
   }
 
+  async getEvDisplayPublicSettings() {
+    const settings = await this.ensureDefaultSettings();
+    return {
+      footerTickerText: this.getSetting(settings, DisplayConfigKey.evFooterTickerText),
+    };
+  }
+
+  async getMergeDisplayPublicSettings() {
+    const settings = await this.ensureDefaultSettings();
+    return {
+      panelTitleText: this.getSetting(settings, DisplayConfigKey.mergePanelTitleText),
+      footerTickerText: this.getSetting(settings, DisplayConfigKey.mergeFooterTickerText),
+      qrCodeImage: this.getMergeQrImagePath(settings),
+    };
+  }
+
   async getConfig() {
     const settings = await this.ensureDefaultSettings();
     const evDisplayMode = this.getSetting(settings, DisplayConfigKey.evDisplayMode);

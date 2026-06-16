@@ -1,4 +1,4 @@
-c<template>
+<template>
   <div class="admin-dashboard">
     <section class="dashboard-hero">
       <div class="hero-text">
@@ -53,6 +53,7 @@ c<template>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAdminStore } from '@/stores/admin'
 import { storeToRefs } from 'pinia'
+import { APP_TIMEZONE } from '@/utils/appTimezone'
 
 const adminStore = useAdminStore()
 const { pendingBookingsCount, pendingUsersCount } = storeToRefs(adminStore)
@@ -76,6 +77,7 @@ onUnmounted(() => {
 
 const formattedDate = computed(() =>
   now.value.toLocaleDateString('en-GB', {
+    timeZone: APP_TIMEZONE,
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -85,6 +87,7 @@ const formattedDate = computed(() =>
 
 const formattedTime = computed(() =>
   now.value.toLocaleTimeString('en-GB', {
+    timeZone: APP_TIMEZONE,
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -92,13 +95,7 @@ const formattedTime = computed(() =>
   })
 )
 
-const timezoneLabel = computed(() => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || ''
-  } catch {
-    return ''
-  }
-})
+const timezoneLabel = APP_TIMEZONE
 
 const managementLinks = computed(() => [
   { path: '/admin/approval', label: 'Approval', icon: 'check-circle', badge: pendingBookingsCount.value },

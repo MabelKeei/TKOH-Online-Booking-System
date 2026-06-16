@@ -21,7 +21,7 @@ export const generateQRCode = async (text, options = {}) => {
     const dataUrl = await QRCode.toDataURL(text, defaultOptions)
     return dataUrl
   } catch (error) {
-    console.error('生成二维码失败:', error)
+    console.error('Failed to generate QR code:', error)
     throw error
   }
 }
@@ -46,7 +46,7 @@ export const generateQRCodeToCanvas = async (canvas, text, options = {}) => {
   try {
     await QRCode.toCanvas(canvas, text, defaultOptions)
   } catch (error) {
-    console.error('生成二维码失败:', error)
+    console.error('Failed to generate QR code:', error)
     throw error
   }
 }

@@ -160,7 +160,12 @@
       </template>
     </BookingStyleModal>
 
-    <BookingStyleModal v-model="showNoticeDialog" :title="noticeTitle" max-width="420px">
+    <BookingStyleModal
+      v-model="showNoticeDialog"
+      :title="noticeTitle"
+      max-width="420px"
+      :custom-class="noticeModalClass"
+    >
       <p class="notice-message">{{ noticeMessage }}</p>
       <template #footer>
         <el-button type="default" class="submit-btn" @click="showNoticeDialog = false">OK</el-button>
@@ -363,15 +368,46 @@ const currentRow = ref(null)
 const showNoticeDialog = ref(false)
 const noticeTitle = ref('Notice')
 const noticeMessage = ref('')
+const noticeVariant = ref('default')
+
+const noticeModalClass = computed(() =>
+  noticeVariant.value === 'alert' ? 'license-plate-notice-validation' : ''
+)
 
 const showNotice = (message, title = 'Notice') => {
   noticeTitle.value = title
   noticeMessage.value = message
+  noticeVariant.value = title === 'Validation' || title === 'Error' ? 'alert' : 'default'
   showNoticeDialog.value = true
+}
+
+const getErrorMessage = (error, fallback = 'Operation failed') => {
+  const message = error?.response?.data?.message
+  if (Array.isArray(message)) return message[0] || fallback
+  if (typeof message === 'string' && message.trim()) return message
+  if (typeof error?.message === 'string' && error.message.trim()) return error.message
+  return fallback
 }
 
 /** Plate number: letters and digits only (no spaces or punctuation). */
 const sanitizePlateNumber = (raw) => String(raw ?? '').replace(/[^A-Za-z0-9]/g, '')
+
+/** 与后端 normalizePlateNumber 一致，用于查重比较 */
+const normalizePlateKey = (raw) => sanitizePlateNumber(raw).toUpperCase()
+
+const findExistingPlate = (plateKey, excludeId = null) => {
+  const exclude = excludeId != null ? String(excludeId) : ''
+  return licensePlateList.value.find((item) => {
+    if (exclude && String(item.id) === exclude) return false
+    return normalizePlateKey(item.plateNumber) === plateKey
+  })
+}
+
+const formatPlateOwnerLabel = (row) => {
+  if (!row) return 'another user'
+  if (row.owner && row.corpId) return `${row.owner} (${row.corpId})`
+  return row.owner || row.corpId || 'another user'
+}
 
 const onPlateNumberInput = (val) => {
   formData.value.plateNumber = sanitizePlateNumber(val)
@@ -436,6 +472,17 @@ const handleSave = async () => {
     return
   }
 
+  const plateKey = normalizePlateKey(plate)
+  const excludeId = formMode.value === 'edit' ? formData.value.id : null
+  const duplicate = findExistingPlate(plateKey, excludeId)
+  if (duplicate) {
+    showNotice(
+      `This license plate is already registered to ${formatPlateOwnerLabel(duplicate)}.`,
+      'Validation'
+    )
+    return
+  }
+
   try {
     if (formMode.value === 'add') {
       await createLicensePlate({ plateNumber: plate, ...ownerPayload })
@@ -446,8 +493,12 @@ const handleSave = async () => {
     }
     await loadLicensePlates()
     showForm.value = false
-  } catch (e) {
-    console.error(e)
+  } catch (error) {
+    const status = error?.response?.status
+    const fallback = status === 409
+      ? 'This license plate already exists and is bound to another user.'
+      : 'Failed to save license plate.'
+    showNotice(getErrorMessage(error, fallback), status === 409 ? 'Validation' : 'Error')
   }
 }
 
@@ -465,8 +516,8 @@ const confirmDelete = async () => {
     await deleteLicensePlate(currentRow.value.id)
     await loadLicensePlates()
     showNotice('Deleted successfully', 'Success')
-  } catch (e) {
-    console.error(e)
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to delete license plate.'), 'Error')
   }
   showDeleteDialog.value = false
   currentRow.value = null
@@ -819,4 +870,44 @@ const confirmDelete = async () => {
   line-height: 1.4;
 }
 
+</style>
+
+<style>
+/* Teleport 到 body，Validation / Error 提示弹窗使用红色警示样式 */
+.booking-style-modal-root.license-plate-notice-validation .booking-dialog-wrapper {
+  border: 2px solid #dc2626;
+  border-radius: 16px;
+}
+
+.booking-style-modal-root.license-plate-notice-validation .modal-header {
+  background: #dc2626;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.booking-style-modal-root.license-plate-notice-validation .modal-title {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.booking-style-modal-root.license-plate-notice-validation .modal-close:hover .close-icon {
+  stroke: #fecaca;
+}
+
+.booking-style-modal-root.license-plate-notice-validation .notice-message {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.booking-style-modal-root.license-plate-notice-validation .submit-btn {
+  border-color: #dc2626;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.booking-style-modal-root.license-plate-notice-validation .submit-btn:hover {
+  background: #fef2f2;
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
 </style>

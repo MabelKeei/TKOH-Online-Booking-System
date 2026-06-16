@@ -16,6 +16,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
+import { Public } from '../auth/decorators/public.decorator';
 import { VenueManagementService } from './venue-management.service';
 import { UpsertVenueDto } from './dto/upsert-venue.dto';
 import { PublishVenueWindowDto } from './dto/publish-venue-window.dto';
@@ -26,12 +27,54 @@ import {
   ApproveVenueManageBookingDto,
   RejectVenueManageBookingDto,
 } from './dto/review-venue-booking.dto';
+import { TeaServiceDisplayQueryDto } from './dto/tea-service-display-query.dto';
+import { UpdateTeaNoRequestCompletedDto } from './dto/update-tea-no-request-completed.dto';
+import { UpdateTeaServiceCompletedDto } from './dto/update-tea-service-completed.dto';
+import { VenuePublicDisplayQueryDto } from './dto/venue-public-display-query.dto';
+import { VenueMergePublicDisplayQueryDto } from './dto/venue-merge-public-display-query.dto';
 
 @ApiTags('venue-management')
 @ApiBearerAuth()
 @Controller('api/venue-management')
 export class VenueManagementController {
   constructor(private readonly venueService: VenueManagementService) {}
+
+  @Public()
+  @Get('public/tea-service-display')
+  getPublicTeaServiceDisplay(@Query() query: TeaServiceDisplayQueryDto) {
+    return this.venueService.getPublicTeaServiceDisplay(query.fromDate);
+  }
+
+  @Public()
+  @Patch('public/tea-service-display/requests/:bookingId/completed')
+  setPublicTeaServiceCompleted(
+    @Param('bookingId') bookingId: string,
+    @Body() dto: UpdateTeaServiceCompletedDto,
+  ) {
+    return this.venueService.setPublicTeaServiceCompleted(bookingId, dto.completed);
+  }
+
+  @Public()
+  @Patch('public/tea-service-display/no-request-completed')
+  setPublicTeaNoRequestCompleted(@Body() dto: UpdateTeaNoRequestCompletedDto) {
+    return this.venueService.setPublicTeaNoRequestCompleted(
+      dto.date,
+      dto.venueName,
+      dto.completed,
+    );
+  }
+
+  @Public()
+  @Get('public/venue-display')
+  getPublicVenueDisplay(@Query() query: VenuePublicDisplayQueryDto) {
+    return this.venueService.getPublicVenueDisplay(query.venueId, query.date);
+  }
+
+  @Public()
+  @Get('public/venue-merge-display')
+  getPublicVenueMergeDisplay(@Query() query: VenueMergePublicDisplayQueryDto) {
+    return this.venueService.getPublicVenueMergeDisplay(query.date);
+  }
 
   @Get('venues')
   listVenues() {

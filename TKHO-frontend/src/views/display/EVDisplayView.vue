@@ -57,10 +57,10 @@
           </div>
         </div>
 
-        <div class="ev-footer-ticker">
-          <div class="ticker-track">
-            <span class="ticker-text">{{ footerTickerText || '請依照已預約之時段及車位泊車，並於離場前移走車輛。' }}</span>
-            <span class="ticker-text" aria-hidden="true">{{ footerTickerText || '請依照已預約之時段及車位泊車，並於離場前移走車輛。' }}</span>
+        <div ref="tickerContainerRef" class="ev-footer-ticker" :class="{ 'ticker-static': !tickerScroll }">
+          <div class="ticker-track" :class="{ 'is-scrolling': tickerScroll }">
+            <span ref="tickerMeasureRef" class="ticker-text">{{ footerTickerDisplayText }}</span>
+            <span v-if="tickerScroll" class="ticker-text" aria-hidden="true">{{ footerTickerDisplayText }}</span>
           </div>
         </div>
       </div>
@@ -69,9 +69,16 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { getMockDisplayConfig, getMockEVManageBookingList, getMockEVTimePeriods } from '@/mocks/mockData'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { getEvPublicDisplayData } from '@/api/evManagement'
 import evDisplayIcon from '@/assets/EVDisplay_icon.svg'
+import {
+  getAppDisplayDateTimeParts,
+  msUntilNextAppMinute,
+  todayYmdInAppTimeZone
+} from '@/utils/appTimezone'
+
+const DEFAULT_FOOTER_TICKER = '請依照已預約之時段及車位泊車，並於離場前移走車輛。'
 
 const periodZhMap = {
   AM: '上午',
@@ -83,8 +90,11 @@ const bookings = ref([])
 const timePeriods = ref([])
 const currentDateLabel = ref('')
 const currentTimeLabel = ref('')
-const displayDate = ref('')
 const footerTickerText = ref('')
+const footerTickerDisplayText = computed(() => footerTickerText.value || DEFAULT_FOOTER_TICKER)
+const tickerScroll = ref(false)
+const tickerContainerRef = ref(null)
+const tickerMeasureRef = ref(null)
 const displayRoot = ref(null)
 const BASE_WIDTH = 1920
 const BASE_HEIGHT = 1080
@@ -95,49 +105,108 @@ const spaces = computed(() => {
   return list.sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }))
 })
 
-function parseBookingDate (text) {
-  const d = new Date(text)
-  return Number.isNaN(d.getTime()) ? null : d
+let lastDisplayYmd = ''
+
+function mapDisplayBooking (item) {
+  return {
+    ...item,
+    period: item.period || String(item.time || '').split(' ')[0]
+  }
 }
 
-function toYmd (d) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-function pickDisplayDate (today) {
-  const valid = bookings.value
-    .filter(item => item.status !== 'cancelled')
-    .map(item => parseBookingDate(item.date))
-    .filter(Boolean)
-    .sort((a, b) => a - b)
-  if (!valid.length) return toYmd(today)
-  const todayYmd = toYmd(today)
-  const exact = valid.find(d => toYmd(d) === todayYmd)
-  if (exact) return todayYmd
-  const future = valid.find(d => d >= today)
-  return toYmd(future || valid[valid.length - 1])
+async function refreshDisplayData () {
+  const data = await getEvPublicDisplayData(todayYmdInAppTimeZone())
+  footerTickerText.value = data?.evDisplaySettings?.footerTickerText || ''
+  timePeriods.value = Array.isArray(data?.timePeriods) ? data.timePeriods : []
+  bookings.value = (Array.isArray(data?.bookings) ? data.bookings : []).map(mapDisplayBooking)
+  lastDisplayYmd = todayYmdInAppTimeZone()
+  await nextTick()
+  syncTickerScrollMode()
 }
 
 function updateDateTime () {
-  const now = new Date()
-  const day = String(now.getDate()).padStart(2, '0')
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const year = now.getFullYear()
-  const weekdayEn = now.toLocaleDateString('en-US', { weekday: 'long' })
-  const weekdaysZh = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
-  currentDateLabel.value = `${day}/${month}/${year} ${weekdayEn} ${weekdaysZh[now.getDay()]}`
-  currentTimeLabel.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  const parts = getAppDisplayDateTimeParts()
+  currentDateLabel.value = `${parts.day}/${parts.month}/${parts.year} ${parts.weekdayEn} ${parts.weekdayZh}`
+  currentTimeLabel.value = `${parts.hour}:${parts.minute}`
+
+  if (lastDisplayYmd && parts.ymd !== lastDisplayYmd) {
+    void refreshDisplayData()
+  }
+}
+
+function syncTickerScrollMode () {
+  requestAnimationFrame(() => {
+    const container = tickerContainerRef.value
+    const textEl = tickerMeasureRef.value
+    if (!container || !textEl) return
+    tickerScroll.value = textEl.scrollWidth > container.clientWidth
+  })
+}
+
+let tickerResizeObserver = null
+
+function setupTickerResizeObserver () {
+  const container = tickerContainerRef.value
+  if (!container || typeof ResizeObserver === 'undefined') return
+  tickerResizeObserver?.disconnect()
+  tickerResizeObserver = new ResizeObserver(() => syncTickerScrollMode())
+  tickerResizeObserver.observe(container)
+}
+
+/** 展示数据轮询（标签可见时），预订/配置变更后自动上屏 */
+const DATA_POLL_MS = 20_000
+
+let clockTimer = null
+let dataPollTimer = null
+let dataPollInFlight = false
+
+function scheduleClockTick () {
+  clockTimer = setTimeout(() => {
+    updateDateTime()
+    scheduleClockTick()
+  }, msUntilNextAppMinute())
+}
+
+function stopClock () {
+  if (clockTimer) {
+    clearTimeout(clockTimer)
+    clockTimer = null
+  }
+}
+
+function startClock () {
+  stopClock()
+  updateDateTime()
+  scheduleClockTick()
+}
+
+async function pollDisplayDataFromServer () {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    return
+  }
+  if (dataPollInFlight) return
+  dataPollInFlight = true
+  try {
+    await refreshDisplayData()
+  } catch {
+    /* 保留上一屏数据，下一轮轮询重试 */
+  } finally {
+    dataPollInFlight = false
+  }
+}
+
+function onDocumentVisibilityChange () {
+  if (document.visibilityState === 'visible') {
+    startClock()
+    void pollDisplayDataFromServer()
+  }
 }
 
 function getPlate (period, space) {
   const matched = bookings.value.find(item =>
     item.status !== 'cancelled' &&
     item.period === period &&
-    item.space === space &&
-    item.ymd === displayDate.value
+    item.space === space
   )
   return matched?.licensePlate || '-'
 }
@@ -160,34 +229,38 @@ function adaptFullscreen () {
   root.style.setProperty('--ui-scale', String(safeScale))
   root.style.setProperty('--text-scale-boost', String(textBoost))
   root.style.setProperty('--space-scale', String(spaceScale))
+  syncTickerScrollMode()
 }
 
-let timer = null
+watch(footerTickerDisplayText, () => {
+  nextTick(() => syncTickerScrollMode())
+})
 
-onMounted(() => {
-  const displayConfig = getMockDisplayConfig()
-  footerTickerText.value = displayConfig.evDisplaySettings?.footerTickerText || ''
-  timePeriods.value = getMockEVTimePeriods()
-    .filter(item => item.status === 'active')
-  bookings.value = getMockEVManageBookingList().map(item => ({
-    ...item,
-    period: String(item.time || '').split(' ')[0],
-    ymd: (() => {
-      const d = parseBookingDate(item.date)
-      return d ? toYmd(d) : ''
-    })()
-  }))
-  const now = new Date()
-  displayDate.value = pickDisplayDate(now)
-  updateDateTime()
-  timer = setInterval(updateDateTime, 60000)
+onMounted(async () => {
+  try {
+    await refreshDisplayData()
+  } catch {
+    footerTickerText.value = ''
+    timePeriods.value = []
+    bookings.value = []
+    lastDisplayYmd = todayYmdInAppTimeZone()
+  }
+  startClock()
+  dataPollTimer = setInterval(pollDisplayDataFromServer, DATA_POLL_MS)
+  document.addEventListener('visibilitychange', onDocumentVisibilityChange)
   adaptFullscreen()
   window.addEventListener('resize', adaptFullscreen)
   window.visualViewport?.addEventListener('resize', adaptFullscreen)
+  await nextTick()
+  syncTickerScrollMode()
+  setupTickerResizeObserver()
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
+  stopClock()
+  tickerResizeObserver?.disconnect()
+  if (dataPollTimer) clearInterval(dataPollTimer)
+  document.removeEventListener('visibilitychange', onDocumentVisibilityChange)
   window.removeEventListener('resize', adaptFullscreen)
   window.visualViewport?.removeEventListener('resize', adaptFullscreen)
 })
@@ -458,14 +531,24 @@ onUnmounted(() => {
   align-items: center;
 }
 
+.ev-footer-ticker.ticker-static {
+  justify-content: center;
+}
+
 .ticker-track {
   display: inline-flex;
   width: max-content;
+}
+
+.ticker-track.is-scrolling {
   animation: evTickerScroll 24s linear infinite;
 }
 
 .ticker-text {
   display: inline-block;
+}
+
+.ticker-track.is-scrolling .ticker-text:first-child {
   padding-right: calc(48px * var(--ui-scale) * var(--space-scale));
 }
 

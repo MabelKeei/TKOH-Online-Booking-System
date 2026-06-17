@@ -4,6 +4,10 @@ export function listUsers () {
   return request.get('/user-management/users')
 }
 
+export function listUserOwnerOptions (params) {
+  return request.get('/user-management/users/options', { params })
+}
+
 export function getRegistrationOptions () {
   return request.get('/user-management/registration/options')
 }

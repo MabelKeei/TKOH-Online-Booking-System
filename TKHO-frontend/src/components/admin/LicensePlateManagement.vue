@@ -110,15 +110,17 @@
       <el-form :model="formData" label-width="140px">
         <el-form-item label="Owner">
           <el-select
+            ref="ownerSelectRef"
             v-model="formData.corpId"
             filterable
             clearable
-            default-first-option
             style="width: 100%"
             placeholder="Type owner name / corp ID"
             :teleported="false"
             :reserve-keyword="false"
+            :loading="ownerSearchLoading"
             :filter-method="handleOwnerFilter"
+            @visible-change="handleOwnerDropdownVisibleChange"
             popper-class="license-plate-owner-select"
           >
             <el-option
@@ -175,7 +177,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as XLSX from 'xlsx'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
@@ -185,10 +187,18 @@ import {
   updateLicensePlate,
   deleteLicensePlate
 } from '@/api/licensePlateManagement'
-import { listUsers } from '@/api/userManagement'
+import { listUserOwnerOptions } from '@/api/userManagement'
 
 const licensePlateList = ref([])
 const employeeList = ref([])
+const ownerLoading = ref(false)
+const ownerSearchLoading = ref(false)
+const ownerHasMore = ref(false)
+const ownerPage = ref(1)
+const ownerSelectRef = ref(null)
+const OWNER_PAGE_SIZE = 20
+let ownerFilterTimer = null
+let ownerDropdownScrollEl = null
 
 function normalizeUserRow (u) {
   const statusRaw = String(u.status ?? '').toLowerCase()
@@ -206,9 +216,13 @@ async function loadLicensePlates () {
 }
 
 async function loadEmployees () {
-  const data = await listUsers()
-  const rows = Array.isArray(data) ? data : []
-  employeeList.value = rows.map(normalizeUserRow)
+  ownerPage.value = 1
+  ownerHasMore.value = false
+  employeeList.value = []
+  await fetchOwnerOptions({ reset: true, keyword: '', showLoading: true })
+  if (ownerHasMore.value) {
+    void fetchOwnerOptions({ reset: false, keyword: '' })
+  }
 }
 
 onMounted(async () => {
@@ -225,18 +239,42 @@ const employeeOptions = computed(() => {
 const ownerKeyword = ref('')
 
 const displayedEmployeeOptions = computed(() => {
-  const keyword = ownerKeyword.value.trim().toLowerCase()
-  const source = employeeOptions.value
-
-  if (!keyword) return source.slice(0, 12)
-
-  return source
-    .filter((user) =>
-      String(user.name || '').toLowerCase().includes(keyword) ||
-      String(user.corpId || '').toLowerCase().includes(keyword)
-    )
-    .slice(0, 30)
+  return employeeOptions.value
 })
+
+const mergeOwnerRows = (rows) => {
+  const map = new Map(employeeList.value.map((u) => [String(u.corpId), u]))
+  for (const row of rows) {
+    map.set(String(row.corpId), normalizeUserRow(row))
+  }
+  employeeList.value = [...map.values()]
+}
+
+const fetchOwnerOptions = async ({
+  reset = false,
+  keyword = ownerKeyword.value,
+  showLoading = false
+} = {}) => {
+  if (ownerLoading.value) return
+  ownerLoading.value = true
+  if (showLoading) ownerSearchLoading.value = true
+  try {
+    const targetPage = reset ? 1 : ownerPage.value
+    const data = await listUserOwnerOptions({
+      keyword: String(keyword || '').trim() || undefined,
+      page: targetPage,
+      pageSize: OWNER_PAGE_SIZE
+    })
+    const rows = Array.isArray(data?.items) ? data.items : []
+    if (reset) employeeList.value = []
+    mergeOwnerRows(rows)
+    ownerHasMore.value = Boolean(data?.hasMore)
+    ownerPage.value = targetPage + 1
+  } finally {
+    ownerLoading.value = false
+    if (showLoading) ownerSearchLoading.value = false
+  }
+}
 
 const currentPage = ref(1)
 const pageSize = ref(20)
@@ -352,8 +390,75 @@ const updateOwnerFilter = (values) => {
 }
 
 const handleOwnerFilter = (query) => {
-  ownerKeyword.value = String(query || '')
+  const nextKeyword = String(query || '')
+  if (nextKeyword === ownerKeyword.value && employeeList.value.length > 0) return
+  ownerKeyword.value = nextKeyword
+  if (ownerFilterTimer) clearTimeout(ownerFilterTimer)
+  ownerFilterTimer = setTimeout(() => {
+    ownerPage.value = 1
+    ownerHasMore.value = false
+    void fetchOwnerOptions({ reset: true, keyword: ownerKeyword.value, showLoading: true })
+  }, 250)
 }
+
+const getOwnerDropdownScrollEl = () => {
+  const select = ownerSelectRef.value
+  const popperEl = select?.popperRef?.contentRef
+  return (
+    popperEl?.querySelector?.('.el-scrollbar__wrap') ??
+    document.querySelector('.license-plate-owner-select .el-scrollbar__wrap')
+  )
+}
+
+const unbindOwnerDropdownScroll = () => {
+  if (!ownerDropdownScrollEl) return
+  ownerDropdownScrollEl.removeEventListener('scroll', handleOwnerDropdownScroll)
+  ownerDropdownScrollEl = null
+}
+
+const handleOwnerDropdownScroll = (event) => {
+  const target = event?.target ?? ownerDropdownScrollEl
+  if (!target) return
+  const reachedBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 8
+  if (!reachedBottom) return
+  loadMoreOwnerOptions()
+}
+
+const bindOwnerDropdownScroll = () => {
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      if (ownerDropdownScrollEl) return
+      const wrap = getOwnerDropdownScrollEl()
+      if (!wrap) return
+      ownerDropdownScrollEl = wrap
+      ownerDropdownScrollEl.addEventListener('scroll', handleOwnerDropdownScroll, { passive: true })
+    })
+  })
+}
+
+const handleOwnerDropdownVisibleChange = (visible) => {
+  if (!visible) {
+    unbindOwnerDropdownScroll()
+    return
+  }
+  if (!employeeList.value.length) {
+    void fetchOwnerOptions({ reset: true, keyword: ownerKeyword.value, showLoading: true })
+      .then(() => bindOwnerDropdownScroll())
+    return
+  }
+  bindOwnerDropdownScroll()
+}
+
+const loadMoreOwnerOptions = () => {
+  if (!ownerHasMore.value) return
+  if (ownerLoading.value) return
+  void fetchOwnerOptions({ reset: false, keyword: ownerKeyword.value })
+}
+
+onBeforeUnmount(() => {
+  if (ownerFilterTimer) clearTimeout(ownerFilterTimer)
+  unbindOwnerDropdownScroll()
+})
 
 const showForm = ref(false)
 const formMode = ref('add')
@@ -439,10 +544,15 @@ const handleAdd = () => {
 const handleEdit = (row) => {
   formMode.value = 'edit'
   ownerKeyword.value = ''
+  ownerPage.value = 1
+  ownerHasMore.value = false
   formData.value = {
     id: row.id,
     corpId: row.corpId || '',
     plateNumber: sanitizePlateNumber(row.plateNumber)
+  }
+  if (formData.value.corpId && !employeeList.value.some((u) => u.corpId === formData.value.corpId)) {
+    void fetchOwnerOptions({ reset: true, keyword: formData.value.corpId })
   }
   showForm.value = true
 }
@@ -833,10 +943,6 @@ const confirmDelete = async () => {
   background-color: #dc2626 !important;
 }
 
-.license-plate-owner-select {
-  max-height: 260px;
-}
-
 .owner-option {
   display: flex;
   justify-content: space-between;
@@ -909,5 +1015,18 @@ const confirmDelete = async () => {
   background: #fef2f2;
   border-color: #b91c1c;
   color: #b91c1c;
+}
+
+.license-plate-owner-select.el-select-dropdown {
+  overflow: hidden;
+}
+
+.license-plate-owner-select.el-select-dropdown .el-select-dropdown__wrap,
+.license-plate-owner-select.el-select-dropdown .el-scrollbar__wrap {
+  max-height: 260px !important;
+}
+
+.license-plate-owner-select.el-select-dropdown.el-popper {
+  transition: none !important;
 }
 </style>

@@ -58,18 +58,18 @@ export class VenueCalendarController {
   @Post('bookings')
   create(
     @Body() dto: CreateVenueCalendarBookingDto,
-    @Req() req: { user?: { sub?: string } },
+    @Req() req: { user?: { sub?: string; role?: string; isSuperAdmin?: boolean } },
   ) {
-    return this.venueCalendarService.createBooking(dto, req?.user?.sub);
+    return this.venueCalendarService.createBooking(dto, req?.user);
   }
 
   @Put('bookings/:id')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateVenueCalendarBookingDto,
-    @Req() req: { user?: { sub?: string } },
+    @Req() req: { user?: { sub?: string; role?: string; isSuperAdmin?: boolean } },
   ) {
-    return this.venueCalendarService.updateBooking(id, dto, req?.user?.sub);
+    return this.venueCalendarService.updateBooking(id, dto, req?.user);
   }
 
   @Delete('bookings/:id')

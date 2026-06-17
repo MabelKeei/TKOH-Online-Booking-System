@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AccessRightService } from './access-right.service';
 import { CreateAccessRoleDto } from './dto/create-access-role.dto';
@@ -13,8 +13,8 @@ export class AccessRightController {
   constructor(private readonly accessRightService: AccessRightService) {}
 
   @Get('roles')
-  listRoles() {
-    return this.accessRightService.listRoles();
+  listRoles(@Req() req: any) {
+    return this.accessRightService.listRoles(req?.user);
   }
 
   @Post('roles')

@@ -5,6 +5,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import * as bcrypt from 'bcryptjs';
+import { isSuperAdminRole } from './super-admin.util';
 
 @Injectable()
 export class AuthService {
@@ -14,9 +15,8 @@ export class AuthService {
   ) {}
 
   private canAccessAdminPortal(role: string | null): boolean {
-    return String(role || '')
-      .toLowerCase()
-      .includes('admin');
+    const normalized = String(role || '').toLowerCase();
+    return normalized.includes('admin') || isSuperAdminRole(role);
   }
 
   private verifyPassword(plain: string, stored: string): boolean {
@@ -47,6 +47,7 @@ export class AuthService {
       usedQuotaEv: user.usedQuotaEv,
       annualQuotaVenue: user.annualQuotaVenue,
       usedQuotaVenue: user.usedQuotaVenue,
+      isSuperAdmin: isSuperAdminRole(roleName),
       status: user.status,
       lastLoginTime: user.lastLoginTime,
       createdAt: user.createdAt,
@@ -83,6 +84,7 @@ export class AuthService {
       throw new ForbiddenException('Account is not active');
     }
     const roleName = user.access_roles?.role_name ?? null;
+    const isSuperAdmin = isSuperAdminRole(roleName);
     if (dto.system === 'admin' && !this.canAccessAdminPortal(roleName)) {
       throw new ForbiddenException('Not authorized for admin portal');
     }
@@ -93,6 +95,7 @@ export class AuthService {
       corpId: user.corpId,
       name: user.name,
       role: roleName,
+      isSuperAdmin,
     });
 
     await this.prisma.user.update({

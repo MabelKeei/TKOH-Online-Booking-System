@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { MetaService } from './meta.service';
 
@@ -8,13 +8,13 @@ export class MetaController {
   constructor(private readonly metaService: MetaService) {}
 
   @Get('users')
-  users() {
-    return this.metaService.users();
+  users(@Req() req: any) {
+    return this.metaService.users(req?.user);
   }
 
   @Get('employees')
-  employees() {
-    return this.metaService.users();
+  employees(@Req() req: any) {
+    return this.metaService.users(req?.user);
   }
 
   @Get('venues')

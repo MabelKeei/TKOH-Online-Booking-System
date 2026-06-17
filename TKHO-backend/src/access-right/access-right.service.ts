@@ -10,6 +10,7 @@ import { CreateAccessRoleDto } from './dto/create-access-role.dto';
 import { UpdateAccessRoleDto } from './dto/update-access-role.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { isSuperAdminAuth } from '../auth/super-admin.util';
 
 type AccessRoleRow = {
   id: bigint;
@@ -49,34 +50,43 @@ export class AccessRightService {
     };
   }
 
-  async listRoles() {
+  async listRoles(auth?: { role?: string; isSuperAdmin?: boolean }) {
     const roles = await this.prisma.access_roles.findMany({ orderBy: { id: 'asc' } });
-    const grouped = await this.prisma.user.groupBy({
-      by: ['accessRoleId'],
+    const groupedUsers = await this.prisma.user.findMany({
       where: { accessRoleId: { not: null } },
-      _count: { _all: true },
+      select: {
+        accessRoleId: true,
+        access_roles: { select: { role_name: true } },
+      },
     });
     const countByRoleId = new Map<string, number>();
-    for (const g of grouped) {
-      if (g.accessRoleId != null) {
-        countByRoleId.set(g.accessRoleId.toString(), g._count._all);
-      }
+    for (const u of groupedUsers) {
+      if (u.accessRoleId == null) continue;
+      if (String(u.access_roles?.role_name || '').toLowerCase() === 'superadmin') continue;
+      const key = u.accessRoleId.toString();
+      countByRoleId.set(key, (countByRoleId.get(key) ?? 0) + 1);
     }
-    return roles.map((r) => this.mapRole(r, countByRoleId.get(r.id.toString()) ?? 0));
+    const visibleRoles = isSuperAdminAuth(auth)
+      ? roles
+      : roles.filter((r) => String(r.role_name || '').toLowerCase() !== 'superadmin');
+    return visibleRoles.map((r) => this.mapRole(r, countByRoleId.get(r.id.toString()) ?? 0));
   }
 
   async listDepartments() {
     const depts = await this.prisma.departments.findMany({ orderBy: { id: 'asc' } });
-    const grouped = await this.prisma.user.groupBy({
-      by: ['departmentId'],
+    const groupedUsers = await this.prisma.user.findMany({
       where: { departmentId: { not: null } },
-      _count: { _all: true },
+      select: {
+        departmentId: true,
+        access_roles: { select: { role_name: true } },
+      },
     });
     const countByDeptId = new Map<string, number>();
-    for (const g of grouped) {
-      if (g.departmentId != null) {
-        countByDeptId.set(g.departmentId.toString(), g._count._all);
-      }
+    for (const u of groupedUsers) {
+      if (u.departmentId == null) continue;
+      if (String(u.access_roles?.role_name || '').toLowerCase() === 'superadmin') continue;
+      const key = u.departmentId.toString();
+      countByDeptId.set(key, (countByDeptId.get(key) ?? 0) + 1);
     }
     return depts.map((d) =>
       this.mapDepartment(d, countByDeptId.get(d.id.toString()) ?? 0),
@@ -117,7 +127,21 @@ export class AccessRightService {
     if (dto.annualVenueQuota !== undefined) data.annual_venue_quota = dto.annualVenueQuota;
     if (dto.annualEvQuota !== undefined) data.annual_ev_quota = dto.annualEvQuota;
 
-    const cnt = await this.prisma.user.count({ where: { accessRoleId: roleId } });
+    const cnt = await this.prisma.user.count({
+      where: {
+        accessRoleId: roleId,
+        NOT: {
+          access_roles: {
+            is: {
+              role_name: {
+                equals: 'SuperAdmin',
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      },
+    });
     if (Object.keys(data).length === 0) {
       return this.mapRole(exists, cnt);
     }
@@ -140,7 +164,21 @@ export class AccessRightService {
     const roleId = BigInt(id);
     const exists = await this.prisma.access_roles.findUnique({ where: { id: roleId } });
     if (!exists) throw new NotFoundException('Role not found');
-    const cnt = await this.prisma.user.count({ where: { accessRoleId: roleId } });
+    const cnt = await this.prisma.user.count({
+      where: {
+        accessRoleId: roleId,
+        NOT: {
+          access_roles: {
+            is: {
+              role_name: {
+                equals: 'SuperAdmin',
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      },
+    });
     if (cnt > 0) {
       throw new BadRequestException('Cannot delete role with assigned users');
     }
@@ -179,7 +217,19 @@ export class AccessRightService {
 
     if (newName === oldName && dto.description === undefined) {
       const cnt = await this.prisma.user.count({
-        where: { departmentId: deptId },
+        where: {
+          departmentId: deptId,
+          NOT: {
+            access_roles: {
+              is: {
+                role_name: {
+                  equals: 'SuperAdmin',
+                  mode: 'insensitive',
+                },
+              },
+            },
+          },
+        },
       });
       return this.mapDepartment(exists, cnt);
     }
@@ -211,7 +261,19 @@ export class AccessRightService {
 
     const updated = await this.prisma.departments.findUniqueOrThrow({ where: { id: deptId } });
     const cnt = await this.prisma.user.count({
-      where: { departmentId: deptId },
+      where: {
+        departmentId: deptId,
+        NOT: {
+          access_roles: {
+            is: {
+              role_name: {
+                equals: 'SuperAdmin',
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      },
     });
     return this.mapDepartment(updated, cnt);
   }
@@ -221,7 +283,19 @@ export class AccessRightService {
     const exists = await this.prisma.departments.findUnique({ where: { id: deptId } });
     if (!exists) throw new NotFoundException('Department not found');
     const cnt = await this.prisma.user.count({
-      where: { departmentId: deptId },
+      where: {
+        departmentId: deptId,
+        NOT: {
+          access_roles: {
+            is: {
+              role_name: {
+                equals: 'SuperAdmin',
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      },
     });
     if (cnt > 0) {
       throw new BadRequestException('Cannot delete department with assigned users');

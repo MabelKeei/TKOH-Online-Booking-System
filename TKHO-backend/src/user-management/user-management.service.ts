@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { ApprovePendingDto } from './dto/approve-pending.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { SubmitPendingUserDto } from './dto/submit-pending-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { isSuperAdminAuth, isSuperAdminRole } from '../auth/super-admin.util';
 
 const userSelect = {
   id: true,
@@ -35,6 +37,34 @@ const userSelect = {
 @Injectable()
 export class UserManagementService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async assertTargetUserVisibleToActor(
+    id: bigint,
+    auth: { isSuperAdmin?: boolean; role?: string } | null | undefined,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, access_roles: { select: { role_name: true } } },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    if (isSuperAdminAuth(auth)) return user;
+
+    const targetRole = user.access_roles?.role_name ?? '';
+    if (isSuperAdminRole(targetRole)) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  private assertCanAssignRole(
+    roleName: string | undefined,
+    auth: { isSuperAdmin?: boolean; role?: string } | null | undefined,
+  ) {
+    if (isSuperAdminAuth(auth)) return;
+    if (isSuperAdminRole(roleName)) {
+      throw new ForbiddenException('Operation not allowed');
+    }
+  }
 
   private parseApproverId(authSub: any): bigint {
     const raw = String(authSub ?? '').trim();
@@ -121,10 +151,13 @@ export class UserManagementService {
   private async resolveAccessRoleId(roleName: string | undefined): Promise<bigint | null> {
     const trimmed = roleName?.trim();
     if (!trimmed) return null;
+    if (isSuperAdminRole(trimmed)) {
+      throw new BadRequestException('Invalid role');
+    }
     const row = await this.prisma.access_roles.findFirst({
       where: { role_name: trimmed },
     });
-    if (!row) throw new BadRequestException(`Unknown role: ${trimmed}`);
+    if (!row) throw new BadRequestException('Invalid role');
     return row.id;
   }
 
@@ -145,6 +178,14 @@ export class UserManagementService {
         select: { id: true, department_name: true },
       }),
       this.prisma.access_roles.findMany({
+        where: {
+          NOT: {
+            role_name: {
+              equals: 'SuperAdmin',
+              mode: 'insensitive',
+            },
+          },
+        },
         orderBy: { id: 'asc' },
         select: { id: true, role_name: true },
       }),
@@ -205,29 +246,101 @@ export class UserManagementService {
     };
   }
 
-  async listUsers() {
+  async listUsers(auth?: { isSuperAdmin?: boolean; role?: string }) {
     const rows = await this.prisma.user.findMany({
       orderBy: { id: 'asc' },
       select: userSelect,
     });
-    return rows.map((u) => this.mapUser(u));
+    const visibleRows = isSuperAdminAuth(auth)
+      ? rows
+      : rows.filter((u) => !isSuperAdminRole(u.access_roles?.role_name ?? ''));
+    return visibleRows.map((u) => this.mapUser(u));
   }
 
-  async getUser(id: string) {
+  async listUserOwnerOptions(
+    auth: { isSuperAdmin?: boolean; role?: string } | undefined,
+    keyword?: string,
+    page: number = 1,
+    pageSize: number = 20,
+  ) {
+    const q = String(keyword ?? '').trim();
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safePageSize = Number.isFinite(pageSize) ? Math.min(100, Math.max(1, Math.floor(pageSize))) : 20;
+    const skip = (safePage - 1) * safePageSize;
+    const where: Prisma.UserWhereInput = {
+      status: 'Active',
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: 'insensitive' } },
+              { corpId: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(!isSuperAdminAuth(auth)
+        ? {
+            NOT: {
+              access_roles: {
+                is: {
+                  role_name: {
+                    equals: 'SuperAdmin',
+                    mode: 'insensitive',
+                  },
+                },
+              },
+            },
+          }
+        : {}),
+    };
+
+    const rows = await this.prisma.user.findMany({
+      where,
+      orderBy: [{ name: 'asc' }, { corpId: 'asc' }],
+      skip,
+      take: safePageSize + 1,
+      select: {
+        id: true,
+        corpId: true,
+        name: true,
+        status: true,
+      },
+    });
+
+    const hasMore = rows.length > safePageSize;
+    const items = (hasMore ? rows.slice(0, safePageSize) : rows).map((u) => ({
+      id: u.id.toString(),
+      corpId: u.corpId,
+      name: u.name,
+      status: this.statusFromDb(u.status),
+    }));
+
+    return {
+      items,
+      page: safePage,
+      pageSize: safePageSize,
+      hasMore,
+    };
+  }
+
+  async getUser(id: string, auth?: { isSuperAdmin?: boolean; role?: string }) {
     const bid = BigInt(id);
     const user = await this.prisma.user.findUnique({
       where: { id: bid },
       select: userSelect,
     });
     if (!user) throw new NotFoundException('User not found');
+    if (!isSuperAdminAuth(auth) && isSuperAdminRole(user.access_roles?.role_name ?? '')) {
+      throw new NotFoundException('User not found');
+    }
     return this.mapUser(user);
   }
 
-  async createUser(dto: CreateUserDto) {
+  async createUser(dto: CreateUserDto, auth?: { isSuperAdmin?: boolean; role?: string }) {
     const corpId = dto.corpId.trim();
     const account = (dto.account ?? corpId).trim();
     const departmentId = await this.resolveDepartmentId(dto.department);
     const accessRoleId = await this.resolveAccessRoleId(dto.role);
+    this.assertCanAssignRole(dto.role, auth);
     const id = await this.nextUserId();
     const statusDb = this.statusToDb(dto.status);
     try {
@@ -259,10 +372,9 @@ export class UserManagementService {
     }
   }
 
-  async updateUser(id: string, dto: UpdateUserDto) {
+  async updateUser(id: string, dto: UpdateUserDto, auth?: { isSuperAdmin?: boolean; role?: string }) {
     const bid = BigInt(id);
-    const exists = await this.prisma.user.findUnique({ where: { id: bid } });
-    if (!exists) throw new NotFoundException('User not found');
+    await this.assertTargetUserVisibleToActor(bid, auth);
 
     const data: Prisma.UserUpdateInput = {};
     if (dto.corpId !== undefined) data.corpId = dto.corpId.trim();
@@ -289,6 +401,7 @@ export class UserManagementService {
     }
     if (dto.role !== undefined) {
       const trimmed = dto.role?.trim();
+      this.assertCanAssignRole(trimmed, auth);
       if (!trimmed) {
         data.access_roles = { disconnect: true };
       } else {
@@ -312,8 +425,9 @@ export class UserManagementService {
     }
   }
 
-  async deleteUser(id: string) {
+  async deleteUser(id: string, auth?: { isSuperAdmin?: boolean; role?: string }) {
     const bid = BigInt(id);
+    await this.assertTargetUserVisibleToActor(bid, auth);
     try {
       await this.prisma.user.delete({ where: { id: bid } });
     } catch (e) {
@@ -325,10 +439,9 @@ export class UserManagementService {
     return { ok: true };
   }
 
-  async replacePassword(id: string, plain: string) {
+  async replacePassword(id: string, plain: string, auth?: { isSuperAdmin?: boolean; role?: string }) {
     const bid = BigInt(id);
-    const exists = await this.prisma.user.findUnique({ where: { id: bid } });
-    if (!exists) throw new NotFoundException('User not found');
+    await this.assertTargetUserVisibleToActor(bid, auth);
     await this.prisma.user.update({
       where: { id: bid },
       data: { password: bcrypt.hashSync(plain, 10) },
@@ -336,10 +449,9 @@ export class UserManagementService {
     return { ok: true };
   }
 
-  async resetUsedQuotas(id: string) {
+  async resetUsedQuotas(id: string, auth?: { isSuperAdmin?: boolean; role?: string }) {
     const bid = BigInt(id);
-    const exists = await this.prisma.user.findUnique({ where: { id: bid } });
-    if (!exists) throw new NotFoundException('User not found');
+    await this.assertTargetUserVisibleToActor(bid, auth);
     const updated = await this.prisma.user.update({
       where: { id: bid },
       data: { usedQuotaEv: 0, usedQuotaVenue: 0 },
@@ -348,10 +460,9 @@ export class UserManagementService {
     return this.mapUser(updated);
   }
 
-  async updateStatus(id: string, statusFe: string) {
+  async updateStatus(id: string, statusFe: string, auth?: { isSuperAdmin?: boolean; role?: string }) {
     const bid = BigInt(id);
-    const exists = await this.prisma.user.findUnique({ where: { id: bid } });
-    if (!exists) throw new NotFoundException('User not found');
+    await this.assertTargetUserVisibleToActor(bid, auth);
     const updated = await this.prisma.user.update({
       where: { id: bid },
       data: { status: this.statusToDb(statusFe) },

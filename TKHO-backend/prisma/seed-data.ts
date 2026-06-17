@@ -151,32 +151,48 @@ const departmentList: SeedDepartment[] = [
 ];
 
 const accessRoleList: SeedAccessRole[] = [
+  { id: 0, roleName: 'SuperAdmin', description: 'System hidden super administrator role for developers only', annualVenueQuota: -1, annualEvQuota: -1, employeeCount: 0 },
   { id: 1, roleName: 'Admin', description: 'Admin user who has FULL control withour restructions over the system', annualVenueQuota: -1, annualEvQuota: -1, employeeCount: 15 },
   { id: 2, roleName: 'User', description: 'Regular user who can access EV and venue bookings', annualVenueQuota: 100, annualEvQuota: 60, employeeCount: 120 },
   { id: 3, roleName: 'User_EV', description: 'Regular user who can access EV booking ONLY', annualVenueQuota: 0, annualEvQuota: 60, employeeCount: 35 },
   { id: 4, roleName: 'User_Venue', description: 'Regular user who can access venue booking ONLY', annualVenueQuota: 100, annualEvQuota: 0, employeeCount: 8 },
 ];
 
-const users: SeedUser[] = Array.from({ length: 25 }, (_, index) => {
-  const i = index + 1;
-  const isAdmin = i === 1 || i === 16;
-  const selectedRole = isAdmin ? 'Admin' : accessRoles[(index % (accessRoles.length - 1)) + 1];
-  const isVenueOnly = selectedRole === 'User_Venue';
-  const isEvOnly = selectedRole === 'User_EV';
-  return {
-    id: i,
-    corpId: i === 1 ? 'Admin-test' : `E${String(i).padStart(3, '0')}`,
-    name: `Employee ${i}`,
-    departmentId: index % departmentCodes.length + 1,
-    accessRoleId: accessRoleIdFromAppRole(selectedRole),
-    email: `employee${i}@tkho.local`,
-    contact: `91${String(i).padStart(6, '0')}`,
-    annualQuotaEV: isAdmin ? -1 : isVenueOnly ? 0 : 60,
-    usedQuotaEV: (index * 3) % 20,
-    annualQuotaVenue: isAdmin ? -1 : isEvOnly ? 0 : 100,
-    usedQuotaVenue: (index * 2) % 10,
-  };
-});
+const users: SeedUser[] = [
+  {
+    id: 0,
+    corpId: 'SuperAdmin',
+    name: 'System SuperAdmin',
+    departmentId: 1,
+    accessRoleId: 0,
+    email: 'superadmin@tkho.local',
+    contact: '910000000',
+    annualQuotaEV: -1,
+    usedQuotaEV: 0,
+    annualQuotaVenue: -1,
+    usedQuotaVenue: 0,
+  },
+  ...Array.from({ length: 25 }, (_, index) => {
+    const i = index + 1;
+    const isAdmin = i === 1 || i === 16;
+    const selectedRole = isAdmin ? 'Admin' : accessRoles[(index % (accessRoles.length - 1)) + 1];
+    const isVenueOnly = selectedRole === 'User_Venue';
+    const isEvOnly = selectedRole === 'User_EV';
+    return {
+      id: i,
+      corpId: i === 1 ? 'Admin-test' : `E${String(i).padStart(3, '0')}`,
+      name: `Employee ${i}`,
+      departmentId: index % departmentCodes.length + 1,
+      accessRoleId: accessRoleIdFromAppRole(selectedRole),
+      email: `employee${i}@tkho.local`,
+      contact: `91${String(i).padStart(6, '0')}`,
+      annualQuotaEV: isAdmin ? -1 : isVenueOnly ? 0 : 60,
+      usedQuotaEV: (index * 3) % 20,
+      annualQuotaVenue: isAdmin ? -1 : isEvOnly ? 0 : 100,
+      usedQuotaVenue: (index * 2) % 10,
+    };
+  }),
+];
 
 const venues: SeedVenue[] = [
   { id: 1, name: 'Conference Room 1', nameZh: '會議室1', tab: 'conference_discussion', type: 'conference', roomCapacity: 8, color: '#3b82f6', location: '8/F Ambulatory Care Block', locationZh: '日間醫療大樓8樓', displayType: 'merge', image: null, status: 'active' },

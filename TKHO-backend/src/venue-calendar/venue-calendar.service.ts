@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVenueCalendarBookingDto } from './dto/create-venue-calendar-booking.dto';
 import { UpdateVenueCalendarBookingDto } from './dto/update-venue-calendar-booking.dto';
+import { isSuperAdminAuth } from '../auth/super-admin.util';
 
 const bookingInclude = {
   venue: { select: { id: true, name: true, color: true, tab: true, venueType: true } },
@@ -28,6 +30,12 @@ export class VenueCalendarService {
       throw new BadRequestException('Invalid user id');
     }
     return BigInt(raw);
+  }
+
+  private assertNotSuperAdmin(auth: { role?: string; isSuperAdmin?: boolean } | null | undefined) {
+    if (isSuperAdminAuth(auth)) {
+      throw new ForbiddenException('Super admin is not allowed to book resources');
+    }
   }
 
   private parseDateOnly(ymd: string): Date {
@@ -396,8 +404,9 @@ export class VenueCalendarService {
     }));
   }
 
-  async createBooking(dto: CreateVenueCalendarBookingDto, authSub: unknown) {
-    const userId = this.parseUserId(authSub);
+  async createBooking(dto: CreateVenueCalendarBookingDto, auth?: { sub?: string; role?: string; isSuperAdmin?: boolean }) {
+    this.assertNotSuperAdmin(auth);
+    const userId = this.parseUserId(auth?.sub);
     const venue = await this.findVenueByName(dto.roomName);
     const bookingDate = this.parseDateOnly(dto.date);
     const startTime = this.parseTimeHm(dto.startTime);
@@ -457,8 +466,9 @@ export class VenueCalendarService {
   async updateBooking(
     id: string,
     dto: UpdateVenueCalendarBookingDto,
-    authSub: unknown,
+    auth?: { sub?: string; role?: string; isSuperAdmin?: boolean },
   ) {
+    this.assertNotSuperAdmin(auth);
     const bookingId = BigInt(id);
     const existing = await this.prisma.venueBookings.findUnique({
       where: { id: bookingId },

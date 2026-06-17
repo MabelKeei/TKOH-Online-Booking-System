@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
@@ -10,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EvRedisCacheService } from '../redis/ev-redis-cache.service';
 import { OccupyDto } from './dto/occupy.dto';
 import { CreateEvBookingDto } from './dto/create-ev-booking.dto';
+import { isSuperAdminAuth } from '../auth/super-admin.util';
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed'] as const;
 const MAX_BOOKING_SLOT_ATTEMPTS = 5;
@@ -417,7 +419,10 @@ export class ParkingService {
     return { totalSpaces: total, availability };
   }
 
-  async createBooking(auth: { corpId?: string; sub?: string }, dto: CreateEvBookingDto) {
+  async createBooking(auth: { corpId?: string; sub?: string; role?: string; isSuperAdmin?: boolean }, dto: CreateEvBookingDto) {
+    if (isSuperAdminAuth(auth)) {
+      throw new ForbiddenException('Super admin is not allowed to book resources');
+    }
     const userCorpId = String(auth?.corpId ?? '').trim();
     if (!userCorpId) {
       throw new BadRequestException('Missing corp id in session');

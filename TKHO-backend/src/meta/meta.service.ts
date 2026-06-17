@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { isSuperAdminAuth } from '../auth/super-admin.util';
 
 @Injectable()
 export class MetaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async users() {
+  async users(auth?: { isSuperAdmin?: boolean; role?: string }) {
     const users = await this.prisma.user.findMany({
       orderBy: { id: 'asc' },
       select: {
@@ -29,7 +30,11 @@ export class MetaService {
       },
     });
 
-    return users.map((user) => ({
+    const visibleUsers = isSuperAdminAuth(auth)
+      ? users
+      : users.filter((user) => String(user.access_roles?.role_name || '').toLowerCase() !== 'superadmin');
+
+    return visibleUsers.map((user) => ({
       id: user.id.toString(),
       corpId: user.corpId,
       account: user.account,

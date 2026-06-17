@@ -1,0 +1,3 @@
+ALTER TABLE "user"
+ADD COLUMN IF NOT EXISTS "is_system_hidden" BOOLEAN NOT NULL DEFAULT false;
+

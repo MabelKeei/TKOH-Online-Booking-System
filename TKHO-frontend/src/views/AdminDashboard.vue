@@ -218,9 +218,9 @@ const bookingLinks = [
   gap: 0.75rem;
 }
 
+/* 2×2 布局，行宽与 Management 区域一致（同容器全宽） */
 .quick-grid--two {
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  max-width: 800px;
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .quick-card {

@@ -275,16 +275,19 @@ const manageBookingPath = computed(() => {
 })
 
 const calendarNavLabel = computed(() => {
+  if (isAdmin.value) return 'Calendar'
   if (navSection.value === 'ev' || navSection.value === 'venue') return 'Book Now'
   return 'Calendar'
 })
 
 const manageNavLabel = computed(() => {
+  if (isAdmin.value) return 'Manage Booking'
   if (navSection.value === 'ev' || navSection.value === 'venue') return 'My Bookings'
   return 'Manage Booking'
 })
 
 const accountNavLabel = computed(() => {
+  if (isAdmin.value) return 'My Account'
   if (navSection.value === 'ev' || navSection.value === 'venue') return 'My Account'
   return 'Account'
 })

@@ -31,57 +31,74 @@ export class UserManagementController {
   @ApiBearerAuth()
   @UseGuards(AdminRoleGuard)
   @Get('users')
-  listUsers() {
-    return this.userManagementService.listUsers();
+  listUsers(@Req() req: any) {
+    return this.userManagementService.listUsers(req?.user);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AdminRoleGuard)
+  @Get('users/options')
+  listUserOwnerOptions(
+    @Req() req: any,
+    @Query('keyword') keyword?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.userManagementService.listUserOwnerOptions(
+      req?.user,
+      keyword,
+      Number(page ?? 1),
+      Number(pageSize ?? 20),
+    );
   }
 
   @ApiBearerAuth()
   @UseGuards(AdminRoleGuard)
   @Post('users')
-  createUser(@Body() dto: CreateUserDto) {
-    return this.userManagementService.createUser(dto);
+  createUser(@Body() dto: CreateUserDto, @Req() req: any) {
+    return this.userManagementService.createUser(dto, req?.user);
   }
 
   @ApiBearerAuth()
   @UseGuards(AdminRoleGuard)
   @Get('users/:id')
-  getUser(@Param('id') id: string) {
-    return this.userManagementService.getUser(id);
+  getUser(@Param('id') id: string, @Req() req: any) {
+    return this.userManagementService.getUser(id, req?.user);
   }
 
   @ApiBearerAuth()
   @UseGuards(AdminRoleGuard)
   @Patch('users/:id')
-  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.userManagementService.updateUser(id, dto);
+  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto, @Req() req: any) {
+    return this.userManagementService.updateUser(id, dto, req?.user);
   }
 
   @ApiBearerAuth()
   @UseGuards(AdminRoleGuard)
   @Delete('users/:id')
-  deleteUser(@Param('id') id: string) {
-    return this.userManagementService.deleteUser(id);
+  deleteUser(@Param('id') id: string, @Req() req: any) {
+    return this.userManagementService.deleteUser(id, req?.user);
   }
 
   @ApiBearerAuth()
   @UseGuards(AdminRoleGuard)
   @Patch('users/:id/password')
-  replacePassword(@Param('id') id: string, @Body() dto: ReplacePasswordDto) {
-    return this.userManagementService.replacePassword(id, dto.password);
+  replacePassword(@Param('id') id: string, @Body() dto: ReplacePasswordDto, @Req() req: any) {
+    return this.userManagementService.replacePassword(id, dto.password, req?.user);
   }
 
   @ApiBearerAuth()
   @UseGuards(AdminRoleGuard)
   @Patch('users/:id/quotas/reset')
-  resetUsedQuotas(@Param('id') id: string) {
-    return this.userManagementService.resetUsedQuotas(id);
+  resetUsedQuotas(@Param('id') id: string, @Req() req: any) {
+    return this.userManagementService.resetUsedQuotas(id, req?.user);
   }
 
   @ApiBearerAuth()
   @UseGuards(AdminRoleGuard)
   @Patch('users/:id/status')
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
-    return this.userManagementService.updateStatus(id, dto.status);
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto, @Req() req: any) {
+    return this.userManagementService.updateStatus(id, dto.status, req?.user);
   }
 
   @ApiBearerAuth()

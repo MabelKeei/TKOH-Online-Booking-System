@@ -21,6 +21,7 @@ model User {
   usedQuotaEv      Int?          @default(0) @map("used_quota_ev")
   annualQuotaVenue Int?          @default(0) @map("annual_quota_venue")
   usedQuotaVenue   Int?          @default(0) @map("used_quota_venue")
+  isSystemHidden   Boolean       @default(false) @map("is_system_hidden")
   status           String        @default("Active")
   lastLoginTime    DateTime?     @map("last_login_time") @db.Timestamptz(6)
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)

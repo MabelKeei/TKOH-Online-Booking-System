@@ -581,6 +581,7 @@
             default-first-option
             placeholder="Select venue"
             style="width: 100%"
+            :disabled="isEditScheduleLocked"
             :teleported="false"
             :reserve-keyword="false"
             :filter-method="handleEditRoomFilter"
@@ -614,14 +615,15 @@
               value-format="YYYY-MM-DD"
               format="DD/MM/YYYY"
               placeholder="Select booking date"
+              :disabled="isEditScheduleLocked"
               :teleported="false"
               placement="bottom"
               popper-class="edit-booking-date-popper"
               :popper-options="editDatePopperOptions"
               style="width: 100%;"
             />
-            <span v-if="editAvailabilityFieldOk.date" class="availability-ok" aria-hidden="true">✓</span>
-            <span v-else-if="editAvailabilityFieldFail.date" class="availability-fail" aria-hidden="true">✕</span>
+            <span v-if="!isEditScheduleLocked && editAvailabilityFieldOk.date" class="availability-ok" aria-hidden="true">✓</span>
+            <span v-else-if="!isEditScheduleLocked && editAvailabilityFieldFail.date" class="availability-fail" aria-hidden="true">✕</span>
           </div>
         </el-form-item>
         <div class="form-row">
@@ -634,13 +636,14 @@
                 clearable
                 placeholder="Select start time"
                 style="width: 100%"
+                :disabled="isEditScheduleLocked"
                 :teleported="false"
                 popper-class="edit-time-select-popper"
               >
                 <el-option v-for="t in timeSlotOptions" :key="`edit-start-${t}`" :label="t" :value="t" />
               </el-select>
-              <span v-if="editAvailabilityFieldOk.startTime" class="availability-ok" aria-hidden="true">✓</span>
-              <span v-else-if="editAvailabilityFieldFail.startTime" class="availability-fail" aria-hidden="true">✕</span>
+              <span v-if="!isEditScheduleLocked && editAvailabilityFieldOk.startTime" class="availability-ok" aria-hidden="true">✓</span>
+              <span v-else-if="!isEditScheduleLocked && editAvailabilityFieldFail.startTime" class="availability-fail" aria-hidden="true">✕</span>
             </div>
           </el-form-item>
           <el-form-item label="End Time" prop="endTime" class="form-item-half">
@@ -653,18 +656,19 @@
                 clearable
                 placeholder="Select end time"
                 style="width: 100%"
+                :disabled="isEditScheduleLocked"
                 :teleported="false"
                 popper-class="edit-end-time-select-popper edit-time-select-popper"
                 @visible-change="handleEditEndTimeVisibleChange"
               >
                 <el-option v-for="t in editEndTimeOptions" :key="`edit-end-${t}`" :label="t" :value="t" />
               </el-select>
-              <span v-if="editAvailabilityFieldOk.endTime" class="availability-ok" aria-hidden="true">✓</span>
-              <span v-else-if="editAvailabilityFieldFail.endTime" class="availability-fail" aria-hidden="true">✕</span>
+              <span v-if="!isEditScheduleLocked && editAvailabilityFieldOk.endTime" class="availability-ok" aria-hidden="true">✓</span>
+              <span v-else-if="!isEditScheduleLocked && editAvailabilityFieldFail.endTime" class="availability-fail" aria-hidden="true">✕</span>
             </div>
           </el-form-item>
         </div>
-        <el-form-item label=" " class="edit-check-availability-item">
+        <el-form-item v-if="!isEditScheduleLocked" label=" " class="edit-check-availability-item">
           <el-button type="default" @click="checkEditAvailability" class="check-btn">
             CHECK AVAILABILITY
           </el-button>
@@ -908,6 +912,7 @@ const showEditDialog = ref(false)
 const cancelBookingId = ref(null)
 const currentEditBookingId = ref(null)
 const currentEditBookingApprovalStatus = ref('')
+const editScheduleSnapshot = ref({ room: '', date: '', startTime: '', endTime: '' })
 const editTeaSelectionSnapshot = ref({ teaOrWater: 'tea', serviceType: 'pot' })
 const dateRange = ref(null)
 const editEndTimeSelectRef = ref(null)
@@ -1114,6 +1119,8 @@ const isEditTeaServiceUnavailable = computed(() => {
 const isEditTopicLocked = computed(() =>
   String(currentEditBookingApprovalStatus.value || '').toLowerCase() === 'approved'
 )
+/** 普通用户不可改会场、日期与时间；管理员编辑自己的预订时仍可调整 */
+const isEditScheduleLocked = computed(() => !isAdmin.value)
 const promptList = ref([])
 const meetingRejectTemplateOptions = computed(() =>
   promptList.value.filter(item => item.category === 'reject_template' && item.templateType === 'meeting_approval')
@@ -1248,11 +1255,18 @@ const setEditAvailabilityFail = () => {
 
 const checkEditAvailability = async () => {
   clearEditAvailabilityIndicators()
-  if (!editForm.value.room || !editForm.value.date || !editForm.value.startTime || !editForm.value.endTime) {
+  const schedule = isEditScheduleLocked.value
+    ? editScheduleSnapshot.value
+    : {
+        date: editForm.value.date,
+        startTime: editForm.value.startTime,
+        endTime: editForm.value.endTime
+      }
+  if (!editForm.value.room || !schedule.date || !schedule.startTime || !schedule.endTime) {
     showNotice('Please fill in Room, Date, Start Time and End Time first', 'Warning')
     return
   }
-  if (editForm.value.startTime >= editForm.value.endTime) {
+  if (schedule.startTime >= schedule.endTime) {
     showNotice('End Time must be later than Start Time', 'Warning')
     return
   }
@@ -1266,9 +1280,9 @@ const checkEditAvailability = async () => {
   try {
     const result = await checkRoomAvailability(
       String(venue.id),
-      editForm.value.date,
-      editForm.value.startTime,
-      editForm.value.endTime,
+      schedule.date,
+      schedule.startTime,
+      schedule.endTime,
       currentEditBookingId.value != null ? String(currentEditBookingId.value) : undefined
     )
     if (result?.available) {
@@ -2048,7 +2062,10 @@ const confirmCancel = async () => {
 
   try {
     await toggleVenueManageBookingCancel(String(booking.id))
-    await loadBookings()
+    await Promise.all([
+      loadBookings(),
+      userStore.refreshSessionUser()
+    ])
     showCancelDialog.value = false
     showNotice(
       isBookingCanceledStatus(booking.status)
@@ -2072,11 +2089,18 @@ const editBooking = (id) => {
     teaOrWater: teaParsed.teaOrWater,
     serviceType: teaParsed.serviceType
   }
+  const bookingDate = parseDisplayDateToIso(booking.date)
+  editScheduleSnapshot.value = {
+    room: booking.room || '',
+    date: bookingDate,
+    startTime: startTime.trim(),
+    endTime: endTime.trim()
+  }
   editForm.value = {
     room: booking.room || '',
     topic: booking.topic || '',
     myNote: booking.myNote || booking.note || booking.remark || '',
-    date: parseDisplayDateToIso(booking.date),
+    date: bookingDate,
     startTime: startTime.trim(),
     endTime: endTime.trim(),
     teaServiceRequired: Boolean(booking.teaServiceRequired || booking.teaServiceSummary),
@@ -2095,15 +2119,22 @@ const confirmEditBooking = async () => {
     showNotice('Please enter Meeting / Event', 'Warning')
     return
   }
-  if (!editForm.value.date) {
+  const schedule = isEditScheduleLocked.value
+    ? editScheduleSnapshot.value
+    : {
+        date: editForm.value.date,
+        startTime: editForm.value.startTime,
+        endTime: editForm.value.endTime
+      }
+  if (!schedule.date) {
     showNotice('Please select Booking Date', 'Warning')
     return
   }
-  if (!editForm.value.startTime || !editForm.value.endTime) {
+  if (!schedule.startTime || !schedule.endTime) {
     showNotice('Please select Start Time and End Time', 'Warning')
     return
   }
-  if (editForm.value.startTime >= editForm.value.endTime) {
+  if (schedule.startTime >= schedule.endTime) {
     showNotice('End Time must be later than Start Time', 'Warning')
     return
   }
@@ -2120,12 +2151,12 @@ const confirmEditBooking = async () => {
   }
   try {
     await updateVenueManageBooking(String(id), {
-      room: editForm.value.room,
+      room: isEditScheduleLocked.value ? editScheduleSnapshot.value.room : editForm.value.room,
       topic: editForm.value.topic.trim(),
       myNote: editForm.value.myNote?.trim() || '',
-      date: editForm.value.date,
-      startTime: editForm.value.startTime,
-      endTime: editForm.value.endTime,
+      date: schedule.date,
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
       teaServiceRequired: Boolean(editForm.value.teaServiceRequired),
       teaOrWater: editForm.value.teaOrWater,
       serviceType: editForm.value.serviceType,

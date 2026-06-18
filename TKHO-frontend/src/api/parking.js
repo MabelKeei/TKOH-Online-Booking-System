@@ -1,7 +1,7 @@
 import request from '@/api/request'
 
-export function getEvCalendarAvailability(params) {
-  return request.get('/parking/calendar-availability', { params })
+export function getEvCalendarAvailability(params, config = {}) {
+  return request.get('/parking/calendar-availability', { params, ...config })
 }
 
 export function getEvAssignmentPreview(params) {

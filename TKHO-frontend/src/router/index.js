@@ -214,6 +214,14 @@ const routes = [
         meta: {
           title: 'Admin - Display Management'
         }
+      },
+      {
+        path: 'system-settings',
+        name: 'AdminSystemSettings',
+        component: () => import('../components/admin/SystemSettings.vue'),
+        meta: {
+          title: 'Admin - System Settings'
+        }
       }
     ],
     meta: {

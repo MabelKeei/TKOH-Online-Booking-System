@@ -6,8 +6,9 @@
         <div class="week-inner" :style="weekInnerStyle">
           <div class="week-header" :style="weekGridColumnsStyle">
             <div class="time-header" />
-            <div v-for="(day, index) in weekDays" :key="index" class="day-header">
+            <div v-for="(day, index) in weekDays" :key="index" class="day-header" :class="{ 'is-public-holiday': isDayPublicHoliday(day.fullDate) }">
               <div class="day-label">{{ day.name }} / {{ day.date }}</div>
+              <div v-if="getDayHolidayLabel(day.fullDate)" class="day-holiday-label">{{ getDayHolidayLabel(day.fullDate) }}</div>
             </div>
           </div>
 
@@ -22,7 +23,10 @@
               v-for="(day, dayIndex) in weekDays"
               :key="dayIndex"
               class="day-column"
-              :class="{ 'is-today': isToday(day.fullDate) }"
+              :class="{
+                'is-today': isToday(day.fullDate),
+                'is-public-holiday': isDayPublicHoliday(day.fullDate)
+              }"
             >
               <div
                 v-for="hour in timeSlots"
@@ -76,6 +80,10 @@ const props = defineProps({
   selectedRooms: {
     type: Array,
     default: () => []
+  },
+  publicHolidaysByDate: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -168,6 +176,14 @@ const weekDays = computed(() => {
 
 function dayDateKey (dayDate) {
   return formatDateISO(dayDate)
+}
+
+function getDayHolidayLabel (dayDate) {
+  return props.publicHolidaysByDate[dayDateKey(dayDate)] || ''
+}
+
+function isDayPublicHoliday (dayDate) {
+  return Boolean(getDayHolidayLabel(dayDate))
 }
 
 // 获取某一天的所有预订（根据选中的房间过滤）
@@ -607,6 +623,27 @@ function selectBooking(dayDate) {
 
 .day-column.is-today .time-cell:hover {
   background-color: #fef3c7;
+}
+
+.day-header.is-public-holiday,
+.day-column.is-public-holiday .time-cell {
+  background-color: #fef2f2;
+}
+
+.day-column.is-public-holiday .time-cell:hover {
+  background-color: #fee2e2;
+  cursor: not-allowed;
+}
+
+.day-holiday-label {
+  margin-top: 2px;
+  font-size: 0.625rem;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #b91c1c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .time-cell {

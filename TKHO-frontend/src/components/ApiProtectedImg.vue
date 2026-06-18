@@ -32,5 +32,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <img v-if="displaySrc" :src="displaySrc" :alt="alt" v-bind="$attrs" />
+  <img
+    v-if="displaySrc"
+    :src="displaySrc"
+    :alt="alt"
+    loading="lazy"
+    decoding="async"
+    v-bind="$attrs"
+  />
 </template>

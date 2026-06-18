@@ -155,6 +155,32 @@ model display_config_settings {
   updated_at   DateTime? @default(now()) @db.Timestamptz(6)
 }
 
+/// 系统全局配置键值表；由 Admin System Settings 页面维护。
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model system_settings {
+  /// 配置项键名（主键），如 user_inactive_after_months、hk_public_holidays_url。
+  setting_key   String   @id
+  /// 配置项当前值（字符串存储，由业务层解析）。
+  setting_value String?
+  /// 配置项说明，便于管理员理解用途。
+  description   String?
+  /// 该配置项最后更新时间。
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// 香港公众假期日历；从 1823 官方 JSON 同步，用于预订拦截与日历展示。
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model hk_public_holidays {
+  /// 公众假期日期（主键）。
+  holiday_date DateTime @id @db.Date
+  /// 假期英文名称，来自数据源 vevent.summary。
+  summary      String?
+  /// 数据源事件 UID（1823 iCal vevent.uid）。
+  source_uid   String?
+  /// 最近一次从远程数据源同步的时间。
+  synced_at    DateTime @default(now()) @db.Timestamptz(6)
+}
+
 model display_venue_rules {
   id              BigInt @id @default(autoincrement())
   venue_id        BigInt @unique

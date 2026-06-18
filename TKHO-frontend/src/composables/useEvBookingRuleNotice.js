@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { getPublicBookingNotices, getPrompts } from '@/api/promptManagement'
 import { extractNoticeBannerSummary } from '@/utils/noticeBannerSummary'
 import { getPromptContentByKey, hasPromptHtmlContent } from '@/utils/promptList'
+import { SILENT_ERROR } from '@/utils/requestOptions'
 
 export const EV_BOOKING_RULE_UPDATE_NOTICE_KEY = 'ev_booking_rule_update_notice'
 
@@ -28,7 +29,7 @@ export function useEvBookingRuleNotice () {
         /* 回退鉴权接口 */
       }
       if (!content) {
-        const data = await getPrompts({ category: 'system_fixed' })
+        const data = await getPrompts({ category: 'system_fixed' }, SILENT_ERROR)
         content = getPromptContentByKey(data, EV_BOOKING_RULE_UPDATE_NOTICE_KEY)
       }
       evRuleNoticeRaw.value = content

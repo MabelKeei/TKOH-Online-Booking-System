@@ -6,6 +6,7 @@ import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import * as bcrypt from 'bcryptjs';
 import { isSuperAdminRole } from './super-admin.util';
+import { assertUserCanAuthenticate } from './auth-user-status.util';
 
 @Injectable()
 export class AuthService {
@@ -80,9 +81,7 @@ export class AuthService {
     if (!user || !this.verifyPassword(dto.password, user.password)) {
       throw new UnauthorizedException('Incorrect account or password');
     }
-    if (user.status !== 'Active') {
-      throw new ForbiddenException('Account is not active');
-    }
+    assertUserCanAuthenticate(user.status);
     const roleName = user.access_roles?.role_name ?? null;
     const isSuperAdmin = isSuperAdminRole(roleName);
     if (dto.system === 'admin' && !this.canAccessAdminPortal(roleName)) {
@@ -117,6 +116,7 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
+    assertUserCanAuthenticate(user.status);
 
     return {
       user: this.normalizeUser(user, auth.system || 'room'),

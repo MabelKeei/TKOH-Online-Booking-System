@@ -43,23 +43,35 @@
             >
               <!-- 表头 -->
               <div class="grid-header">
-                <div v-for="day in week.days" :key="day.date" class="day-header" :class="{ 'is-today': day.isToday }">
+                <div v-for="day in week.days" :key="day.date" class="day-header" :class="{ 'is-today': day.isToday, 'is-public-holiday': day.isHoliday }">
                   <div class="day-name">{{ day.dayName }}</div>
                   <div class="day-number">{{ day.dayNumber }}</div>
                 </div>
               </div>
 
-              <!-- 时间段行 -->
-              <div v-for="period in timePeriods" :key="period.id" class="time-row">
-                <div class="time-label">{{ period.period }}</div>
-                <div
-                  v-for="day in week.days"
-                  :key="`${day.date}-${period.id}`"
-                  class="time-cell"
-                  :class="getAvailabilityClass(day.date, period.id)"
-                  @click="selectTimeSlot(day.date, period.id)"
-                >
-                  <div class="availability">{{ getAvailabilityText(day.date, period.id, period.period) }}</div>
+              <!-- 时间段行 + 假期列标题（居中仅显示一次） -->
+              <div class="week-time-body">
+                <div v-for="period in timePeriods" :key="period.id" class="time-row">
+                  <div class="time-label">{{ period.period }}</div>
+                  <div
+                    v-for="day in week.days"
+                    :key="`${day.date}-${period.id}`"
+                    class="time-cell"
+                    :class="[getAvailabilityClass(day.date, period.id), { 'is-public-holiday': day.isHoliday }]"
+                    @click="selectTimeSlot(day.date, period.id)"
+                  >
+                    <div v-if="!day.isHoliday" class="availability">{{ getAvailabilityText(day.date, period.id, period.period) }}</div>
+                  </div>
+                </div>
+
+                <div class="week-holiday-overlays">
+                  <div
+                    v-for="day in week.days"
+                    :key="`holiday-overlay-${day.date}`"
+                    class="week-holiday-overlay-cell"
+                  >
+                    <span v-if="day.holidayLabel" class="week-holiday-label">{{ day.holidayLabel }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -77,6 +89,7 @@
       :available-slots="bookings"
       :booking-window-start="evBookingWindow.currentStartDate"
       :booking-window-end="evBookingWindow.currentEndDate"
+      :public-holiday-dates="holidaysByDate"
       :submitting="bookingSubmitting"
       :refresh-calendar-availability="loadCalendarAvailability"
       @close="closeDialog"
@@ -130,13 +143,18 @@ import AppHeader from '../components/AppHeader.vue'
 import EVBookingDialog from '../components/EVBookingDialog.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
 import { useEvBookingRuleNotice } from '@/composables/useEvBookingRuleNotice'
+import { useHkPublicHolidays } from '@/composables/useHkPublicHolidays'
+import { useUserStore } from '@/stores/user'
 import { getEvCalendarAvailability, createEvBooking } from '@/api/parking'
 import { fetchActiveEvTimePeriods } from '@/utils/evTimePeriods'
-import { fetchEvBookingWindow } from '@/utils/evBookingWindow'
+import { fetchEvBookingWindow, invalidateEvBookingWindowCache } from '@/utils/evBookingWindow'
 import { resolveEvVisibleBookingRange } from '@/utils/evBookingVisibleRange'
 import { todayYmdInAppTimeZone } from '@/utils/appTimezone'
 import { isEvSlotPast } from '@/utils/evSlotPast'
+import { SILENT_ERROR } from '@/utils/requestOptions'
 import '@/styles/rich-content.css'
+
+const userStore = useUserStore()
 
 // 对话框状态
 const dialogVisible = ref(false)
@@ -149,6 +167,12 @@ const {
   hasEvRuleNotice,
   loadEvRuleNotice
 } = useEvBookingRuleNotice()
+const {
+  holidaysByDate,
+  loadHolidays,
+  isPublicHoliday,
+  getHolidaySummary
+} = useHkPublicHolidays()
 const selectedDate = ref('')
 const selectedPeriod = ref('')
 const statusDialog = ref({
@@ -170,6 +194,10 @@ const evBookingWindow = ref({
 
 const loadEvBookingWindow = async () => {
   evBookingWindow.value = await fetchEvBookingWindow()
+  const { currentStartDate, currentEndDate } = evBookingWindow.value
+  if (currentStartDate && currentEndDate) {
+    await loadHolidays(currentStartDate, currentEndDate)
+  }
 }
 
 const evWindowRange = computed(() => ({
@@ -204,16 +232,21 @@ function applyEvWindowFromSyncDetail (detail) {
     currentStartDate: detail.currentStartDate,
     currentEndDate: detail.currentEndDate
   }
+  invalidateEvBookingWindowCache()
   availabilityLoaded.value = false
+  void loadHolidays(detail.currentStartDate, detail.currentEndDate)
   return true
 }
 
 /** 后台标签页降频；Admin 发布仍靠 BroadcastChannel / storage 即时同步 */
 const WINDOW_POLL_MS = 60_000
 /** 日历余量自动刷新（标签可见时），他人抢订后网格可变为 Full */
-const CALENDAR_POLL_MS = 10_000
+const CALENDAR_POLL_MS_NORMAL = 10_000
+const CALENDAR_POLL_MS_SLOW = 30_000
 let windowPollTimer = null
 let calendarPollTimer = null
+let calendarPollDelayMs = CALENDAR_POLL_MS_NORMAL
+let calendarPollFailures = 0
 let windowPollInFlight = false
 let calendarPollInFlight = false
 let windowSyncChannel = null
@@ -264,16 +297,36 @@ async function pollCalendarAvailabilityFromServer () {
   if (calendarPollInFlight) return
   calendarPollInFlight = true
   try {
-    await loadCalendarAvailability()
-  } catch {
-    /* 下一轮轮询重试 */
+    const ok = await loadCalendarAvailability()
+    if (ok) {
+      calendarPollFailures = 0
+      calendarPollDelayMs = CALENDAR_POLL_MS_NORMAL
+    } else {
+      calendarPollFailures += 1
+      if (calendarPollFailures >= 2) {
+        calendarPollDelayMs = CALENDAR_POLL_MS_SLOW
+      }
+    }
   } finally {
     calendarPollInFlight = false
   }
 }
 
+function scheduleCalendarPoll () {
+  if (calendarPollTimer) {
+    clearTimeout(calendarPollTimer)
+    calendarPollTimer = null
+  }
+  calendarPollTimer = setTimeout(async () => {
+    await pollCalendarAvailabilityFromServer()
+    scheduleCalendarPoll()
+  }, calendarPollDelayMs)
+}
+
 function onDocumentVisibilityChange () {
   if (document.visibilityState === 'visible') {
+    calendarPollFailures = 0
+    calendarPollDelayMs = CALENDAR_POLL_MS_NORMAL
     void pollEvBookingWindowFromServer()
     void pollCalendarAvailabilityFromServer()
   }
@@ -281,7 +334,7 @@ function onDocumentVisibilityChange () {
 
 function startEvBookingWindowWatchers () {
   windowPollTimer = setInterval(pollEvBookingWindowFromServer, WINDOW_POLL_MS)
-  calendarPollTimer = setInterval(pollCalendarAvailabilityFromServer, CALENDAR_POLL_MS)
+  scheduleCalendarPoll()
   window.addEventListener('storage', onWindowStorageSync)
   document.addEventListener('visibilitychange', onDocumentVisibilityChange)
   try {
@@ -298,9 +351,11 @@ function stopEvBookingWindowWatchers () {
     windowPollTimer = null
   }
   if (calendarPollTimer) {
-    clearInterval(calendarPollTimer)
+    clearTimeout(calendarPollTimer)
     calendarPollTimer = null
   }
+  calendarPollDelayMs = CALENDAR_POLL_MS_NORMAL
+  calendarPollFailures = 0
   window.removeEventListener('storage', onWindowStorageSync)
   document.removeEventListener('visibilitychange', onDocumentVisibilityChange)
   if (windowSyncChannel) {
@@ -343,7 +398,9 @@ const weeks = computed(() => {
       date: ymd,
       dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
       dayNumber: String(date.getDate()).padStart(2, '0'),
-      isToday: ymd === todayYmd
+      isToday: ymd === todayYmd,
+      isHoliday: Boolean(holidaysByDate.value[ymd]),
+      holidayLabel: holidaysByDate.value[ymd] || ''
     })
   }
 
@@ -376,6 +433,9 @@ function getAvailabilityData(date, period) {
   if (!isDateInEvWindow(`${date}T12:00:00`)) {
     return { available: 0, total: 0, outOfWindow: true }
   }
+  if (isPublicHoliday(date)) {
+    return { available: 0, total: 0, isHoliday: true }
+  }
   const data = resolveSlotAvailability(date, period)
   if (isSlotPast(date, period)) {
     return { ...data, isPast: true }
@@ -387,6 +447,7 @@ function getAvailabilityData(date, period) {
 function getAvailabilityText(date, period, periodLabel) {
   const data = getAvailabilityData(date, period)
   if (data.loading) return ''
+  if (data.isHoliday) return ''
   if (data.outOfWindow) return 'Closed'
   if (data.available === 0) {
     return 'Full'
@@ -399,6 +460,7 @@ function getAvailabilityText(date, period, periodLabel) {
 function getAvailabilityClass(date, period) {
   const data = getAvailabilityData(date, period)
   if (data.loading) return 'is-loading'
+  if (data.isHoliday) return 'is-holiday'
   if (data.outOfWindow) {
     return 'is-closed'
   }
@@ -418,6 +480,17 @@ async function selectTimeSlot (date, period) {
       visible: true,
       type: '',
       message: 'This date is outside the EV booking date range'
+    }
+    return
+  }
+  if (isPublicHoliday(date)) {
+    const label = getHolidaySummary(date)
+    statusDialog.value = {
+      visible: true,
+      type: '',
+      message: label
+        ? `Booking is not allowed on Hong Kong public holidays: ${label}`
+        : 'Booking is not allowed on Hong Kong public holidays'
     }
     return
   }
@@ -464,22 +537,24 @@ const loadCalendarAvailability = async () => {
   if (!startYmd || !endYmd) {
     bookings.value = {}
     availabilityLoaded.value = false
-    return
+    return false
   }
   try {
     const data = await getEvCalendarAvailability({
       startDate: startYmd,
       endDate: endYmd
-    })
+    }, SILENT_ERROR)
     totalParkingSpaces.value = Number(data?.totalSpaces) || 0
     bookings.value = data?.availability && typeof data.availability === 'object'
       ? { ...data.availability }
       : {}
     availabilityLoaded.value = true
+    return true
   } catch {
     totalParkingSpaces.value = 0
     bookings.value = {}
     availabilityLoaded.value = true
+    return false
   }
 }
 
@@ -538,7 +613,10 @@ async function handleBookingConfirm(bookingData) {
       bookingDate: bookingData.date,
       slotId: bookingData.slotId ? String(bookingData.slotId) : undefined
     })
-    await loadCalendarAvailability()
+    await Promise.all([
+      loadCalendarAvailability(),
+      userStore.refreshSessionUser()
+    ])
     closeDialog()
     const space = res?.booking?.evSpace || ''
     statusDialog.value = {
@@ -749,6 +827,38 @@ onUnmounted(() => {
   border: 2px solid #00723a;
   border-radius: 6px;
   overflow: hidden;
+  position: relative;
+}
+
+.week-time-body {
+  position: relative;
+}
+
+.week-holiday-overlays {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.week-holiday-overlay-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  min-width: 0;
+}
+
+.week-holiday-label {
+  color: #b91c1c;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.35;
+  font-size: clamp(0.75rem, 1.8vw, 1rem);
+  max-width: min(1100px, 96%);
+  word-break: break-word;
 }
 
 .grid-header {
@@ -851,6 +961,26 @@ onUnmounted(() => {
 .time-cell.is-closed .availability {
   color: #6b7280;
   font-weight: 700;
+}
+
+.time-cell.is-holiday,
+.time-cell.is-public-holiday {
+  background-color: #fef2f2;
+  cursor: not-allowed;
+}
+
+.time-cell.is-holiday:hover,
+.time-cell.is-public-holiday:hover {
+  background-color: #fee2e2;
+}
+
+.day-header.is-public-holiday {
+  background-color: #b91c1c;
+  color: #ffffff;
+}
+
+.day-header.is-public-holiday.is-today {
+  background-color: #991b1b;
 }
 
 .time-cell.is-past {

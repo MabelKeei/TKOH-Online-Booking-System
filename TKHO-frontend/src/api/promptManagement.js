@@ -1,7 +1,7 @@
 import request from '@/api/request'
 
-export function getPrompts(params = {}) {
-  return request.get('/prompt-management/prompts', { params })
+export function getPrompts(params = {}, config = {}) {
+  return request.get('/prompt-management/prompts', { params, ...config })
 }
 
 /** 登录页：未登录可读 EV / Venue Points to Note */

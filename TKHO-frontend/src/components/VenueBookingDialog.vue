@@ -391,6 +391,10 @@ const props = defineProps({
   venueList: {
     type: Array,
     default: () => []
+  },
+  publicHolidayDates: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -675,7 +679,9 @@ const isTeaServiceUnavailable = computed(() => {
 function disabledDate(date) {
   const today = new Date()
   today.setHours(0, 0, 0, 0) // 重置时间为0点，确保今天可选
-  return date < today
+  if (date < today) return true
+  const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  return Boolean(props.publicHolidayDates[ymd])
 }
 
 async function checkAvailability () {

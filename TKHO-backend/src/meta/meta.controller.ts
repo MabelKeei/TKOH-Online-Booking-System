@@ -1,11 +1,16 @@
-import { Controller, Get, Req } from '@nestjs/common';
+import { Controller, Get, Query, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { HkPublicHolidaysService } from '../system-settings/hk-public-holidays.service';
+import { HkPublicHolidaysQueryDto } from './dto/hk-public-holidays-query.dto';
 import { MetaService } from './meta.service';
 
 @ApiTags('meta')
 @Controller('api/meta')
 export class MetaController {
-  constructor(private readonly metaService: MetaService) {}
+  constructor(
+    private readonly metaService: MetaService,
+    private readonly hkPublicHolidaysService: HkPublicHolidaysService,
+  ) {}
 
   @Get('users')
   users(@Req() req: any) {
@@ -20,5 +25,10 @@ export class MetaController {
   @Get('venues')
   venues() {
     return this.metaService.venues();
+  }
+
+  @Get('hk-public-holidays')
+  hkPublicHolidays(@Query() query: HkPublicHolidaysQueryDto) {
+    return this.hkPublicHolidaysService.listHolidays(query.from, query.to);
   }
 }

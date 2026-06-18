@@ -851,7 +851,10 @@ const confirmCancel = async () => {
     await cancelEvManageBooking(String(id))
     showCancelDialog.value = false
     cancelBookingId.value = null
-    await loadBookings()
+    await Promise.all([
+      loadBookings(),
+      userStore.refreshSessionUser()
+    ])
     showNotice('EV booking cancelled successfully!', 'Success')
   } catch (error) {
     showNotice(getErrorMessage(error, 'Failed to cancel booking'), 'Error')

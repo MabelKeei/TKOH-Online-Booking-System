@@ -12,6 +12,8 @@ import { EvRedisCacheService } from '../redis/ev-redis-cache.service';
 import { OccupyDto } from './dto/occupy.dto';
 import { CreateEvBookingDto } from './dto/create-ev-booking.dto';
 import { isSuperAdminAuth } from '../auth/super-admin.util';
+import { consumeEvQuota } from '../common/user-quota';
+import { HkPublicHolidaysService } from '../system-settings/hk-public-holidays.service';
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed'] as const;
 const MAX_BOOKING_SLOT_ATTEMPTS = 5;
@@ -35,6 +37,7 @@ export class ParkingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly evCache: EvRedisCacheService,
+    private readonly hkPublicHolidaysService: HkPublicHolidaysService,
   ) {}
 
   private toDateOnlyString(date: Date): string {
@@ -432,6 +435,7 @@ export class ParkingService {
     const licensePlateId = BigInt(dto.licensePlateId);
     const periodId = BigInt(dto.periodId);
     const { dateKey, date: bookingDate } = this.parseBookingDateYmd(dto.bookingDate);
+    await this.hkPublicHolidaysService.assertNotPublicHoliday(bookingDate);
     const preferredSlotId =
       dto.slotId != null && /^\d+$/.test(String(dto.slotId).trim())
         ? BigInt(String(dto.slotId).trim())
@@ -460,6 +464,8 @@ export class ParkingService {
             throw new ConflictException('This time slot is fully booked.');
           }
 
+          await consumeEvQuota(tx, userId);
+
           const now = new Date();
 
           return tx.evBookings.create({
@@ -487,7 +493,11 @@ export class ParkingService {
           booking: this.mapBooking(booking),
         };
       } catch (error) {
-        if (error instanceof ConflictException || error instanceof BadRequestException) {
+        if (
+          error instanceof ConflictException ||
+          error instanceof BadRequestException ||
+          error instanceof ForbiddenException
+        ) {
           throw error;
         }
         if (this.isUniqueViolation(error)) {

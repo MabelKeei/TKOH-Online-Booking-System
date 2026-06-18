@@ -168,6 +168,10 @@ const props = defineProps({
   refreshCalendarAvailability: {
     type: Function,
     default: null
+  },
+  publicHolidayDates: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -454,7 +458,9 @@ function disabledDate (date) {
   const start = createDateAtMidnight(new Date(`${startRaw}T00:00:00`))
   const end = createDateAtMidnight(new Date(`${endRaw}T00:00:00`))
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return true
-  return day < start || day > end
+  if (day < start || day > end) return true
+  const ymd = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
+  return Boolean(props.publicHolidayDates[ymd])
 }
 
 // 关闭对话框

@@ -1,6 +1,9 @@
 #!/bin/bash
 # TKHO 在线预订系统 — Docker 蓝绿部署脚本
-# 用法: ./deploy.sh [blue|green|switch|status|cleanup|help] [blue|green]
+# 用法: ./deploy.sh [blue|green|switch|down-blue|down-green|status|cleanup|help] [blue|green]
+#
+# blue / green：仅构建并启动对应环境，不拆除对侧、不自动切流量。
+# 验证通过后请自行：./deploy.sh switch <blue|green>，再 ./deploy.sh down-<对侧> 清理旧环境。
 
 set -e
 
@@ -74,22 +77,23 @@ apply_nginx_env_conf() {
 }
 
 deploy_blue() {
-    log_info "部署蓝环境 ..."
-    $COMPOSE_CMD -f docker-compose.green.yml down 2>/dev/null || true
-    apply_nginx_env_conf blue
+    log_info "部署蓝环境（保留绿环境，不切流量）..."
     $COMPOSE_CMD -f docker-compose.base.yml -f docker-compose.redis.yml -f docker-compose.blue.yml up -d --build
     log_info "等待服务就绪（约 60 秒）..."
     sleep 60
     log_success "蓝环境部署完成"
+    log_warning "流量未切换。验证通过后执行: ./deploy.sh switch blue"
+    log_warning "确认无问题后可清理绿环境: ./deploy.sh down-green"
 }
 
 deploy_green() {
-    log_info "部署绿环境 ..."
-    $COMPOSE_CMD -f docker-compose.blue.yml down 2>/dev/null || true
+    log_info "部署绿环境（保留蓝环境，不切流量）..."
     $COMPOSE_CMD -f docker-compose.base.yml -f docker-compose.redis.yml -f docker-compose.green.yml up -d --build
     log_info "等待服务就绪（约 60 秒）..."
     sleep 60
     log_success "绿环境部署完成"
+    log_warning "流量未切换。验证通过后执行: ./deploy.sh switch green"
+    log_warning "确认无问题后可清理蓝环境: ./deploy.sh down-blue"
 }
 
 switch_to_blue() {
@@ -106,6 +110,18 @@ switch_to_green() {
         exit 1
     fi
     bash ./switch-nginx-env.sh green
+}
+
+down_blue() {
+    log_info "停止并移除蓝环境容器 ..."
+    $COMPOSE_CMD -f docker-compose.blue.yml down
+    log_success "蓝环境已停止（数据卷保留）"
+}
+
+down_green() {
+    log_info "停止并移除绿环境容器 ..."
+    $COMPOSE_CMD -f docker-compose.green.yml down
+    log_success "绿环境已停止（数据卷保留）"
 }
 
 init_ssl_certs() {
@@ -171,7 +187,6 @@ main() {
             start_redis_service
             deploy_blue
             start_nginx
-            switch_to_blue
             show_status
             ;;
         green)
@@ -182,7 +197,6 @@ main() {
             start_redis_service
             deploy_green
             start_nginx
-            switch_to_green
             show_status
             ;;
         switch)
@@ -193,6 +207,16 @@ main() {
                 green) switch_to_green ;;
                 *) log_error "无效环境: $2"; exit 1 ;;
             esac
+            show_status
+            ;;
+        down-blue)
+            check_dependencies
+            down_blue
+            show_status
+            ;;
+        down-green)
+            check_dependencies
+            down_green
             show_status
             ;;
         status)
@@ -206,12 +230,21 @@ main() {
         *)
             echo "TKHO 在线预订系统 — Docker 蓝绿部署"
             echo ""
-            echo "  $0 blue              # 首次部署蓝环境"
-            echo "  $0 green             # 部署绿环境"
-            echo "  $0 switch green      # 切换流量（调用 switch-nginx-env.sh）"
+            echo "  $0 blue              # 仅构建并启动蓝环境（不拆绿、不切流量）"
+            echo "  $0 green             # 仅构建并启动绿环境（不拆蓝、不切流量）"
+            echo "  $0 switch blue       # 切换入口流量到蓝环境"
+            echo "  $0 switch green      # 切换入口流量到绿环境"
+            echo "  $0 down-blue         # 停止并移除蓝环境容器"
+            echo "  $0 down-green        # 停止并移除绿环境容器"
             echo "  ./switch-nginx-env.sh blue|green|status  # 仅切换 Nginx 流量"
             echo "  $0 status            # 查看状态"
-            echo "  $0 cleanup           # 停止所有容器"
+            echo "  $0 cleanup           # 停止所有容器（含数据库等）"
+            echo ""
+            echo "推荐发布流程（当前绿环境在线时发新版到蓝）:"
+            echo "  1. $0 blue                    # 部署蓝，绿继续服务"
+            echo "  2. 在蓝环境验证 / migrate deploy"
+            echo "  3. $0 switch blue             # 切流量到蓝"
+            echo "  4. $0 down-green              # 确认无误后清理绿"
             echo ""
             echo "HTTP:  http://localhost:3200"
             echo "HTTPS: https://localhost:3243"

@@ -186,6 +186,19 @@ const showStatusDialog = (message, type = 'warning') => {
   statusDialogStore.show(message, type)
 }
 
+const resolveLoginErrorMessage = (error) => {
+  const payload = error?.response?.data
+  const raw = payload?.message
+  const message = Array.isArray(raw) ? raw[0] : raw
+  if (typeof message === 'string' && message.trim()) {
+    return message.trim()
+  }
+  if (error?.response?.status === 403) {
+    return 'Account is not active. Please contact the administrator.'
+  }
+  return error?.message || 'Login failed'
+}
+
 const handleLogin = async () => {
   const corpId = loginForm.corpId?.trim()
   const password = loginForm.password?.trim()
@@ -224,8 +237,7 @@ const handleLogin = async () => {
       router.push('/login')
     }
   } catch (error) {
-    const msg = error?.response?.data?.message || error.message || 'Login failed'
-    showStatusDialog(msg, 'error')
+    showStatusDialog(resolveLoginErrorMessage(error), 'error')
   } finally {
     loading.value = false
   }

@@ -29,12 +29,18 @@
           empty: !hasBookings(day, 'prev'),
           'has-bookings': hasBookings(day, 'prev'),
           'has-more-trigger': getHiddenBookingCount(day, 'prev') > 0,
+          'is-public-holiday': isPublicHolidayCell(day, 'prev'),
           'first-col': (index % 7) === 0,
           'last-col': (index % 7) === 6
         }"
         @click="selectDate(day, 'prev')"
       >
         <span class="date-number">{{ day }}</span>
+        <span
+          v-if="getHolidayLabel(day, 'prev')"
+          class="holiday-label"
+          :title="getHolidayLabel(day, 'prev')"
+        >{{ getHolidayLabel(day, 'prev') }}</span>
         <div
           v-if="hasBookings(day, 'prev')"
           class="month-booking-list"
@@ -79,12 +85,18 @@
           'today': isToday(day),
           'has-bookings': hasBookings(day, 'current'),
           'has-more-trigger': getHiddenBookingCount(day, 'current') > 0,
+          'is-public-holiday': isPublicHolidayCell(day, 'current'),
           'first-col': ((prevMonthDays.length + index) % 7) === 0,
           'last-col': ((prevMonthDays.length + index) % 7) === 6
         }"
         @click="selectDate(day, 'current')"
       >
         <span class="date-number">{{ day }}</span>
+        <span
+          v-if="getHolidayLabel(day, 'current')"
+          class="holiday-label"
+          :title="getHolidayLabel(day, 'current')"
+        >{{ getHolidayLabel(day, 'current') }}</span>
         <div
           v-if="hasBookings(day, 'current')"
           class="month-booking-list"
@@ -129,12 +141,18 @@
           empty: !hasBookings(day, 'next'),
           'has-bookings': hasBookings(day, 'next'),
           'has-more-trigger': getHiddenBookingCount(day, 'next') > 0,
+          'is-public-holiday': isPublicHolidayCell(day, 'next'),
           'first-col': ((prevMonthDays.length + daysInMonth + index) % 7) === 0,
           'last-col': ((prevMonthDays.length + daysInMonth + index) % 7) === 6
         }"
         @click="selectDate(day, 'next')"
       >
         <span class="date-number">{{ day }}</span>
+        <span
+          v-if="getHolidayLabel(day, 'next')"
+          class="holiday-label"
+          :title="getHolidayLabel(day, 'next')"
+        >{{ getHolidayLabel(day, 'next') }}</span>
         <div
           v-if="hasBookings(day, 'next')"
           class="month-booking-list"
@@ -184,7 +202,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import CalendarBookingPopover from './CalendarBookingPopover.vue'
 import MonthDayMorePopover from './MonthDayMorePopover.vue'
-import { isSameCalendarDay, getCalendarBookingBlockStyle } from '@/utils/venueCalendarApi'
+import { isSameCalendarDay, getCalendarBookingBlockStyle, formatDateISO } from '@/utils/venueCalendarApi'
 
 const props = defineProps({
   currentDate: {
@@ -198,6 +216,10 @@ const props = defineProps({
   selectedRooms: {
     type: Array,
     default: () => []
+  },
+  publicHolidaysByDate: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -456,6 +478,15 @@ function resolveCellDate (day, segment = 'current') {
   return new Date(y, m, day)
 }
 
+function getHolidayLabel (day, segment = 'current') {
+  const ymd = formatDateISO(resolveCellDate(day, segment))
+  return props.publicHolidaysByDate[ymd] || ''
+}
+
+function isPublicHolidayCell (day, segment = 'current') {
+  return Boolean(getHolidayLabel(day, segment))
+}
+
 function getBookingsForDay (day, segment = 'current') {
   const targetDate = resolveCellDate(day, segment)
   const dayBookings = props.bookings.filter(booking =>
@@ -708,6 +739,36 @@ watch(
 
 .date-cell.today {
   background-color: #fffbeb;
+}
+
+.date-cell.is-public-holiday {
+  background-color: #fef2f2;
+}
+
+.date-cell.is-public-holiday:hover {
+  background-color: #fee2e2;
+  box-shadow: inset 0 0 0 1px #fca5a5;
+}
+
+.date-cell.is-public-holiday.today {
+  background-color: #fef2f2;
+}
+
+.holiday-label {
+  position: relative;
+  z-index: 1;
+  grid-row: 1;
+  margin-top: 1.15rem;
+  font-size: 0.625rem;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #b91c1c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }
 
 .date-cell.first-col {

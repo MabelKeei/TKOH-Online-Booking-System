@@ -1,5 +1,10 @@
 import { getEvTimePeriods } from '@/api/evManagement'
 import { getMockEVTimePeriods } from '@/mocks/mockData'
+import { getCachedOrFetch } from '@/utils/apiCache'
+import { SILENT_ERROR } from '@/utils/requestOptions'
+
+const EV_TIME_PERIODS_CACHE_KEY = 'ev-time-periods-active'
+const EV_TIME_PERIODS_CACHE_TTL_MS = 5 * 60 * 1000
 
 export function formatTimePeriodOptionLabel(item) {
   const name = item?.period || ''
@@ -22,7 +27,11 @@ export function mapEvTimePeriodForUi(row) {
 
 export async function fetchActiveEvTimePeriods() {
   try {
-    const data = await getEvTimePeriods()
+    const data = await getCachedOrFetch(
+      EV_TIME_PERIODS_CACHE_KEY,
+      EV_TIME_PERIODS_CACHE_TTL_MS,
+      () => getEvTimePeriods(SILENT_ERROR)
+    )
     const list = Array.isArray(data) ? data : []
     return list
       .filter((item) => String(item.status || 'active').toLowerCase() === 'active')

@@ -17,6 +17,7 @@ import { PromptManagementModule } from './prompt-management/prompt-management.mo
 import { UserManagementModule } from './user-management/user-management.module';
 import { LicensePlateManagementModule } from './license-plate-management/license-plate-management.module';
 import { DisplayManagementModule } from './display-management/display-management.module';
+import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { MeetingApprovalModule } from './meeting-approval/meeting-approval.module';
 import { AdminPendingModule } from './admin-pending/admin-pending.module';
 import { VenueCalendarModule } from './venue-calendar/venue-calendar.module';
@@ -39,6 +40,7 @@ import { VenueCalendarModule } from './venue-calendar/venue-calendar.module';
     UserManagementModule,
     LicensePlateManagementModule,
     DisplayManagementModule,
+    SystemSettingsModule,
     MeetingApprovalModule,
     AdminPendingModule,
     VenueCalendarModule,

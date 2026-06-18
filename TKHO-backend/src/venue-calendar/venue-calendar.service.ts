@@ -6,9 +6,11 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { HkPublicHolidaysService } from '../system-settings/hk-public-holidays.service';
 import { CreateVenueCalendarBookingDto } from './dto/create-venue-calendar-booking.dto';
 import { UpdateVenueCalendarBookingDto } from './dto/update-venue-calendar-booking.dto';
 import { isSuperAdminAuth } from '../auth/super-admin.util';
+import { consumeVenueQuota, releaseVenueQuota } from '../common/user-quota';
 
 const bookingInclude = {
   venue: { select: { id: true, name: true, color: true, tab: true, venueType: true } },
@@ -22,7 +24,10 @@ type BookingRow = Prisma.VenueBookingsGetPayload<{ include: typeof bookingInclud
 
 @Injectable()
 export class VenueCalendarService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly hkPublicHolidaysService: HkPublicHolidaysService,
+  ) {}
 
   private parseUserId(authSub: unknown): bigint {
     const raw = String(authSub ?? '').trim();
@@ -412,6 +417,7 @@ export class VenueCalendarService {
     const startTime = this.parseTimeHm(dto.startTime);
     const endTime = this.parseTimeHm(dto.endTime);
 
+    await this.hkPublicHolidaysService.assertNotPublicHoliday(bookingDate);
     await this.assertSlotAvailable(venue.id, bookingDate, startTime, endTime);
 
     const notes = this.buildNotesPayload(dto);
@@ -419,6 +425,8 @@ export class VenueCalendarService {
     const teaRequired = Boolean(dto.teaServiceRequired);
 
     const created = await this.prisma.$transaction(async (tx) => {
+      await consumeVenueQuota(tx, userId);
+
       const row = await tx.venueBookings.create({
         data: {
           venueId: venue.id,
@@ -490,6 +498,7 @@ export class VenueCalendarService {
       ? this.parseTimeHm(dto.endTime)
       : existing.endTime!;
 
+    await this.hkPublicHolidaysService.assertNotPublicHoliday(bookingDate);
     await this.assertSlotAvailable(
       venue.id,
       bookingDate,
@@ -529,9 +538,17 @@ export class VenueCalendarService {
     });
     if (!existing) throw new NotFoundException('Booking not found');
 
-    await this.prisma.venueBookings.update({
-      where: { id: bookingId },
-      data: { status: 'cancelled' },
+    const wasActive = !String(existing.status ?? '').toLowerCase().includes('cancel');
+
+    await this.prisma.$transaction(async (tx) => {
+      if (wasActive && existing.reservedByUserId != null) {
+        await releaseVenueQuota(tx, existing.reservedByUserId);
+      }
+
+      await tx.venueBookings.update({
+        where: { id: bookingId },
+        data: { status: 'cancelled' },
+      });
     });
 
     return { ok: true };

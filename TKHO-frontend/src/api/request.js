@@ -11,10 +11,21 @@ const showStatusDialog = (message, type = 'error') => {
   useStatusDialogStore().show(message, type)
 }
 
+const NETWORK_ERROR_MESSAGE = 'Network error, please check your connection'
+const NETWORK_ERROR_DEBOUNCE_MS = 8000
+let lastNetworkErrorAt = 0
+
+const showNetworkErrorDebounced = () => {
+  const now = Date.now()
+  if (now - lastNetworkErrorAt < NETWORK_ERROR_DEBOUNCE_MS) return
+  lastNetworkErrorAt = now
+  showStatusDialog(NETWORK_ERROR_MESSAGE, 'error')
+}
+
 // 创建 axios 实例
 const request = axios.create({
   baseURL: apiBaseURL,
-  timeout: 10000,
+  timeout: 20000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -77,7 +88,10 @@ const isEvManageBookingRequest = (config) => {
 const isAdminPendingCountsRequest = (config) =>
   (config?.url || '').includes('/admin/pending-counts')
 
+const isSilentRequest = (config) => config?.silentError === true
+
 const skipsGlobalErrorDialog = (config) =>
+  isSilentRequest(config) ||
   isLoginRequest(config) ||
   isPublicPointsToNoteRequest(config) ||
   isPublicBookingNoticesRequest(config) ||
@@ -154,7 +168,7 @@ request.interceptors.response.use(
           }
       }
     } else if (!skipGlobalDialog) {
-      showStatusDialog('Network error, please check your connection', 'error')
+      showNetworkErrorDebounced()
     }
     return Promise.reject(error)
   }

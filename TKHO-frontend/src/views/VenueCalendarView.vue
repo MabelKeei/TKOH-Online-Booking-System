@@ -202,6 +202,7 @@
             :current-date="currentDate"
             :bookings="calendarBookings"
             :selected-rooms="selectedRoomsList"
+            :public-holidays-by-date="holidaysByDate"
             @day-click="selectDay"
           />
           <div v-if="selectedRoomsList.length === 0" class="empty-state-fixed">
@@ -216,6 +217,7 @@
             :current-date="currentDate"
             :bookings="calendarBookings"
             :selected-rooms="selectedRoomsList"
+            :public-holidays-by-date="holidaysByDate"
             @time-slot-click="openBookingDialog"
             @booking-click="handleBookingClick"
           />
@@ -225,11 +227,12 @@
         </div>
 
         <!-- Day view -->
-        <div v-else-if="currentView === 'day'" class="day-view h-full overflow-auto relative">
+        <div v-else-if="currentView === 'day'" class="day-view h-full min-h-0 flex flex-col overflow-hidden relative">
           <VenueCalendarDay
             :current-date="currentDate"
             :bookings="filteredDayBookings"
             :selected-rooms="selectedRoomsList"
+            :public-holidays-by-date="holidaysByDate"
             @time-slot-click="openBookingDialog"
           />
 
@@ -251,6 +254,7 @@
       :room-type="roomType"
       :selected-time="selectedTime"
       :venue-list="venueList"
+      :public-holiday-dates="holidaysByDate"
       @confirm="handleBookingConfirm"
       @close="closeBookingDialog"
     />
@@ -359,6 +363,7 @@ import VenueBookingDialog from '../components/VenueBookingDialog.vue'
 import VenueBookingDetailDialog from '../components/VenueBookingDetailDialog.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
 import { useVenueBookingRuleNotice } from '@/composables/useVenueBookingRuleNotice'
+import { useHkPublicHolidays } from '@/composables/useHkPublicHolidays'
 import '@/styles/rich-content.css'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
@@ -421,6 +426,12 @@ const {
   hasVenueRuleNotice,
   loadVenueRuleNotice
 } = useVenueBookingRuleNotice()
+const {
+  holidaysByDate,
+  loadHolidays,
+  isPublicHoliday,
+  getHolidaySummary
+} = useHkPublicHolidays()
 const blockForm = ref({
   roomName: '',
   startAt: '',
@@ -656,6 +667,13 @@ function isDateInVenueWindow(date) {
   return date >= start && date <= end
 }
 
+function assertBookableDate (date, baseMessage = 'Booking is not allowed on Hong Kong public holidays') {
+  if (!isPublicHoliday(date)) return true
+  const label = getHolidaySummary(date)
+  showNotice(label ? `${baseMessage}: ${label}` : baseMessage, 'Warning')
+  return false
+}
+
 function formatTime(date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
@@ -820,6 +838,7 @@ function selectDate(date) {
     showNotice('Selected date is outside the venue booking date range', 'Warning')
     return
   }
+  if (!assertBookableDate(selected)) return
   currentDate.value = selected
 }
 
@@ -897,6 +916,7 @@ function selectDay(date) {
     showNotice('Selected date is outside the venue booking date range', 'Warning')
     return
   }
+  if (!assertBookableDate(date)) return
   currentDate.value = date
   currentView.value = 'day'
 }
@@ -907,6 +927,7 @@ function showBookingDialog() {
     showNotice('Current date is outside the venue booking date range', 'Warning')
     return
   }
+  if (!assertBookableDate(currentDate.value)) return
   editingBooking.value = null
   selectedTime.value = null
   dialogVisible.value = true
@@ -919,6 +940,7 @@ function openBookingDialog(timeInfo) {
     showNotice('Selected slot is outside the venue booking date range', 'Warning')
     return
   }
+  if (slotDay && !assertBookableDate(slotDay)) return
   if (timeInfo?.room && timeInfo?.date && timeInfo?.time) {
     const slotDate = parseCalendarDateLocal(timeInfo.date)
     const [h, m] = timeInfo.time.split(':').map(Number)
@@ -1043,6 +1065,7 @@ async function handleBookingConfirm (bookingData) {
       await createVenueBooking(payload)
       notifyAdminPendingUpdated({ source: 'bookings' })
       showNotice('Booking submitted and pending approval', 'Success')
+      await userStore.refreshSessionUser()
     }
     await fetchBookings()
     closeBookingDialog()
@@ -1065,7 +1088,10 @@ function handleDeleteBooking (bookingId) {
     .then(async () => {
       try {
         await deleteVenueBooking(String(bookingId))
-        await fetchBookings()
+        await Promise.all([
+          fetchBookings(),
+          userStore.refreshSessionUser()
+        ])
         detailDialogVisible.value = false
         showNotice('Booking deleted successfully!', 'Success')
       } catch (error) {
@@ -1103,6 +1129,9 @@ async function loadCalendarData () {
     venueList.value = Array.isArray(venues) ? venues.filter(isActiveVenue) : []
     if (window?.currentStartDate) {
       venueBookingWindow.value = window
+    }
+    if (window?.currentStartDate && window?.currentEndDate) {
+      await loadHolidays(window.currentStartDate, window.currentEndDate)
     }
     applyVenueListToRoomFilters()
     loadBlockRecordsFromVenues()

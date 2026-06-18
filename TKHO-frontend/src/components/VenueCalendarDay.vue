@@ -1,5 +1,5 @@
 <template>
-  <div class="calendar-day">
+  <div class="calendar-day" :class="{ 'is-public-holiday-day': isCurrentDayHoliday }">
     <!-- 房间表头 - 固定 -->
     <div class="day-header" :style="{ gridTemplateColumns: dayGridTemplateColumns, minWidth: dayGridMinWidth }">
       <div class="time-header" />
@@ -8,46 +8,62 @@
       </div>
     </div>
 
-    <!-- 时间槽网格 -->
-    <div class="day-grid" :style="{ gridTemplateColumns: dayGridTemplateColumns, minWidth: dayGridMinWidth }">
-      <!-- 时间列 -->
-      <div class="time-column">
-        <div v-for="hour in timeSlots" :key="hour" class="time-slot">
-          {{ hour }}
+    <!-- 时间槽网格（仅表格区域滚动，假期标题固定居中） -->
+    <div class="day-grid-viewport">
+      <div class="day-grid-scroll">
+        <div
+          class="day-grid"
+          :class="{ 'is-public-holiday-grid': isCurrentDayHoliday }"
+          :style="{ gridTemplateColumns: dayGridTemplateColumns, minWidth: dayGridMinWidth }"
+        >
+          <!-- 时间列 -->
+          <div class="time-column">
+            <div v-for="hour in timeSlots" :key="hour" class="time-slot">
+              {{ hour }}
+            </div>
+          </div>
+
+          <!-- 每个房间的槽位 -->
+          <div v-for="room in selectedRooms" :key="room.id" class="room-column">
+            <!-- 时间格子 -->
+            <div
+              v-for="hour in timeSlots"
+              :key="`${room.id}-${hour}`"
+              class="time-cell"
+              @click="selectTimeSlot(room, hour)"
+            />
+
+            <!-- 预订卡片（绝对定位） -->
+            <CalendarBookingPopover
+              v-for="booking in getRoomBookings(room.name)"
+              :key="booking.id"
+              :booking="booking"
+              :current-date="currentDate"
+              :rooms="selectedRooms"
+              default-color="#f97316"
+              :teleported="false"
+            >
+              <template #reference>
+                <div
+                  class="booking-block"
+                  :style="getBookingStyle(booking)"
+                  @click="selectBooking(booking)"
+                >
+                  <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
+                  <div class="booking-reserved">{{ booking.reservedBy || 'N/A' }}</div>
+                </div>
+              </template>
+            </CalendarBookingPopover>
+          </div>
         </div>
       </div>
 
-      <!-- 每个房间的槽位 -->
-      <div v-for="room in selectedRooms" :key="room.id" class="room-column">
-        <!-- 时间格子 -->
-        <div
-          v-for="hour in timeSlots"
-          :key="`${room.id}-${hour}`"
-          class="time-cell"
-          @click="selectTimeSlot(room, hour)"
-        />
-
-        <!-- 预订卡片（绝对定位） -->
-        <CalendarBookingPopover
-          v-for="booking in getRoomBookings(room.name)"
-          :key="booking.id"
-          :booking="booking"
-          :current-date="currentDate"
-          :rooms="selectedRooms"
-          default-color="#f97316"
-          :teleported="false"
-        >
-          <template #reference>
-            <div
-              class="booking-block"
-              :style="getBookingStyle(booking)"
-              @click="selectBooking(booking)"
-            >
-              <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-              <div class="booking-reserved">{{ booking.reservedBy || 'N/A' }}</div>
-            </div>
-          </template>
-        </CalendarBookingPopover>
+      <div
+        v-if="currentHolidayLabel"
+        class="day-holiday-overlay"
+        aria-hidden="true"
+      >
+        <span class="day-holiday-label">{{ currentHolidayLabel }}</span>
       </div>
     </div>
   </div>
@@ -56,7 +72,7 @@
 <script setup>
 import { computed } from 'vue'
 import CalendarBookingPopover from './CalendarBookingPopover.vue'
-import { getCalendarBookingBlockStyle } from '@/utils/venueCalendarApi'
+import { getCalendarBookingBlockStyle, formatDateISO } from '@/utils/venueCalendarApi'
 
 const props = defineProps({
   currentDate: {
@@ -70,7 +86,21 @@ const props = defineProps({
   selectedRooms: {
     type: Array,
     default: () => []
+  },
+  publicHolidaysByDate: {
+    type: Object,
+    default: () => ({})
   }
+})
+
+const isCurrentDayHoliday = computed(() => {
+  const ymd = formatDateISO(props.currentDate)
+  return Boolean(props.publicHolidaysByDate[ymd])
+})
+
+const currentHolidayLabel = computed(() => {
+  const ymd = formatDateISO(props.currentDate)
+  return props.publicHolidaysByDate[ymd] || ''
 })
 
 const emit = defineEmits(['time-slot-click'])
@@ -154,18 +184,30 @@ function selectBooking(booking) {
 <style scoped>
 .calendar-day {
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   position: relative;
+}
+
+.calendar-day.is-public-holiday-day .room-column .time-cell {
+  background-color: #fef2f2;
+}
+
+.calendar-day.is-public-holiday-day .room-column .time-cell:hover {
+  background-color: #fee2e2;
+  cursor: not-allowed;
 }
 
 .day-header {
   display: grid;
+  flex-shrink: 0;
   background-color: #e5e7eb;
   border-radius: 0.5rem 0.5rem 0 0;
   overflow: visible;
   border: 1px solid #e5e7eb;
   border-bottom: none;
-  position: sticky;
-  top: 0;
   z-index: 10;
 }
 
@@ -197,13 +239,70 @@ function selectBooking(booking) {
   white-space: nowrap;
 }
 
+.day-grid-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.day-grid-scroll {
+  height: 100%;
+  overflow: auto;
+}
+
+.day-grid-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.day-grid-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.day-grid-scroll::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.day-grid-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
 .day-grid {
   display: grid;
+  position: relative;
   background-color: #e5e7eb;
   border-radius: 0 0 0.5rem 0.5rem;
   overflow: visible;
   border: 1px solid #e5e7eb;
   border-top: none;
+}
+
+.day-holiday-overlay {
+  position: absolute;
+  left: 80px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 6;
+  padding: 1rem 0.5rem;
+  box-sizing: border-box;
+}
+
+.day-holiday-label {
+  max-width: min(1100px, 96%);
+  font-size: clamp(1rem, 2.2vw, 1.35rem);
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  color: #b91c1c;
+  word-break: break-word;
 }
 
 .time-column {

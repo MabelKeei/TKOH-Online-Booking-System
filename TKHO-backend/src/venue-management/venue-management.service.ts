@@ -9,12 +9,14 @@ import { Prisma } from '@prisma/client';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { getAppTodayYmd } from '../common/app-timezone';
+import { consumeVenueQuota, releaseVenueQuota } from '../common/user-quota';
 import {
   DisplayConfigKey,
   DISPLAY_CONFIG_DEFAULTS,
 } from '../display-management/display-config.keys';
 import { DisplayManagementService } from '../display-management/display-management.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { HkPublicHolidaysService } from '../system-settings/hk-public-holidays.service';
 import { UpsertVenueDto } from './dto/upsert-venue.dto';
 import { PublishVenueWindowDto } from './dto/publish-venue-window.dto';
 import { CreateVenueBlockDto } from './dto/create-venue-block.dto';
@@ -23,6 +25,9 @@ import {
   ApproveVenueManageBookingDto,
   RejectVenueManageBookingDto,
 } from './dto/review-venue-booking.dto';
+
+/** 公共显示屏上未获批会议标题的统一占位文案 */
+const DEFAULT_PUBLIC_VENUE_MEETING_TITLE = 'Reserved';
 
 const teaDisplayBookingInclude = {
   venue: { select: { id: true, name: true, nameZh: true } },
@@ -56,6 +61,7 @@ export class VenueManagementService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly displayManagementService: DisplayManagementService,
+    private readonly hkPublicHolidaysService: HkPublicHolidaysService,
   ) {}
   private readonly uploadsBasePath = '/api/uploads/venues/';
   private readonly displayMonths = [
@@ -598,14 +604,25 @@ export class VenueManagementService {
     if (!isOwner && !admin) throw new ForbiddenException('You can only manage your own bookings.');
 
     const next = this.isCanceledStatus(row.status) ? 'confirmed' : 'cancelled';
-    const updated = await this.prisma.venueBookings.update({
-      where: { id },
-      data: { status: next },
-      include: {
-        venue: { select: { id: true, name: true } },
-        reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
-        venueTeaService: { select: { teaService: true } },
-      },
+    const ownerUserId = row.reservedByUserId;
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (ownerUserId != null) {
+        if (next === 'cancelled') {
+          await releaseVenueQuota(tx, ownerUserId);
+        } else {
+          await consumeVenueQuota(tx, ownerUserId);
+        }
+      }
+
+      return tx.venueBookings.update({
+        where: { id },
+        data: { status: next },
+        include: {
+          venue: { select: { id: true, name: true } },
+          reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
+          venueTeaService: { select: { teaService: true } },
+        },
+      });
     });
     return { booking: this.mapManageBookingRow(updated) };
   }
@@ -626,14 +643,25 @@ export class VenueManagementService {
     const isOwner = row.reservedByUserId === me || (!!corpId && row.reservedBy?.corpId === corpId);
     if (!isOwner) throw new ForbiddenException('You can only edit your own bookings.');
 
-    const roomName = (dto.room ?? row.venue?.name ?? '').trim();
+    const admin = this.isAdminRole(auth);
+
+    const roomName = (
+      admin ? (dto.room ?? row.venue?.name ?? '') : (row.venue?.name ?? '')
+    ).trim();
     if (!roomName) throw new BadRequestException('Room is required');
     const venue = await this.prisma.venues.findFirst({ where: { name: roomName, status: 'active' } });
     if (!venue) throw new NotFoundException('Venue not found');
 
-    const bookingDate = dto.date ? this.parseDateOnlyYmd(dto.date) : row.bookingDate!;
-    const startTime = dto.startTime ? this.parseTimeValue(dto.startTime) : row.startTime!;
-    const endTime = dto.endTime ? this.parseTimeValue(dto.endTime) : row.endTime!;
+    const bookingDate = admin && dto.date
+      ? this.parseDateOnlyYmd(dto.date)
+      : row.bookingDate!;
+    const startTime = admin && dto.startTime
+      ? this.parseTimeValue(dto.startTime)
+      : row.startTime!;
+    const endTime = admin && dto.endTime
+      ? this.parseTimeValue(dto.endTime)
+      : row.endTime!;
+    await this.hkPublicHolidaysService.assertNotPublicHoliday(bookingDate);
     await this.assertVenueSlotAvailable(venue.id, bookingDate, startTime, endTime, row.id);
 
     const teaRequired = dto.teaServiceRequired ?? row.teaServiceRequired;
@@ -731,7 +759,6 @@ export class VenueManagementService {
       where: { id },
       data: {
         approvalStatus: 'rejected',
-        status: 'cancelled',
         rejectReason: reason,
         handleByUserId: handlerId,
         handledAt: new Date(),
@@ -975,9 +1002,24 @@ export class VenueManagementService {
       OR: [
         { approvalStatus: { equals: 'pending', mode: 'insensitive' } },
         { approvalStatus: { equals: 'approved', mode: 'insensitive' } },
+        { approvalStatus: { equals: 'rejected', mode: 'insensitive' } },
       ],
       ...(venueId != null ? { venueId } : {}),
     };
+  }
+
+  private resolvePublicVenueDisplayTopic(row: VenueDisplayBookingRow): string {
+    const approval = String(row.approvalStatus ?? '')
+      .trim()
+      .toLowerCase();
+    if (approval === 'rejected') {
+      return DEFAULT_PUBLIC_VENUE_MEETING_TITLE;
+    }
+    const title = String(row.meetingTitle ?? '').trim();
+    if (approval === 'approved') {
+      return title || DEFAULT_PUBLIC_VENUE_MEETING_TITLE;
+    }
+    return title;
   }
 
   private mapVenueDisplayEventRow(row: VenueDisplayBookingRow) {
@@ -987,7 +1029,7 @@ export class VenueManagementService {
       venueId: row.venueId != null ? row.venueId.toString() : '',
       startTime: this.formatTimeValue(row.startTime),
       endTime: this.formatTimeValue(row.endTime),
-      topic: row.meetingTitle || '',
+      topic: this.resolvePublicVenueDisplayTopic(row),
       reservedBy: row.reservedBy?.name || '',
       attendees: row.attendees ?? null,
       time: this.formatTeaDisplayTimeRange(row.startTime, row.endTime),

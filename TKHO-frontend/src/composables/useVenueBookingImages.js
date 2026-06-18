@@ -1,9 +1,14 @@
 import { ref } from 'vue'
 import { getVenueManagementVenues } from '@/api/venueManagement'
 import { getMockVenueList } from '@/mocks/mockData'
+import { getCachedOrFetch } from '@/utils/apiCache'
+import { SILENT_ERROR } from '@/utils/requestOptions'
 
 export const VENUE_TAB_CONFERENCE = 'conference_discussion'
 export const VENUE_TAB_OTHER = 'other_venues'
+
+const VENUE_LIST_CACHE_KEY = 'venue-management-venues'
+const VENUE_LIST_CACHE_TTL_MS = 5 * 60 * 1000
 
 function normalizeVenueList (data) {
   return Array.isArray(data) ? data : []
@@ -34,7 +39,11 @@ export function useVenueBookingImages () {
     try {
       let list = []
       try {
-        const data = await getVenueManagementVenues()
+        const data = await getCachedOrFetch(
+          VENUE_LIST_CACHE_KEY,
+          VENUE_LIST_CACHE_TTL_MS,
+          () => getVenueManagementVenues(SILENT_ERROR)
+        )
         list = normalizeVenueList(data)
       } catch {
         list = getMockVenueList()

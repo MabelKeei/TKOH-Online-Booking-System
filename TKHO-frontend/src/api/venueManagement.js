@@ -1,7 +1,7 @@
 import request from '@/api/request'
 
-export function getVenueManagementVenues() {
-  return request.get('/venue-management/venues')
+export function getVenueManagementVenues(config = {}) {
+  return request.get('/venue-management/venues', config)
 }
 
 export function createVenue(payload) {

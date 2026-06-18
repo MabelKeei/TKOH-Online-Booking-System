@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { getAppTodayYmd } from '../common/app-timezone';
+import { releaseEvQuota } from '../common/user-quota';
 import { DisplayManagementService } from '../display-management/display-management.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EvRedisCacheService } from '../redis/ev-redis-cache.service';
@@ -611,14 +612,22 @@ export class EvManagementService {
       throw new BadRequestException('Booking cannot be cancelled.');
     }
 
-    const updated = await this.prisma.evBookings.update({
-      where: { id },
-      data: { status: 'cancelled' },
-      include: {
-        licensePlate: { select: { plate_number: true, user_id: true } },
-        slot: { select: { evSpace: true } },
-        period: { select: { period: true, startTime: true, endTime: true } },
-      },
+    const ownerUserId = row.licensePlate?.user_id ?? null;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (ownerUserId != null) {
+        await releaseEvQuota(tx, ownerUserId);
+      }
+
+      return tx.evBookings.update({
+        where: { id },
+        data: { status: 'cancelled' },
+        include: {
+          licensePlate: { select: { plate_number: true, user_id: true } },
+          slot: { select: { evSpace: true } },
+          period: { select: { period: true, startTime: true, endTime: true } },
+        },
+      });
     });
 
     await this.evCache.bumpCalendarVersion();

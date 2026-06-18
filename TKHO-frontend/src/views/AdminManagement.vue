@@ -73,7 +73,8 @@ const menuItems = computed(() => [
   { key: 'access-right', label: 'Access Right', icon: 'user-shield', path: '/admin/access-right' },
   { key: 'prompt', label: 'Prompts and Templates', icon: 'message', path: '/admin/prompt' },
   { key: 'license-plate', label: 'License Plates', icon: 'id-card', path: '/admin/license-plate' },
-  { key: 'display', label: 'Display Management', icon: 'desktop', path: '/admin/display' }
+  { key: 'display', label: 'Display Management', icon: 'desktop', path: '/admin/display' },
+  { key: 'system-settings', label: 'System Settings', icon: 'gear', path: '/admin/system-settings' }
 ])
 
 const isAdminHome = computed(() => {

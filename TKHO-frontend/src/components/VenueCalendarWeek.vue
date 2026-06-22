@@ -625,7 +625,11 @@ function selectBooking(dayDate) {
   background-color: #fef3c7;
 }
 
-.day-header.is-public-holiday,
+.day-header.is-public-holiday {
+  background-color: #fef2f2;
+  border-bottom: 1px solid #e5e7eb;
+}
+
 .day-column.is-public-holiday .time-cell {
   background-color: #fef2f2;
 }

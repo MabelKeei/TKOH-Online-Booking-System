@@ -3,7 +3,7 @@
   <div class="modal-overlay" @click.self="handleClose" v-if="visible">
     <div
       class="booking-dialog-wrapper"
-      :style="{ transform: `translate(${dialogX}px, ${dialogY}px)` }"
+      :style="dialogWrapperStyle"
     >
       <!-- 头部 -->
       <div class="modal-header" @mousedown="handleMouseDown">
@@ -18,10 +18,22 @@
       <!-- 内容 -->
       <div class="modal-body">
         <div class="booking-form-container">
+          <div v-if="isAdmin" class="form-section">
+            <label class="form-label">Reserved By</label>
+            <ReservedByUserField
+              v-model="form.reservedByUserId"
+              :default-user="defaultReservedByUser"
+              variant="bare"
+              select-class="form-input form-input-license"
+              @update:model-value="handleReservedByUserChange"
+            />
+          </div>
+
           <!-- License plate number -->
           <div class="form-section">
             <label class="form-label">License plate number <span class="required">*</span></label>
             <el-select
+              :key="`license-plate-${form.reservedByUserId || 'self'}`"
               v-model="form.licensePlateId"
               placeholder="Select license plate"
               class="form-input form-input-license"
@@ -125,11 +137,16 @@
 </template>
 
 <script setup>
-import { ref, watch, onUnmounted, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import ReservedByUserField from '@/components/ReservedByUserField.vue'
 import { getAccountVehicles } from '@/api/accountVehicle'
 import { getEvAssignmentPreview } from '@/api/parking'
 import { getMockAccountVehicleList, getMockEVParkingList } from '@/mocks/mockData'
 import { createDateAtMidnight, isEvSlotPast } from '@/utils/evSlotPast'
+import { isRestrictedBookingDay } from '@/utils/bookingDateRestriction'
+import { HTML_ZOOM_BREAKPOINT_MQ } from '@/utils/venueCalendarApi'
+import { useUserStore } from '@/stores/user'
 
 const props = defineProps({
   visible: {
@@ -172,10 +189,27 @@ const props = defineProps({
   publicHolidayDates: {
     type: Object,
     default: () => ({})
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
   }
 })
 
 const emit = defineEmits(['close', 'confirm'])
+
+const userStore = useUserStore()
+const { userInfo } = storeToRefs(userStore)
+
+const defaultReservedByUser = computed(() => {
+  const u = userInfo.value
+  if (!u?.id && !u?.sub) return null
+  return {
+    id: String(u.id ?? u.sub),
+    name: u.name || u.corpId || 'Me',
+    corpId: u.corpId || ''
+  }
+})
 
 // 拖拽相关
 const isDragging = ref(false)
@@ -183,6 +217,25 @@ const dragStartX = ref(0)
 const dragStartY = ref(0)
 const dialogX = ref(0)
 const dialogY = ref(0)
+
+/** 14" 视口（1100–1599，html zoom 0.8）：仅放宽 max-height，布局与其他断点一致 */
+const EV_BOOKING_DIALOG_MODAL_MQ = HTML_ZOOM_BREAKPOINT_MQ
+const EV_BOOKING_DIALOG_14_MAX_HEIGHT = '124vh'
+const evBookingDialogMaxHeight = ref('')
+
+function updateEvBookingDialogMaxHeight () {
+  if (typeof window === 'undefined') return
+  evBookingDialogMaxHeight.value = window.matchMedia(EV_BOOKING_DIALOG_MODAL_MQ).matches
+    ? EV_BOOKING_DIALOG_14_MAX_HEIGHT
+    : ''
+}
+
+let evBookingDialogModalMq = null
+
+const dialogWrapperStyle = computed(() => ({
+  transform: `translate(${dialogX.value}px, ${dialogY.value}px)`,
+  ...(evBookingDialogMaxHeight.value ? { maxHeight: evBookingDialogMaxHeight.value } : {})
+}))
 
 function handleMouseDown(e) {
   if (e.target.closest('.modal-close')) return
@@ -208,6 +261,15 @@ function handleMouseUp() {
 onUnmounted(() => {
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)
+  evBookingDialogModalMq?.removeEventListener('change', updateEvBookingDialogMaxHeight)
+  evBookingDialogModalMq = null
+})
+
+onMounted(() => {
+  updateEvBookingDialogMaxHeight()
+  if (typeof window === 'undefined') return
+  evBookingDialogModalMq = window.matchMedia(EV_BOOKING_DIALOG_MODAL_MQ)
+  evBookingDialogModalMq.addEventListener('change', updateEvBookingDialogMaxHeight)
 })
 
 const vehicles = ref([])
@@ -221,27 +283,51 @@ const mapVehicleRows = (rows) =>
     label: item.plateNumber || item.plate || ''
   }))
 
-const loadVehicles = async () => {
+function resolveVehicleOwnerUserId (explicitUserId) {
+  if (!props.isAdmin) return undefined
+  const id = String(explicitUserId ?? form.value.reservedByUserId ?? '').trim()
+  return id || undefined
+}
+
+const loadVehicles = async (userId) => {
   vehiclesLoading.value = true
   try {
-    const res = await getAccountVehicles()
+    const res = await getAccountVehicles(userId)
     const active = (res?.vehicles || []).filter(
       (item) => String(item.status || 'active').toLowerCase() === 'active'
     )
     vehicles.value = mapVehicleRows(active)
   } catch {
-    const mockList = getMockAccountVehicleList()
-    vehicles.value = mapVehicleRows(
-      mockList.map((item, index) => ({
-        id: String(index + 1),
-        plateNumber: item.plate,
-        isDefault: item.isDefault,
-        status: 'active'
-      }))
-    )
+    if (userId) {
+      vehicles.value = []
+    } else {
+      const mockList = getMockAccountVehicleList()
+      vehicles.value = mapVehicleRows(
+        mockList.map((item, index) => ({
+          id: String(index + 1),
+          plateNumber: item.plate,
+          isDefault: item.isDefault,
+          status: 'active'
+        }))
+      )
+    }
   } finally {
     vehiclesLoading.value = false
   }
+}
+
+async function reloadVehiclesForReservedBy (explicitUserId) {
+  const ownerUserId = resolveVehicleOwnerUserId(explicitUserId)
+  form.value.licensePlateId = ''
+  vehicles.value = []
+  await loadVehicles(ownerUserId)
+  applyDefaultLicensePlate()
+}
+
+async function handleReservedByUserChange (userId) {
+  if (!props.isAdmin || !props.visible) return
+  await reloadVehiclesForReservedBy(userId)
+  await loadSlotPreview()
 }
 
 const applyDefaultLicensePlate = () => {
@@ -255,6 +341,7 @@ const applyDefaultLicensePlate = () => {
 
 // 表单数据
 const form = ref({
+  reservedByUserId: '',
   licensePlateId: '',
   timePeriod: '',
   date: ''
@@ -362,6 +449,9 @@ watch(
       slotPreview.value = emptySlotPreview()
       return
     }
+    if (props.isAdmin && defaultReservedByUser.value?.id) {
+      form.value.reservedByUserId = defaultReservedByUser.value.id
+    }
     if (typeof props.refreshCalendarAvailability === 'function') {
       try {
         await props.refreshCalendarAvailability()
@@ -369,8 +459,7 @@ watch(
         /* 父级已 catch，忽略 */
       }
     }
-    await loadVehicles()
-    applyDefaultLicensePlate()
+    await reloadVehiclesForReservedBy()
     if (form.value.date && form.value.timePeriod && !isTimeAvailable(form.value.timePeriod)) {
       pickFirstAvailablePeriod()
     }
@@ -460,7 +549,13 @@ function disabledDate (date) {
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return true
   if (day < start || day > end) return true
   const ymd = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
-  return Boolean(props.publicHolidayDates[ymd])
+  if (isRestrictedBookingDay(ymd, {
+    isAdmin: props.isAdmin,
+    publicHolidayDates: props.publicHolidayDates
+  })) {
+    return true
+  }
+  return false
 }
 
 // 关闭对话框
@@ -539,6 +634,7 @@ function handleSave() {
   }
 
   emit('confirm', {
+    reservedByUserId: form.value.reservedByUserId || defaultReservedByUser.value?.id || '',
     licensePlateId: form.value.licensePlateId,
     timePeriod: form.value.timePeriod,
     date: form.value.date,
@@ -1023,114 +1119,9 @@ function handleSave() {
 
 
 @media (min-width: 1100px) and (max-width: 1599px) {
-  /* 结合更高弹窗高度，整体按比例放大内部元素 */
+  /* html zoom 0.8：仅略放宽弹窗宽度与 max-height（脚本 124vh），表单项尺寸沿用默认紧凑样式 */
   .booking-dialog-wrapper {
-    max-width: 550px;
-    /* height: clamp(96vh, 110vh, 120vh); */
-    height: 120vh;
-    max-height: 120vh;
-    border-radius: 12px;
-  }
-
-  /* 头部 */
-  .modal-header {
-    padding: 1.25rem 1.75rem;
-  }
-
-  .modal-title {
-    font-size: 1.0625rem;
-    letter-spacing: 0.2px;
-    padding: 0.25rem 0;
-  }
-
-  .close-icon {
-    width: 22px;
-    height: 22px;
-  }
-
-  /* 内容区：略增横向留白，与加高后的控件对齐 */
-  .modal-body {
-    display: flex;
-    flex-direction: column;
-    padding: 1.25rem 1.75rem;
-  }
-
-  .booking-form-container {
-    flex: 1;
-    min-height: 100%;
-    justify-content: space-between;
-    gap: 1.25rem;
-  }
-
-  .form-section {
-    gap: 0.625rem;
-  }
-
-  .form-label {
-    font-size: 1.0625rem;
-    margin-bottom: 0.125rem;
-  }
-  
-  /* Date：Element Plus 需作用在 .el-input__wrapper 上 */
-  :deep(.form-input.el-date-editor .el-input__wrapper) {
-    min-height: 3.125rem;
-    padding: 0 1rem;
-    border-radius: 10px;
-    align-items: center;
-  }
-
-  :deep(.form-input.el-date-editor .el-input__inner) {
-    font-size: 1.0625rem;
-    line-height: 1.35;
-    height: auto;
-  }
-
-  /* 时间段选择 */
-  .time-period-group {
-    padding: 1rem 1.125rem;
-    gap: 0.625rem;
-  }
-
-  .time-period-option {
-    padding: 0.875rem 1rem;
-    min-height: 3.125rem;
-    gap: 0.75rem;
-  }
-
-  .time-label {
-    font-size: 1.0625rem;
-  }
-
-  .time-radio {
-    width: 22px;
-    height: 22px;
-  }
-
-  /* 停车位信息 */
-  .parking-info {
-    padding: 0.875rem 1rem;
-  }
-  /* 停车位信息 */
-  .parking-info-section {
-    margin-top: 1.25rem;
-  }
-
-  .parking-label,
-  .parking-value {
-    font-size: 1.0625rem;
-  }
-
-  /* 底部按钮 */
-  .modal-footer {
-    padding: 1rem 1.375rem;
-    gap: 0.75rem;
-  }
-
-  .cancel-btn,
-  .save-btn {
-    padding: 0.9rem 1.625rem;
-    font-size: 1.0625rem;
-    border-radius: 7px;
+    max-width: 520px;
   }
 }
 
@@ -1138,7 +1129,7 @@ function handleSave() {
 
 @media (min-width: 2240px) {}
 
-@media (max-height: 700px) {
+@media (max-height: 700px) and (max-width: 1099px) {
   .booking-dialog-wrapper {
     max-height: 95vh;
   }
@@ -1178,7 +1169,7 @@ function handleSave() {
   }
 }
 
-@media (max-height: 600px) {
+@media (max-height: 600px) and (max-width: 1099px) {
   .booking-dialog-wrapper {
     max-height: 98vh;
   }

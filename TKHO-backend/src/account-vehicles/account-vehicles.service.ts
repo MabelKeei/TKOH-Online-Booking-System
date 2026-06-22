@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { isAdminRole } from '../auth/admin-role.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAccountVehicleDto } from './dto/create-account-vehicle.dto';
 import { UpdateAccountVehicleDto } from './dto/update-account-vehicle.dto';
@@ -35,8 +36,23 @@ export class AccountVehiclesService {
     };
   }
 
-  async list(auth: any) {
-    const userId = this.parseAuthSub(auth);
+  async list(auth: any, userIdParam?: string) {
+    const me = this.parseAuthSub(auth);
+    let userId = me;
+    const requested = String(userIdParam ?? '').trim();
+    if (requested) {
+      if (!/^\d+$/.test(requested)) {
+        throw new BadRequestException('Invalid userId');
+      }
+      const requestedId = BigInt(requested);
+      if (requestedId !== me) {
+        if (!isAdminRole(auth)) {
+          throw new ForbiddenException('Only administrators can list another user\'s vehicles.');
+        }
+        userId = requestedId;
+      }
+    }
+
     const orderBy: any = [{ is_default: 'desc' }, { id: 'asc' }];
     const rows = await this.prisma.license_plates.findMany({
       where: { user_id: userId },

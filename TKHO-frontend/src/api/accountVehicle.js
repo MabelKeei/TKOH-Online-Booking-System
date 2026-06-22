@@ -1,9 +1,10 @@
 import request from './request'
 
-export const getAccountVehicles = () => {
+export const getAccountVehicles = (userId) => {
   return request({
     url: '/account/vehicles',
-    method: 'get'
+    method: 'get',
+    params: userId ? { userId: String(userId) } : undefined
   })
 }
 

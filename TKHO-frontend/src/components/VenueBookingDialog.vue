@@ -24,6 +24,13 @@
           label-position="right"
           class="booking-form"
         >
+          <ReservedByUserField
+            v-if="isAdmin && !booking"
+            v-model="form.reservedByUserId"
+            :default-user="defaultReservedByUser"
+            form-item-class="no-wrap-label"
+          />
+
           <!-- Room, Date, Time Section -->
           <div class="form-section">
             <el-form-item label="Room / Venue" prop="room" :rules="[{ required: true, message: 'Please select a room' }]">
@@ -365,11 +372,15 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import BookingStyleModal from '@/components/BookingStyleModal.vue'
+import ReservedByUserField from '@/components/ReservedByUserField.vue'
 import { InfoFilled } from '@element-plus/icons-vue'
 import { getPrompts } from '@/api/promptManagement'
 import { checkRoomAvailability } from '@/api/calendar'
 import { HTML_ZOOM_BREAKPOINT_MQ } from '@/utils/venueCalendarApi'
+import { isRestrictedBookingDay } from '@/utils/bookingDateRestriction'
+import { useUserStore } from '@/stores/user'
 
 const props = defineProps({
   visible: {
@@ -395,10 +406,27 @@ const props = defineProps({
   publicHolidayDates: {
     type: Object,
     default: () => ({})
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
   }
 })
 
 const emit = defineEmits(['confirm', 'close'])
+
+const userStore = useUserStore()
+const { userInfo } = storeToRefs(userStore)
+
+const defaultReservedByUser = computed(() => {
+  const u = userInfo.value
+  if (!u?.id && !u?.sub) return null
+  return {
+    id: String(u.id ?? u.sub),
+    name: u.name || u.corpId || 'Me',
+    corpId: u.corpId || ''
+  }
+})
 
 const formRef = ref(null)
 const showNoticeDialog = ref(false)
@@ -549,6 +577,7 @@ onUnmounted(() => {
 })
 
 const form = ref({
+  reservedByUserId: '',
   room: '',
   date: null, // 日期初始化为null
   startTime: '',
@@ -681,7 +710,10 @@ function disabledDate(date) {
   today.setHours(0, 0, 0, 0) // 重置时间为0点，确保今天可选
   if (date < today) return true
   const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-  return Boolean(props.publicHolidayDates[ymd])
+  return isRestrictedBookingDay(ymd, {
+    isAdmin: props.isAdmin,
+    publicHolidayDates: props.publicHolidayDates
+  })
 }
 
 async function checkAvailability () {
@@ -732,6 +764,7 @@ async function checkAvailability () {
 /** 仅提交可持久化字段（场地布置/设备等 ℹ️ 行不入库） */
 function buildBookingConfirmPayload () {
   return {
+    reservedByUserId: form.value.reservedByUserId || defaultReservedByUser.value?.id || '',
     room: form.value.room,
     roomName: form.value.room,
     date: form.value.date,
@@ -757,6 +790,7 @@ function initializeForm() {
     }
   } else {
     form.value = {
+      reservedByUserId: defaultReservedByUser.value?.id || '',
       room: '',
       date: null, // 初始化日期为空
       startTime: '',
@@ -961,8 +995,9 @@ watch(() => form.value.teaServiceRequired, (yes) => {
 /* 修复下拉框样式 */
 .room-select-popper,
 .time-select-popper,
-.date-picker-popper {
-  z-index: 99999 !important;
+.date-picker-popper,
+.reserved-by-user-select {
+  z-index: 100001 !important;
 }
 
 .room-option {

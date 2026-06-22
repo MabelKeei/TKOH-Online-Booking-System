@@ -17,4 +17,10 @@ export class CreateEvBookingDto {
   @IsString()
   @Matches(/^\d+$/, { message: 'slotId must be a numeric id' })
   slotId?: string;
+
+  /** 管理员代订时指定预订人用户 ID；默认本人 */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d+$/, { message: 'reservedByUserId must be a numeric id' })
+  reservedByUserId?: string;
 }

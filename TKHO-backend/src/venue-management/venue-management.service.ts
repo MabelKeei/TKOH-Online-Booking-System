@@ -661,7 +661,7 @@ export class VenueManagementService {
     const endTime = admin && dto.endTime
       ? this.parseTimeValue(dto.endTime)
       : row.endTime!;
-    await this.hkPublicHolidaysService.assertNotPublicHoliday(bookingDate);
+    await this.hkPublicHolidaysService.assertBookableForUser(bookingDate, auth);
     await this.assertVenueSlotAvailable(venue.id, bookingDate, startTime, endTime, row.id);
 
     const teaRequired = dto.teaServiceRequired ?? row.teaServiceRequired;

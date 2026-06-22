@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { isAdminRole } from '../auth/admin-role.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccountVehiclesService } from './account-vehicles.service';
 import { CreateAccountVehicleDto } from './dto/create-account-vehicle.dto';
@@ -13,8 +14,8 @@ export class AccountVehiclesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get()
-  list(@Req() req: any) {
-    return this.accountVehiclesService.list(req.user);
+  list(@Req() req: any, @Query('userId') userId?: string) {
+    return this.accountVehiclesService.list(req.user, userId);
   }
 
   @ApiBearerAuth()

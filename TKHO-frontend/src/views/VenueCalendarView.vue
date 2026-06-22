@@ -229,6 +229,7 @@
         <!-- Day view -->
         <div v-else-if="currentView === 'day'" class="day-view h-full min-h-0 flex flex-col overflow-hidden relative">
           <VenueCalendarDay
+            class="day-calendar-host"
             :current-date="currentDate"
             :bookings="filteredDayBookings"
             :selected-rooms="selectedRoomsList"
@@ -255,6 +256,7 @@
       :selected-time="selectedTime"
       :venue-list="venueList"
       :public-holiday-dates="holidaysByDate"
+      :is-admin="isAdmin"
       @confirm="handleBookingConfirm"
       @close="closeBookingDialog"
     />
@@ -376,6 +378,7 @@ import {
 import { unwrapCalendarBookings, isSameCalendarDay, isActiveVenue, parseCalendarDateLocal } from '@/utils/venueCalendarApi'
 import { getVenueManagementVenues, getVenueBookingWindow, createVenueBlock } from '@/api/venueManagement'
 import { notifyAdminPendingUpdated } from '@/utils/adminPendingSync'
+import { getRestrictedBookingMessage, isRestrictedBookingDay } from '@/utils/bookingDateRestriction'
 import {
   loadVenueCalendarRoomFilter,
   saveVenueCalendarRoomFilter,
@@ -667,10 +670,21 @@ function isDateInVenueWindow(date) {
   return date >= start && date <= end
 }
 
-function assertBookableDate (date, baseMessage = 'Booking is not allowed on Hong Kong public holidays') {
-  if (!isPublicHoliday(date)) return true
-  const label = getHolidaySummary(date)
-  showNotice(label ? `${baseMessage}: ${label}` : baseMessage, 'Warning')
+function assertBookableDate (date, baseMessage) {
+  if (!isRestrictedBookingDay(date, {
+    isAdmin: isAdmin.value,
+    publicHolidayDates: holidaysByDate.value,
+    isPublicHoliday
+  })) {
+    return true
+  }
+  showNotice(
+    getRestrictedBookingMessage(date, {
+      publicHolidayDates: holidaysByDate.value,
+      getHolidaySummary
+    }) || baseMessage,
+    'Warning'
+  )
   return false
 }
 
@@ -1033,7 +1047,8 @@ function buildBookingPayload (bookingData) {
     teaOrWater: bookingData.teaOrWater,
     serviceType: bookingData.serviceType,
     teaServiceSpecialRequest: bookingData.teaServiceSpecialRequest,
-    roomType: roomType.value
+    roomType: roomType.value,
+    reservedByUserId: bookingData.reservedByUserId || undefined
   }
 }
 
@@ -1405,6 +1420,12 @@ onUnmounted(() => {
 }
 
 .week-calendar-host {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.day-calendar-host {
   flex: 1;
   min-height: 0;
   width: 100%;

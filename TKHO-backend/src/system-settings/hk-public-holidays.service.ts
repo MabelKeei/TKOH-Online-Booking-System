@@ -1,11 +1,10 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  OnModuleInit,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { APP_TIMEZONE } from '../common/app-timezone';
+import {
+  assertPublicHolidayBookableForUser,
+  assertWeekendBookableForUser,
+} from '../common/booking-date-restriction';
 import { PrismaService } from '../prisma/prisma.service';
 import { parse1823HolidayJson } from './hk-public-holidays.parser';
 import { SystemSettingsService } from './system-settings.service';
@@ -94,6 +93,19 @@ export class HkPublicHolidaysService implements OnModuleInit {
     throw new BadRequestException(
       `Booking is not allowed on Hong Kong public holidays (${label})`,
     );
+  }
+
+  /** 普通用户不可在周末及公众假期预订；管理员不受限。 */
+  async assertBookableForUser(
+    date: Date,
+    auth: { role?: string; system?: string } | null | undefined,
+  ) {
+    assertWeekendBookableForUser(date, auth);
+    const row = await this.prisma.hk_public_holidays.findUnique({
+      where: { holiday_date: date },
+      select: { summary: true },
+    });
+    assertPublicHolidayBookableForUser(date, row?.summary, auth);
   }
 
   async syncFromRemote(trigger: SyncTrigger) {

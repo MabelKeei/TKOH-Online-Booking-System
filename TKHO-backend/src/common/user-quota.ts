@@ -49,14 +49,13 @@ async function consumeQuota(
   kind: QuotaKind,
 ): Promise<void> {
   const { annual, used } = await loadUserQuota(tx, userId, kind);
-  if (!isQuotaLimited(annual)) {
-    return;
-  }
-
-  const annualLimit = annual ?? 0;
   const usedCount = used ?? 0;
-  if (usedCount >= annualLimit) {
-    throw new ForbiddenException(QUOTA_EXCEEDED[kind]);
+
+  if (isQuotaLimited(annual)) {
+    const annualLimit = annual ?? 0;
+    if (usedCount >= annualLimit) {
+      throw new ForbiddenException(QUOTA_EXCEEDED[kind]);
+    }
   }
 
   if (kind === 'ev') {
@@ -78,11 +77,7 @@ async function releaseQuota(
   userId: bigint,
   kind: QuotaKind,
 ): Promise<void> {
-  const { annual, used } = await loadUserQuota(tx, userId, kind);
-  if (!isQuotaLimited(annual)) {
-    return;
-  }
-
+  const { used } = await loadUserQuota(tx, userId, kind);
   const usedCount = used ?? 0;
   if (usedCount <= 0) {
     return;

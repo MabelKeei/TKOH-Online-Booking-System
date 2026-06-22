@@ -1,59 +1,55 @@
 <template>
-  <div class="calendar-day" :class="{ 'is-public-holiday-day': isCurrentDayHoliday }">
-    <!-- 房间表头 - 固定 -->
-    <div class="day-header" :style="{ gridTemplateColumns: dayGridTemplateColumns, minWidth: dayGridMinWidth }">
-      <div class="time-header" />
-      <div v-for="room in selectedRooms" :key="room.id" class="room-header">
-        <div class="room-label">{{ room.name }}</div>
-      </div>
-    </div>
-
-    <!-- 时间槽网格（仅表格区域滚动，假期标题固定居中） -->
-    <div class="day-grid-viewport">
-      <div class="day-grid-scroll">
-        <div
-          class="day-grid"
-          :class="{ 'is-public-holiday-grid': isCurrentDayHoliday }"
-          :style="{ gridTemplateColumns: dayGridTemplateColumns, minWidth: dayGridMinWidth }"
-        >
-          <!-- 时间列 -->
-          <div class="time-column">
-            <div v-for="hour in timeSlots" :key="hour" class="time-slot">
-              {{ hour }}
+  <div ref="calendarDayRef" class="calendar-day" :class="{ 'is-public-holiday-day': isCurrentDayHoliday }">
+    <div class="day-frame" :class="{ 'day-frame--scroll-x': needsHorizontalScroll }">
+      <div ref="dayScrollRef" class="day-scroll-y">
+        <div class="day-inner" :style="dayInnerStyle">
+          <div ref="dayHeaderRef" class="day-header" :style="dayGridColumnsStyle">
+            <div class="time-header" />
+            <div v-for="room in selectedRooms" :key="room.id" class="room-header">
+              <div class="room-label">{{ room.name }}</div>
             </div>
           </div>
 
-          <!-- 每个房间的槽位 -->
-          <div v-for="room in selectedRooms" :key="room.id" class="room-column">
-            <!-- 时间格子 -->
-            <div
-              v-for="hour in timeSlots"
-              :key="`${room.id}-${hour}`"
-              class="time-cell"
-              @click="selectTimeSlot(room, hour)"
-            />
+          <div
+            class="day-grid"
+            :class="{ 'is-public-holiday-grid': isCurrentDayHoliday }"
+            :style="dayGridColumnsStyle"
+          >
+            <div class="time-column">
+              <div v-for="hour in timeSlots" :key="hour" class="time-slot">
+                {{ hour }}
+              </div>
+            </div>
 
-            <!-- 预订卡片（绝对定位） -->
-            <CalendarBookingPopover
-              v-for="booking in getRoomBookings(room.name)"
-              :key="booking.id"
-              :booking="booking"
-              :current-date="currentDate"
-              :rooms="selectedRooms"
-              default-color="#f97316"
-              :teleported="false"
-            >
-              <template #reference>
-                <div
-                  class="booking-block"
-                  :style="getBookingStyle(booking)"
-                  @click="selectBooking(booking)"
-                >
-                  <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-                  <div class="booking-reserved">{{ booking.reservedBy || 'N/A' }}</div>
-                </div>
-              </template>
-            </CalendarBookingPopover>
+            <div v-for="room in selectedRooms" :key="room.id" class="room-column">
+              <div
+                v-for="hour in timeSlots"
+                :key="`${room.id}-${hour}`"
+                class="time-cell"
+                @click="selectTimeSlot(room, hour)"
+              />
+
+              <CalendarBookingPopover
+                v-for="booking in getRoomBookings(room.name)"
+                :key="booking.id"
+                :booking="booking"
+                :current-date="currentDate"
+                :rooms="selectedRooms"
+                default-color="#f97316"
+                :teleported="false"
+              >
+                <template #reference>
+                  <div
+                    class="booking-block"
+                    :style="getBookingStyle(booking)"
+                    @click="selectBooking(booking)"
+                  >
+                    <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
+                    <div class="booking-reserved">{{ booking.reservedBy || 'N/A' }}</div>
+                  </div>
+                </template>
+              </CalendarBookingPopover>
+            </div>
           </div>
         </div>
       </div>
@@ -61,6 +57,7 @@
       <div
         v-if="currentHolidayLabel"
         class="day-holiday-overlay"
+        :style="holidayOverlayStyle"
         aria-hidden="true"
       >
         <span class="day-holiday-label">{{ currentHolidayLabel }}</span>
@@ -70,7 +67,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import CalendarBookingPopover from './CalendarBookingPopover.vue'
 import { getCalendarBookingBlockStyle, formatDateISO } from '@/utils/venueCalendarApi'
 
@@ -93,6 +90,16 @@ const props = defineProps({
   }
 })
 
+const TIME_COL_PX = 80
+const MIN_ROOM_COL_PX = 170
+
+const calendarDayRef = ref(null)
+const dayScrollRef = ref(null)
+const dayHeaderRef = ref(null)
+const containerWidth = ref(0)
+const headerHeightPx = ref(0)
+let resizeObserver = null
+
 const isCurrentDayHoliday = computed(() => {
   const ymd = formatDateISO(props.currentDate)
   return Boolean(props.publicHolidaysByDate[ymd])
@@ -105,7 +112,6 @@ const currentHolidayLabel = computed(() => {
 
 const emit = defineEmits(['time-slot-click'])
 
-// 营业时间（7:00 - 21:00，30分钟间隔）
 const timeSlots = computed(() => {
   const slots = []
   for (let hour = 7; hour <= 21; hour++) {
@@ -117,38 +123,93 @@ const timeSlots = computed(() => {
   return slots
 })
 
-const dayGridTemplateColumns = computed(() => {
+const roomColumnWidthsPx = computed(() => {
   const roomCount = Math.max(props.selectedRooms.length, 1)
-  return `80px repeat(${roomCount}, minmax(170px, 1fr))`
+  const available = Math.max(0, containerWidth.value - TIME_COL_PX)
+  const minTotal = roomCount * MIN_ROOM_COL_PX
+
+  if (available <= 0 || available < minTotal) {
+    return Array(roomCount).fill(MIN_ROOM_COL_PX)
+  }
+
+  const layoutBudget = Math.max(0, available - 1)
+  const width = Math.floor(layoutBudget / roomCount)
+  return Array(roomCount).fill(Math.max(MIN_ROOM_COL_PX, width))
 })
 
-const dayGridMinWidth = computed(() => {
-  const roomCount = Math.max(props.selectedRooms.length, 1)
-  return `calc(80px + ${roomCount} * 170px)`
+const dayContentWidthPx = computed(() => {
+  return TIME_COL_PX + roomColumnWidthsPx.value.reduce((a, b) => a + b, 0)
 })
 
-// 获取特定房间的预订
-function getRoomBookings(roomName) {
+const needsHorizontalScroll = computed(() => {
+  const cw = containerWidth.value
+  if (cw <= 0) return false
+  return dayContentWidthPx.value > cw
+})
+
+const dayGridColumnsStyle = computed(() => {
+  const roomCols = roomColumnWidthsPx.value
+  if (!roomCols.length) {
+    return {
+      gridTemplateColumns: `${TIME_COL_PX}px repeat(1, minmax(${MIN_ROOM_COL_PX}px, 1fr))`
+    }
+  }
+  return {
+    gridTemplateColumns: `${TIME_COL_PX}px ${roomCols.map((w) => `${w}px`).join(' ')}`
+  }
+})
+
+const dayInnerStyle = computed(() => {
+  const total = dayContentWidthPx.value
+
+  if (needsHorizontalScroll.value) {
+    return {
+      width: `${total}px`,
+      minWidth: `${total}px`
+    }
+  }
+  return {
+    width: '100%',
+    maxWidth: '100%'
+  }
+})
+
+const holidayOverlayStyle = computed(() => ({
+  top: `${headerHeightPx.value}px`,
+  left: `${TIME_COL_PX}px`
+}))
+
+function updateContainerWidth () {
+  const el = dayScrollRef.value || calendarDayRef.value
+  containerWidth.value = el ? Math.floor(el.clientWidth) : 0
+}
+
+function updateHeaderHeight () {
+  headerHeightPx.value = dayHeaderRef.value
+    ? Math.ceil(dayHeaderRef.value.getBoundingClientRect().height)
+    : 0
+}
+
+function updateLayoutMetrics () {
+  updateContainerWidth()
+  updateHeaderHeight()
+}
+
+function getRoomBookings (roomName) {
   return props.bookings.filter(booking => booking.roomName === roomName)
 }
 
-// 计算预订的位置和高度
-function getBookingStyle(booking) {
+function getBookingStyle (booking) {
   const [startHour, startMinute] = (booking.startTime?.split(':') || ['7', '0']).map(Number)
   const [endHour, endMinute] = (booking.endTime?.split(':') || ['7', '30']).map(Number)
 
-  // 计算开始和结束时间（以分钟为单位）
   const startTimeInMinutes = startHour * 60 + startMinute
   const endTimeInMinutes = endHour * 60 + endMinute
-
-  // 7:00 是起始时间（7 * 60 = 420分钟）
   const dayStartInMinutes = 7 * 60
 
-  // 计算相对于7:00的偏移量（以30分钟为单位）
   const offsetSlots = (startTimeInMinutes - dayStartInMinutes) / 30
   const durationSlots = (endTimeInMinutes - startTimeInMinutes) / 30
 
-  // 每个时间槽高度为40px
   const slotHeight = 40
   const top = offsetSlots * slotHeight
   const height = durationSlots * slotHeight
@@ -163,8 +224,7 @@ function getBookingStyle(booking) {
   )
 }
 
-// 选择时间槽
-function selectTimeSlot(room, hour) {
+function selectTimeSlot (room, hour) {
   const year = props.currentDate.getFullYear()
   const month = String(props.currentDate.getMonth() + 1).padStart(2, '0')
   const day = String(props.currentDate.getDate()).padStart(2, '0')
@@ -175,16 +235,34 @@ function selectTimeSlot(room, hour) {
   })
 }
 
-// 选择预订
-function selectBooking(booking) {
+function selectBooking (booking) {
   console.log('Selected booking:', booking)
 }
+
+onMounted(() => {
+  updateLayoutMetrics()
+  const targets = [dayScrollRef.value, calendarDayRef.value, dayHeaderRef.value].filter(Boolean)
+  if (typeof ResizeObserver !== 'undefined' && targets.length) {
+    resizeObserver = new ResizeObserver(() => updateLayoutMetrics())
+    for (const el of targets) {
+      resizeObserver.observe(el)
+    }
+  } else {
+    window.addEventListener('resize', updateLayoutMetrics)
+  }
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  window.removeEventListener('resize', updateLayoutMetrics)
+})
 </script>
 
 <style scoped>
 .calendar-day {
   width: 100%;
-  flex: 1;
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -200,14 +278,58 @@ function selectBooking(booking) {
   cursor: not-allowed;
 }
 
+.day-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.day-frame--scroll-x {
+  overflow-x: auto;
+}
+
+.day-scroll-y {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: visible;
+}
+
+.day-scroll-y::-webkit-scrollbar {
+  width: 8px;
+}
+
+.day-scroll-y::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.day-scroll-y::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.day-scroll-y::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.day-inner {
+  box-sizing: border-box;
+}
+
 .day-header {
   display: grid;
-  flex-shrink: 0;
+  box-sizing: border-box;
   background-color: #e5e7eb;
   border-radius: 0.5rem 0.5rem 0 0;
   overflow: visible;
   border: 1px solid #e5e7eb;
   border-bottom: none;
+  position: sticky;
+  top: 0;
   z-index: 10;
 }
 
@@ -239,39 +361,9 @@ function selectBooking(booking) {
   white-space: nowrap;
 }
 
-.day-grid-viewport {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.day-grid-scroll {
-  height: 100%;
-  overflow: auto;
-}
-
-.day-grid-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.day-grid-scroll::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.day-grid-scroll::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-.day-grid-scroll::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
 .day-grid {
   display: grid;
+  box-sizing: border-box;
   position: relative;
   background-color: #e5e7eb;
   border-radius: 0 0 0.5rem 0.5rem;
@@ -282,9 +374,7 @@ function selectBooking(booking) {
 
 .day-holiday-overlay {
   position: absolute;
-  left: 80px;
   right: 0;
-  top: 0;
   bottom: 0;
   display: flex;
   align-items: center;
@@ -363,7 +453,6 @@ function selectBooking(booking) {
   border-radius: 3px;
   border-left-width: 4px;
   border-left-style: solid;
-  /* 色条颜色与背景由 getCalendarBookingBlockStyle 内联设置 */
   color: #111827;
   font-size: 0.7rem;
   overflow: hidden;

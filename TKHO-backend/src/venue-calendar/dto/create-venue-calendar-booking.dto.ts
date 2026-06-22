@@ -3,6 +3,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
 } from 'class-validator';
@@ -52,4 +53,10 @@ export class CreateVenueCalendarBookingDto {
   @IsOptional()
   @IsString()
   roomType?: string;
+
+  /** 管理员代订时指定预订人用户 ID；默认本人 */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d+$/, { message: 'reservedByUserId must be a numeric id' })
+  reservedByUserId?: string;
 }

@@ -12,6 +12,7 @@ import { EvRedisCacheService } from '../redis/ev-redis-cache.service';
 import { OccupyDto } from './dto/occupy.dto';
 import { CreateEvBookingDto } from './dto/create-ev-booking.dto';
 import { isSuperAdminAuth } from '../auth/super-admin.util';
+import { isAdminRole } from '../auth/admin-role.util';
 import { consumeEvQuota } from '../common/user-quota';
 import { HkPublicHolidaysService } from '../system-settings/hk-public-holidays.service';
 
@@ -85,9 +86,27 @@ export class ParkingService {
       throw new BadRequestException('License plate unavailable.');
     }
     if (plate.user_id !== userId) {
-      throw new BadRequestException('License plate does not belong to your account.');
+      throw new BadRequestException('License plate does not belong to the reserved-by user.');
     }
     return plate;
+  }
+
+  private async resolveReservedByUserId(
+    auth: { sub?: string; role?: string; system?: string },
+    reservedByUserIdRaw: string | undefined,
+    actorUserId: bigint,
+  ): Promise<bigint> {
+    const raw = String(reservedByUserIdRaw ?? '').trim();
+    if (!raw) return actorUserId;
+    if (!/^\d+$/.test(raw)) {
+      throw new BadRequestException('Invalid reservedByUserId');
+    }
+    const reservedByUserId = BigInt(raw);
+    if (reservedByUserId === actorUserId) return actorUserId;
+    if (!isAdminRole(auth)) {
+      throw new ForbiddenException('Only administrators can book on behalf of another user.');
+    }
+    return reservedByUserId;
   }
 
   private mapBooking(row: {
@@ -422,20 +441,31 @@ export class ParkingService {
     return { totalSpaces: total, availability };
   }
 
-  async createBooking(auth: { corpId?: string; sub?: string; role?: string; isSuperAdmin?: boolean }, dto: CreateEvBookingDto) {
+  async createBooking(auth: { corpId?: string; sub?: string; role?: string; isSuperAdmin?: boolean; system?: string }, dto: CreateEvBookingDto) {
     if (isSuperAdminAuth(auth)) {
       throw new ForbiddenException('Super admin is not allowed to book resources');
     }
-    const userCorpId = String(auth?.corpId ?? '').trim();
+    const actorUserId = this.parseAuthSub(auth);
+    const reservedByUserId = await this.resolveReservedByUserId(auth, dto.reservedByUserId, actorUserId);
+    const reservedUser = await this.prisma.user.findUnique({
+      where: { id: reservedByUserId },
+      select: { corpId: true, status: true },
+    });
+    if (!reservedUser) {
+      throw new BadRequestException('Reserved-by user not found');
+    }
+    if (String(reservedUser.status || '').toLowerCase() !== 'active') {
+      throw new BadRequestException('Reserved-by user is not active');
+    }
+    const userCorpId = String(reservedUser.corpId ?? '').trim();
     if (!userCorpId) {
-      throw new BadRequestException('Missing corp id in session');
+      throw new BadRequestException('Reserved-by user is missing corp id');
     }
 
-    const userId = this.parseAuthSub(auth);
     const licensePlateId = BigInt(dto.licensePlateId);
     const periodId = BigInt(dto.periodId);
     const { dateKey, date: bookingDate } = this.parseBookingDateYmd(dto.bookingDate);
-    await this.hkPublicHolidaysService.assertNotPublicHoliday(bookingDate);
+    await this.hkPublicHolidaysService.assertBookableForUser(bookingDate, auth);
     const preferredSlotId =
       dto.slotId != null && /^\d+$/.test(String(dto.slotId).trim())
         ? BigInt(String(dto.slotId).trim())
@@ -451,7 +481,7 @@ export class ParkingService {
             throw new ConflictException('Time period unavailable.');
           }
 
-          await this.assertLicensePlateForUser(userId, licensePlateId, tx);
+          await this.assertLicensePlateForUser(reservedByUserId, licensePlateId, tx);
 
           const tryPreferred = attempt === 0 ? preferredSlotId : undefined;
           const slot = await this.pickOneFreeSlot(
@@ -464,7 +494,7 @@ export class ParkingService {
             throw new ConflictException('This time slot is fully booked.');
           }
 
-          await consumeEvQuota(tx, userId);
+          await consumeEvQuota(tx, reservedByUserId);
 
           const now = new Date();
 

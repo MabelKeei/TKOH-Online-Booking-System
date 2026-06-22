@@ -43,7 +43,7 @@
             >
               <!-- 表头 -->
               <div class="grid-header">
-                <div v-for="day in week.days" :key="day.date" class="day-header" :class="{ 'is-today': day.isToday, 'is-public-holiday': day.isHoliday }">
+                <div v-for="day in week.days" :key="day.date" class="day-header" :class="{ 'is-today': day.isToday, 'is-public-holiday': day.isHoliday, 'is-weekend': day.isWeekend && !day.isHoliday }">
                   <div class="day-name">{{ day.dayName }}</div>
                   <div class="day-number">{{ day.dayNumber }}</div>
                 </div>
@@ -57,7 +57,7 @@
                     v-for="day in week.days"
                     :key="`${day.date}-${period.id}`"
                     class="time-cell"
-                    :class="[getAvailabilityClass(day.date, period.id), { 'is-public-holiday': day.isHoliday }]"
+                    :class="[getAvailabilityClass(day.date, period.id), { 'is-public-holiday': day.isHoliday, 'is-weekend': day.isWeekend && !day.isHoliday, 'is-restricted': day.isRestricted }]"
                     @click="selectTimeSlot(day.date, period.id)"
                   >
                     <div v-if="!day.isHoliday" class="availability">{{ getAvailabilityText(day.date, period.id, period.period) }}</div>
@@ -90,6 +90,7 @@
       :booking-window-start="evBookingWindow.currentStartDate"
       :booking-window-end="evBookingWindow.currentEndDate"
       :public-holiday-dates="holidaysByDate"
+      :is-admin="isAdmin"
       :submitting="bookingSubmitting"
       :refresh-calendar-availability="loadCalendarAvailability"
       @close="closeDialog"
@@ -134,6 +135,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import {
   EV_BOOKING_WINDOW_BC_NAME,
   EV_BOOKING_WINDOW_SYNC_LS_KEY,
@@ -152,9 +154,15 @@ import { resolveEvVisibleBookingRange } from '@/utils/evBookingVisibleRange'
 import { todayYmdInAppTimeZone } from '@/utils/appTimezone'
 import { isEvSlotPast } from '@/utils/evSlotPast'
 import { SILENT_ERROR } from '@/utils/requestOptions'
+import {
+  getRestrictedBookingMessage,
+  isRestrictedBookingDay,
+  isWeekendDate
+} from '@/utils/bookingDateRestriction'
 import '@/styles/rich-content.css'
 
 const userStore = useUserStore()
+const { isAdmin } = storeToRefs(userStore)
 
 // 对话框状态
 const dialogVisible = ref(false)
@@ -400,7 +408,12 @@ const weeks = computed(() => {
       dayNumber: String(date.getDate()).padStart(2, '0'),
       isToday: ymd === todayYmd,
       isHoliday: Boolean(holidaysByDate.value[ymd]),
-      holidayLabel: holidaysByDate.value[ymd] || ''
+      holidayLabel: holidaysByDate.value[ymd] || '',
+      isWeekend: isWeekendDate(date),
+      isRestricted: isRestrictedBookingDay(ymd, {
+        isAdmin: isAdmin.value,
+        publicHolidayDates: holidaysByDate.value
+      })
     })
   }
 
@@ -433,8 +446,12 @@ function getAvailabilityData(date, period) {
   if (!isDateInEvWindow(`${date}T12:00:00`)) {
     return { available: 0, total: 0, outOfWindow: true }
   }
-  if (isPublicHoliday(date)) {
-    return { available: 0, total: 0, isHoliday: true }
+  if (isRestrictedBookingDay(date, {
+    isAdmin: isAdmin.value,
+    publicHolidayDates: holidaysByDate.value,
+    isPublicHoliday
+  })) {
+    return { available: 0, total: 0, isRestricted: true }
   }
   const data = resolveSlotAvailability(date, period)
   if (isSlotPast(date, period)) {
@@ -445,9 +462,13 @@ function getAvailabilityData(date, period) {
 
 // 获取可用性文本
 function getAvailabilityText(date, period, periodLabel) {
+  if (isPublicHoliday(date)) return ''
   const data = getAvailabilityData(date, period)
   if (data.loading) return ''
-  if (data.isHoliday) return ''
+  if (data.isRestricted) {
+    if (!isAdmin.value && isWeekendDate(date)) return periodLabel
+    return ''
+  }
   if (data.outOfWindow) return 'Closed'
   if (data.available === 0) {
     return 'Full'
@@ -458,9 +479,10 @@ function getAvailabilityText(date, period, periodLabel) {
 
 // 获取可用性样式类
 function getAvailabilityClass(date, period) {
+  if (isPublicHoliday(date)) return ''
   const data = getAvailabilityData(date, period)
   if (data.loading) return 'is-loading'
-  if (data.isHoliday) return 'is-holiday'
+  if (data.isRestricted) return 'is-restricted'
   if (data.outOfWindow) {
     return 'is-closed'
   }
@@ -483,14 +505,18 @@ async function selectTimeSlot (date, period) {
     }
     return
   }
-  if (isPublicHoliday(date)) {
-    const label = getHolidaySummary(date)
+  if (isRestrictedBookingDay(date, {
+    isAdmin: isAdmin.value,
+    publicHolidayDates: holidaysByDate.value,
+    isPublicHoliday
+  })) {
     statusDialog.value = {
       visible: true,
       type: '',
-      message: label
-        ? `Booking is not allowed on Hong Kong public holidays: ${label}`
-        : 'Booking is not allowed on Hong Kong public holidays'
+      message: getRestrictedBookingMessage(date, {
+        publicHolidayDates: holidaysByDate.value,
+        getHolidaySummary
+      })
     }
     return
   }
@@ -611,7 +637,10 @@ async function handleBookingConfirm(bookingData) {
       licensePlateId: String(bookingData.licensePlateId),
       periodId: String(bookingData.timePeriod),
       bookingDate: bookingData.date,
-      slotId: bookingData.slotId ? String(bookingData.slotId) : undefined
+      slotId: bookingData.slotId ? String(bookingData.slotId) : undefined,
+      reservedByUserId: bookingData.reservedByUserId
+        ? String(bookingData.reservedByUserId)
+        : undefined
     })
     await Promise.all([
       loadCalendarAvailability(),
@@ -964,14 +993,25 @@ onUnmounted(() => {
 }
 
 .time-cell.is-holiday,
-.time-cell.is-public-holiday {
+.time-cell.is-public-holiday,
+.time-cell.is-restricted {
   background-color: #fef2f2;
   cursor: not-allowed;
 }
 
 .time-cell.is-holiday:hover,
-.time-cell.is-public-holiday:hover {
+.time-cell.is-public-holiday:hover,
+.time-cell.is-restricted:hover {
   background-color: #fee2e2;
+}
+
+.time-cell.is-weekend:not(.is-public-holiday) {
+  background-color: #f3f4f6;
+}
+
+.day-header.is-weekend:not(.is-public-holiday) {
+  background-color: #e5e7eb;
+  color: #374151;
 }
 
 .day-header.is-public-holiday {

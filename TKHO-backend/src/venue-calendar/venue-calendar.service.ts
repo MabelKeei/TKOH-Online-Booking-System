@@ -10,6 +10,7 @@ import { HkPublicHolidaysService } from '../system-settings/hk-public-holidays.s
 import { CreateVenueCalendarBookingDto } from './dto/create-venue-calendar-booking.dto';
 import { UpdateVenueCalendarBookingDto } from './dto/update-venue-calendar-booking.dto';
 import { isSuperAdminAuth } from '../auth/super-admin.util';
+import { isAdminRole } from '../auth/admin-role.util';
 import { consumeVenueQuota, releaseVenueQuota } from '../common/user-quota';
 
 const bookingInclude = {
@@ -41,6 +42,34 @@ export class VenueCalendarService {
     if (isSuperAdminAuth(auth)) {
       throw new ForbiddenException('Super admin is not allowed to book resources');
     }
+  }
+
+  private async resolveReservedByUserId(
+    auth: { sub?: string; role?: string; system?: string } | null | undefined,
+    reservedByUserIdRaw: string | undefined,
+    actorUserId: bigint,
+  ): Promise<bigint> {
+    const raw = String(reservedByUserIdRaw ?? '').trim();
+    if (!raw) return actorUserId;
+    if (!/^\d+$/.test(raw)) {
+      throw new BadRequestException('Invalid reservedByUserId');
+    }
+    const reservedByUserId = BigInt(raw);
+    if (reservedByUserId === actorUserId) return actorUserId;
+    if (!isAdminRole(auth)) {
+      throw new ForbiddenException('Only administrators can book on behalf of another user.');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: reservedByUserId },
+      select: { id: true, status: true },
+    });
+    if (!user) {
+      throw new BadRequestException('Reserved-by user not found');
+    }
+    if (String(user.status || '').toLowerCase() !== 'active') {
+      throw new BadRequestException('Reserved-by user is not active');
+    }
+    return reservedByUserId;
   }
 
   private parseDateOnly(ymd: string): Date {
@@ -409,15 +438,20 @@ export class VenueCalendarService {
     }));
   }
 
-  async createBooking(dto: CreateVenueCalendarBookingDto, auth?: { sub?: string; role?: string; isSuperAdmin?: boolean }) {
+  async createBooking(dto: CreateVenueCalendarBookingDto, auth?: { sub?: string; role?: string; isSuperAdmin?: boolean; system?: string }) {
     this.assertNotSuperAdmin(auth);
-    const userId = this.parseUserId(auth?.sub);
+    const actorUserId = this.parseUserId(auth?.sub);
+    const reservedByUserId = await this.resolveReservedByUserId(
+      auth,
+      dto.reservedByUserId,
+      actorUserId,
+    );
     const venue = await this.findVenueByName(dto.roomName);
     const bookingDate = this.parseDateOnly(dto.date);
     const startTime = this.parseTimeHm(dto.startTime);
     const endTime = this.parseTimeHm(dto.endTime);
 
-    await this.hkPublicHolidaysService.assertNotPublicHoliday(bookingDate);
+    await this.hkPublicHolidaysService.assertBookableForUser(bookingDate, auth);
     await this.assertSlotAvailable(venue.id, bookingDate, startTime, endTime);
 
     const notes = this.buildNotesPayload(dto);
@@ -425,12 +459,12 @@ export class VenueCalendarService {
     const teaRequired = Boolean(dto.teaServiceRequired);
 
     const created = await this.prisma.$transaction(async (tx) => {
-      await consumeVenueQuota(tx, userId);
+      await consumeVenueQuota(tx, reservedByUserId);
 
       const row = await tx.venueBookings.create({
         data: {
           venueId: venue.id,
-          reservedByUserId: userId,
+          reservedByUserId,
           meetingTitle: dto.topic.trim(),
           bookingDate,
           startTime,
@@ -474,7 +508,7 @@ export class VenueCalendarService {
   async updateBooking(
     id: string,
     dto: UpdateVenueCalendarBookingDto,
-    auth?: { sub?: string; role?: string; isSuperAdmin?: boolean },
+    auth?: { sub?: string; role?: string; isSuperAdmin?: boolean; system?: string },
   ) {
     this.assertNotSuperAdmin(auth);
     const bookingId = BigInt(id);
@@ -498,7 +532,7 @@ export class VenueCalendarService {
       ? this.parseTimeHm(dto.endTime)
       : existing.endTime!;
 
-    await this.hkPublicHolidaysService.assertNotPublicHoliday(bookingDate);
+    await this.hkPublicHolidaysService.assertBookableForUser(bookingDate, auth);
     await this.assertSlotAvailable(
       venue.id,
       bookingDate,

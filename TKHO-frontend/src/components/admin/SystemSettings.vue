@@ -49,7 +49,7 @@
             />
             <p class="field-hint">
               Active users with no login (or account created) for this many months are automatically set to Inactive.
-              SuperAdmin and system-hidden accounts are excluded.
+              The Admin account is excluded.
             </p>
           </div>
         </section>
@@ -81,7 +81,7 @@
               class="field-control field-control--full"
             />
             <p class="field-hint">
-              Reference link for Hong Kong public holidays (e.g. government holiday page or iCal feed).
+              Reference link for Hong Kong public holidays.
             </p>
             <a
               v-if="form.hkPublicHolidaysUrl"

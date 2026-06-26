@@ -33,7 +33,7 @@
             </div>
           </div>
 
-          <div class="right-grid-panel">
+          <div class="right-grid-panel" :style="spaceGridStyle">
             <div class="space-header-row">
               <div v-for="space in spaces" :key="space" class="space-header-cell">
                 <span class="space-name">{{ space }}</span>
@@ -87,6 +87,7 @@ const periodZhMap = {
 }
 
 const bookings = ref([])
+const parkingSpaces = ref([])
 const timePeriods = ref([])
 const currentDateLabel = ref('')
 const currentTimeLabel = ref('')
@@ -99,11 +100,29 @@ const displayRoot = ref(null)
 const BASE_WIDTH = 1920
 const BASE_HEIGHT = 1080
 
-const spaces = computed(() => {
-  const list = [...new Set(bookings.value.map(item => item.space).filter(Boolean))]
-  if (!list.length) return ['B1', 'B2', 'B3']
-  return list.sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }))
-})
+const spaces = computed(() =>
+  parkingSpaces.value
+    .map((slot) => String(slot?.evSpace || '').trim())
+    .filter(Boolean)
+)
+
+const spaceGridStyle = computed(() => ({
+  '--space-count': String(Math.max(spaces.value.length, 1))
+}))
+
+function normalizeParkingSlots (rows) {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .map((row) => {
+      if (typeof row === 'string') {
+        const evSpace = row.trim()
+        return evSpace ? { evSpace } : null
+      }
+      const evSpace = String(row?.evSpace || '').trim()
+      return evSpace ? { evSpace } : null
+    })
+    .filter(Boolean)
+}
 
 let lastDisplayYmd = ''
 
@@ -118,6 +137,7 @@ async function refreshDisplayData () {
   const data = await getEvPublicDisplayData(todayYmdInAppTimeZone())
   footerTickerText.value = data?.evDisplaySettings?.footerTickerText || ''
   timePeriods.value = Array.isArray(data?.timePeriods) ? data.timePeriods : []
+  parkingSpaces.value = normalizeParkingSlots(data?.parkingSlots)
   bookings.value = (Array.isArray(data?.bookings) ? data.bookings : []).map(mapDisplayBooking)
   lastDisplayYmd = todayYmdInAppTimeZone()
   await nextTick()
@@ -242,6 +262,7 @@ onMounted(async () => {
   } catch {
     footerTickerText.value = ''
     timePeriods.value = []
+    parkingSpaces.value = []
     bookings.value = []
     lastDisplayYmd = todayYmdInAppTimeZone()
   }
@@ -458,7 +479,7 @@ onUnmounted(() => {
 .space-header-row,
 .plate-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(var(--space-count, 3), minmax(0, 1fr));
   gap: clamp(12px, calc(16px * var(--ui-scale)), 24px);
   min-height: 0;
   align-items: center;

@@ -108,6 +108,13 @@ export class EvManagementService {
     return rows.map((r) => this.mapParking(r));
   }
 
+  async listActiveParkingSlots() {
+    const rows = await this.prisma.evParkingSlots.findMany({ orderBy: { id: 'asc' } });
+    return rows
+      .filter((r) => String(r.status || 'active').toLowerCase() === 'active')
+      .map((r) => this.mapParking(r));
+  }
+
   async createParkingSlot(dto: CreateEvParkingDto) {
     const evSpace = dto.evSpace.trim();
     const dup = await this.prisma.evParkingSlots.findFirst({
@@ -524,15 +531,19 @@ export class EvManagementService {
 
   async getPublicDisplayData(dateYmd?: string) {
     const dateKey = this.resolveDisplayDateYmd(dateYmd);
-    const [bookingResult, timePeriods, evDisplaySettings] = await Promise.all([
+    const [bookingResult, timePeriods, evDisplaySettings, parkingSlots] = await Promise.all([
       this.listDisplayBookings(dateKey),
       this.listTimePeriods(),
       this.displayManagementService.getEvDisplayPublicSettings(),
+      this.listActiveParkingSlots(),
     ]);
 
     return {
       displayDate: dateKey,
       bookings: bookingResult.bookings,
+      parkingSlots: parkingSlots.map((slot) => ({
+        evSpace: slot.evSpace,
+      })),
       timePeriods: timePeriods.filter(
         (item) => String(item.status || 'active').toLowerCase() === 'active',
       ),

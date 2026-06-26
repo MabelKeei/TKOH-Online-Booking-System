@@ -10,26 +10,21 @@
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from './stores/user'
+import { isPublicRoute } from './utils/publicRoutes'
 import FloatingHelpButton from './components/FloatingHelpButton.vue'
 import GlobalStatusDialog from './components/GlobalStatusDialog.vue'
 
 const userStore = useUserStore()
 const route = useRoute()
 const isAdminRoute = computed(() => route.path.startsWith('/admin'))
-const isPublicRegistrationRoute = computed(() => route.path === '/register')
 const showFloatingHelpButton = computed(
-  () =>
-    !isAdminRoute.value &&
-    !isPublicRegistrationRoute.value &&
-    !isPublicEntryRoute(route.path)
+  () => !isAdminRoute.value && !isPublicRoute(route.path)
 )
-
-const isPublicEntryRoute = (path) => path === '/login' || path === '/register'
 
 onMounted(async () => {
   userStore.initUserInfo()
-  // 登录/注册页刷新时不要带过期 token 调 /auth/me，否则会触发全局 401 弹窗
-  if (isPublicEntryRoute(route.path)) {
+  // 免登录页（登录/注册/大屏）不要带过期 token 调 /auth/me，否则会触发全局 401 并跳转登录
+  if (isPublicRoute(route.path)) {
     return
   }
   await userStore.refreshSessionUser()

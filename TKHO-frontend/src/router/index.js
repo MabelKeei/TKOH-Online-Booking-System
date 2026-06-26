@@ -1,17 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '../stores/user'
-
-function pathRequiresAuth(path) {
-  if (path === '/login') return false
-  if (path === '/register') return false
-  if (path.startsWith('/VenueBooking/Display')) return false
-  if (path.startsWith('/evBooking/Display') || path.startsWith('/EVBooking/Display')) return false
-  if (path.startsWith('/admin')) return true
-  if (path.startsWith('/VenueBooking')) return true
-  if (path.startsWith('/evBooking') || path.startsWith('/EVBooking')) return true
-  if (path.startsWith('/Account')) return true
-  return false
-}
+import { pathRequiresAuth } from '../utils/publicRoutes'
 
 function defaultHomeForUser(user) {
   const sys = user?.system

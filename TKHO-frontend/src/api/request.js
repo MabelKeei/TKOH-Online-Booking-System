@@ -4,6 +4,7 @@ import { useStatusDialogStore } from '../stores/statusDialog'
 import router from '../router'
 
 import { getApiBaseURL, shouldAttachNgrokHeader } from '@/utils/apiConfig'
+import { isPublicRoute } from '@/utils/publicRoutes'
 
 const apiBaseURL = getApiBaseURL()
 
@@ -66,9 +67,9 @@ const isPublicVenueDisplayRequest = (config) =>
 const isPublicEvDisplayRequest = (config) =>
   (config?.url || '').includes('/ev-management/public/display')
 
-const isOnPublicEntryPage = () => {
+const isOnPublicRoute = () => {
   const path = router.currentRoute.value?.path || ''
-  return path === '/login' || path === '/register'
+  return isPublicRoute(path)
 }
 /** 公开注册页自行用 ElMessageBox 提示，避免与全局 status 弹窗重复 */
 const isRegistrationSubmitRequest = (config) =>
@@ -140,7 +141,7 @@ request.interceptors.response.use(
             !isPublicEvDisplayRequest(config)
           ) {
             userStore.logout()
-            if (!isOnPublicEntryPage()) {
+            if (!isOnPublicRoute()) {
               showStatusDialog('Unauthorized, please log in again', 'error')
               router.push('/login')
             }

@@ -150,7 +150,7 @@ import { useUserStore } from '@/stores/user'
 import { getEvCalendarAvailability, createEvBooking } from '@/api/parking'
 import { fetchActiveEvTimePeriods } from '@/utils/evTimePeriods'
 import { fetchEvBookingWindow, invalidateEvBookingWindowCache } from '@/utils/evBookingWindow'
-import { resolveEvVisibleBookingRange } from '@/utils/evBookingVisibleRange'
+import { resolveEvVisibleBookingRange, msUntilNextEvDateUpdateRoll } from '@/utils/evBookingVisibleRange'
 import { todayYmdInAppTimeZone } from '@/utils/appTimezone'
 import { isEvSlotPast } from '@/utils/evSlotPast'
 import { SILENT_ERROR } from '@/utils/requestOptions'
@@ -197,8 +197,10 @@ const formatDateToYmd = (date) => {
 }
 const evBookingWindow = ref({
   currentStartDate: '',
-  currentEndDate: ''
+  currentEndDate: '',
+  evDateUpdateTime: '13:00'
 })
+const calendarNow = ref(new Date())
 
 const loadEvBookingWindow = async () => {
   evBookingWindow.value = await fetchEvBookingWindow()
@@ -206,6 +208,7 @@ const loadEvBookingWindow = async () => {
   if (currentStartDate && currentEndDate) {
     await loadHolidays(currentStartDate, currentEndDate)
   }
+  scheduleEvDateUpdateRoll()
 }
 
 const evWindowRange = computed(() => ({
@@ -213,10 +216,13 @@ const evWindowRange = computed(() => ({
   end: new Date(`${evBookingWindow.value.currentEndDate}T23:59:59`)
 }))
 
-/** 用户可见的预订日：在已发布年度窗口内，含今天起共 14 天 */
+/** 用户可见的预订日：在已发布年度窗口内，不含今天，共 14 天；每日 EV_date_update_time 后滚动 */
 const visibleBookingRange = computed(() => {
-  const { currentStartDate, currentEndDate } = evBookingWindow.value
-  return resolveEvVisibleBookingRange(currentStartDate, currentEndDate)
+  const { currentStartDate, currentEndDate, evDateUpdateTime } = evBookingWindow.value
+  return resolveEvVisibleBookingRange(currentStartDate, currentEndDate, {
+    now: calendarNow.value,
+    evDateUpdateTime: evDateUpdateTime || '13:00'
+  })
 })
 
 const timePeriods = ref([])
@@ -230,19 +236,23 @@ const availabilityLoaded = ref(false)
 function applyEvWindowFromSyncDetail (detail) {
   if (!detail?.currentStartDate || !detail?.currentEndDate) return false
   const cur = evBookingWindow.value
+  const nextUpdateTime = detail.evDateUpdateTime ?? cur.evDateUpdateTime ?? '13:00'
   if (
     cur.currentStartDate === detail.currentStartDate &&
-    cur.currentEndDate === detail.currentEndDate
+    cur.currentEndDate === detail.currentEndDate &&
+    cur.evDateUpdateTime === nextUpdateTime
   ) {
     return false
   }
   evBookingWindow.value = {
     currentStartDate: detail.currentStartDate,
-    currentEndDate: detail.currentEndDate
+    currentEndDate: detail.currentEndDate,
+    evDateUpdateTime: nextUpdateTime
   }
   invalidateEvBookingWindowCache()
   availabilityLoaded.value = false
   void loadHolidays(detail.currentStartDate, detail.currentEndDate)
+  scheduleEvDateUpdateRoll()
   return true
 }
 
@@ -253,6 +263,7 @@ const CALENDAR_POLL_MS_NORMAL = 10_000
 const CALENDAR_POLL_MS_SLOW = 30_000
 let windowPollTimer = null
 let calendarPollTimer = null
+let evDateUpdateRollTimer = null
 let calendarPollDelayMs = CALENDAR_POLL_MS_NORMAL
 let calendarPollFailures = 0
 let windowPollInFlight = false
@@ -269,7 +280,8 @@ async function pollEvBookingWindowFromServer () {
     const next = await fetchEvBookingWindow()
     const rangeChanged = applyEvWindowFromSyncDetail({
       currentStartDate: next?.currentStartDate || '',
-      currentEndDate: next?.currentEndDate || ''
+      currentEndDate: next?.currentEndDate || '',
+      evDateUpdateTime: next?.evDateUpdateTime || '13:00'
     })
     if (rangeChanged) {
       await loadCalendarAvailability()
@@ -340,6 +352,20 @@ function onDocumentVisibilityChange () {
   }
 }
 
+function scheduleEvDateUpdateRoll () {
+  if (evDateUpdateRollTimer) {
+    clearTimeout(evDateUpdateRollTimer)
+    evDateUpdateRollTimer = null
+  }
+  const updateTime = evBookingWindow.value.evDateUpdateTime || '13:00'
+  const delayMs = msUntilNextEvDateUpdateRoll(updateTime)
+  evDateUpdateRollTimer = setTimeout(() => {
+    calendarNow.value = new Date()
+    void loadCalendarAvailability()
+    scheduleEvDateUpdateRoll()
+  }, delayMs)
+}
+
 function startEvBookingWindowWatchers () {
   windowPollTimer = setInterval(pollEvBookingWindowFromServer, WINDOW_POLL_MS)
   scheduleCalendarPoll()
@@ -354,6 +380,10 @@ function startEvBookingWindowWatchers () {
 }
 
 function stopEvBookingWindowWatchers () {
+  if (evDateUpdateRollTimer) {
+    clearTimeout(evDateUpdateRollTimer)
+    evDateUpdateRollTimer = null
+  }
   if (windowPollTimer) {
     clearInterval(windowPollTimer)
     windowPollTimer = null
@@ -388,7 +418,7 @@ function isSlotPast (dateYmd, periodId) {
   return isEvSlotPast(dateYmd, periodId, timePeriods.value)
 }
 
-// 在已发布年度范围内，显示含今天在内的未来 14 天
+// 在已发布年度范围内，按 EV_date_update_time 显示不含今天的未来 14 天
 const weeks = computed(() => {
   const { startYmd, endYmd } = visibleBookingRange.value
   if (!startYmd || !endYmd) return []

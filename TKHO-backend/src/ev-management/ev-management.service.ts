@@ -9,16 +9,21 @@ import {
 import { Prisma } from '@prisma/client';
 import { getAppTodayYmd } from '../common/app-timezone';
 import { releaseEvQuota } from '../common/user-quota';
+import { assertEvWeeklyBookingLimit } from '../common/ev-weekly-booking-limit';
 import { DisplayManagementService } from '../display-management/display-management.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EvRedisCacheService } from '../redis/ev-redis-cache.service';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { CreateEvParkingDto } from './dto/create-ev-parking.dto';
 import { UpdateEvParkingDto } from './dto/update-ev-parking.dto';
 import { CreateEvTimePeriodDto } from './dto/create-ev-time-period.dto';
 import { UpdateEvTimePeriodDto } from './dto/update-ev-time-period.dto';
 import { PublishEvWindowDto } from './dto/publish-ev-window.dto';
+import { UpdateEvManageBookingDto } from './dto/update-ev-manage-booking.dto';
+import { HkPublicHolidaysService } from '../system-settings/hk-public-holidays.service';
 
 const EV_RESOURCE = 'ev';
+const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed'] as const;
 const DISPLAY_MONTHS = [
   'Jan',
   'Feb',
@@ -42,18 +47,12 @@ export class EvManagementService {
     private readonly prisma: PrismaService,
     private readonly evCache: EvRedisCacheService,
     private readonly displayManagementService: DisplayManagementService,
+    private readonly systemSettingsService: SystemSettingsService,
+    private readonly hkPublicHolidaysService: HkPublicHolidaysService,
   ) {}
 
   private toDateOnly(date: Date) {
     return date.toISOString().slice(0, 10);
-  }
-
-  private parseBookingDateYmd(ymd: string): Date {
-    const dateKey = String(ymd || '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
-      throw new BadRequestException('date must be YYYY-MM-DD');
-    }
-    return new Date(`${dateKey}T00:00:00.000Z`);
   }
 
   private resolveDisplayDateYmd(optional?: string) {
@@ -262,14 +261,15 @@ export class EvManagementService {
   }
 
   async getEvBookingWindow() {
+    const evDateUpdateTime = await this.systemSettingsService.getEvDateUpdateTime();
     const cached = await this.evCache.getBookingWindow();
     if (cached) {
-      return cached;
+      return { ...cached, evDateUpdateTime };
     }
 
     const payload = await this.loadEvBookingWindowFromDb();
     await this.evCache.setBookingWindow(payload);
-    return payload;
+    return { ...payload, evDateUpdateTime };
   }
 
   private async loadEvBookingWindowFromDb() {
@@ -368,12 +368,110 @@ export class EvManagementService {
       .includes('admin');
   }
 
+  private parseBookingDateYmd(ymd: string): { dateKey: string; date: Date } {
+    const dateKey = ymd.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+      throw new BadRequestException('bookingDate must be YYYY-MM-DD');
+    }
+    return { dateKey, date: new Date(`${dateKey}T00:00:00.000Z`) };
+  }
+
+  private async resolveReservedByUserId(
+    reservedByUserIdRaw: string | undefined,
+    fallbackUserId: bigint,
+  ): Promise<bigint> {
+    const raw = String(reservedByUserIdRaw ?? '').trim();
+    if (!raw) return fallbackUserId;
+    if (!/^\d+$/.test(raw)) {
+      throw new BadRequestException('reservedByUserId must be a numeric id');
+    }
+    return BigInt(raw);
+  }
+
+  private async assertLicensePlateForUser(
+    userId: bigint,
+    licensePlateId: bigint,
+    db: Pick<PrismaService, 'license_plates'>,
+  ) {
+    const plate = await db.license_plates.findUnique({ where: { id: licensePlateId } });
+    if (!plate || plate.status !== 'active') {
+      throw new BadRequestException('License plate unavailable.');
+    }
+    if (plate.user_id !== userId) {
+      throw new BadRequestException('License plate does not belong to the reserved-by user.');
+    }
+    return plate;
+  }
+
+  private async pickFreeSlotForUpdate(
+    tx: Prisma.TransactionClient,
+    periodId: bigint,
+    dateKey: string,
+    excludeBookingId: bigint,
+    preferredSlotId?: bigint,
+  ) {
+    await tx.$executeRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext(concat(cast(${periodId} AS text), ':', ${dateKey}))
+      )
+    `;
+
+    const pickFromRows = async (rows: { id: bigint; ev_space: string }[]) =>
+      rows[0] ? { id: rows[0].id, evSpace: rows[0].ev_space } : null;
+
+    if (preferredSlotId != null) {
+      const preferred = await tx.$queryRaw<{ id: bigint; ev_space: string }[]>`
+        SELECT s.id, s.ev_space
+        FROM ev_parking_slots s
+        WHERE s.id = ${preferredSlotId}
+          AND s.status = 'active'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM ev_bookings b
+            WHERE b.slot_id = s.id
+              AND b.period_id = ${periodId}
+              AND b.booking_date = ${dateKey}::date
+              AND b.status IN ('pending', 'confirmed')
+              AND b.id <> ${excludeBookingId}
+          )
+        LIMIT 1
+      `;
+      const picked = await pickFromRows(preferred);
+      if (picked) return picked;
+    }
+
+    const rows = await tx.$queryRaw<{ id: bigint; ev_space: string }[]>`
+      SELECT s.id, s.ev_space
+      FROM ev_parking_slots s
+      WHERE s.status = 'active'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM ev_bookings b
+          WHERE b.slot_id = s.id
+            AND b.period_id = ${periodId}
+            AND b.booking_date = ${dateKey}::date
+            AND b.status IN ('pending', 'confirmed')
+            AND b.id <> ${excludeBookingId}
+        )
+      ORDER BY s.id
+      LIMIT 1
+    `;
+    return pickFromRows(rows);
+  }
+
   private formatDisplayDate(date: Date): string {
     const d = new Date(date);
     const day = d.getUTCDate();
     const month = DISPLAY_MONTHS[d.getUTCMonth()] ?? 'Jan';
     const year = d.getUTCFullYear();
     return `${day} ${month} ${year}`;
+  }
+
+  private formatDisplayDateTime(date: Date): string {
+    const d = new Date(date);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${this.formatDisplayDate(d)} ${hh}:${mm}`;
   }
 
   private formatPeriodTime(period: { period: string; startTime: Date; endTime: Date } | null) {
@@ -414,10 +512,19 @@ export class EvManagementService {
     return 'upcoming';
   }
 
-  private async resolveBookingOwners(rows: Array<{ userCorpId: string | null; licensePlate: { user_id: bigint | null } | null }>) {
+  private async resolveBookingOwners(
+    rows: Array<{
+      userCorpId: string | null;
+      submitterUserId: bigint | null;
+      licensePlate: { user_id: bigint | null } | null;
+    }>,
+  ) {
     const userIds = new Set<bigint>();
     const corpIds = new Set<string>();
     for (const row of rows) {
+      if (row.submitterUserId != null) {
+        userIds.add(row.submitterUserId);
+      }
       if (row.licensePlate?.user_id != null) {
         userIds.add(row.licensePlate.user_id);
       }
@@ -452,8 +559,13 @@ export class EvManagementService {
     row: {
       id: bigint;
       userCorpId: string | null;
+      submitterUserId: bigint | null;
+      licensePlateId: bigint;
+      slotId: bigint;
+      periodId: bigint | null;
       bookingDate: Date;
       bookedOn: Date | null;
+      createdAt: Date;
       status: string;
       licensePlate: { plate_number: string; user_id: bigint | null } | null;
       slot: { evSpace: string };
@@ -468,6 +580,8 @@ export class EvManagementService {
     const owner =
       (plateUserId != null ? owners.byId.get(plateUserId) : undefined) ??
       (row.userCorpId ? owners.byCorp.get(row.userCorpId) : undefined);
+    const submitter =
+      row.submitterUserId != null ? owners.byId.get(row.submitterUserId) : undefined;
 
     const uiStatus = this.deriveUiStatus(row.bookingDate, row.period, row.status);
 
@@ -481,11 +595,21 @@ export class EvManagementService {
       bookedOn: row.bookedOn
         ? this.formatDisplayDate(row.bookedOn)
         : this.formatDisplayDate(row.bookingDate),
+      submittedAt: row.bookedOn
+        ? this.formatDisplayDateTime(row.bookedOn)
+        : this.formatDisplayDateTime(row.createdAt),
       status: uiStatus,
       dbStatus: row.status,
       employeeId: owner ? owner.id.toString() : undefined,
       corpId: row.userCorpId ?? owner?.corpId,
+      submitter: submitter?.corpId ?? undefined,
+      submitterUserId: submitter ? submitter.id.toString() : undefined,
       reservedBy: owner?.corpId ?? row.userCorpId ?? undefined,
+      reservedByUserId: owner ? owner.id.toString() : undefined,
+      licensePlateId: row.licensePlateId.toString(),
+      slotId: row.slotId.toString(),
+      periodId: row.periodId != null ? row.periodId.toString() : '',
+      bookingDateYmd: this.toDateOnly(row.bookingDate),
       email: owner?.email ?? undefined,
     };
   }
@@ -511,7 +635,7 @@ export class EvManagementService {
 
   async listDisplayBookings(dateYmd?: string) {
     const dateKey = this.resolveDisplayDateYmd(dateYmd);
-    const bookingDate = this.parseBookingDateYmd(dateKey);
+    const { date: bookingDate } = this.parseBookingDateYmd(dateKey);
 
     const rows = await this.prisma.evBookings.findMany({
       where: { bookingDate },
@@ -623,6 +747,12 @@ export class EvManagementService {
       throw new BadRequestException('Booking cannot be cancelled.');
     }
 
+    if (!this.isAdminRole(auth) && this.toDateOnly(row.bookingDate) === getAppTodayYmd()) {
+      throw new BadRequestException(
+        'Same-day EV bookings cannot be cancelled.',
+      );
+    }
+
     const ownerUserId = row.licensePlate?.user_id ?? null;
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -647,6 +777,120 @@ export class EvManagementService {
 
     return {
       message: 'Booking cancelled',
+      booking: this.mapManageBookingRow(updated, owners),
+    };
+  }
+
+  async updateManageBooking(auth: AuthUser, idRaw: string, dto: UpdateEvManageBookingDto) {
+    if (!this.isAdminRole(auth)) {
+      throw new ForbiddenException('Only administrators can edit bookings.');
+    }
+
+    const id = BigInt(idRaw);
+    const row = await this.prisma.evBookings.findUnique({
+      where: { id },
+      include: {
+        licensePlate: { select: { plate_number: true, user_id: true } },
+        slot: { select: { evSpace: true } },
+        period: { select: { period: true, startTime: true, endTime: true } },
+      },
+    });
+
+    if (!row) {
+      throw new NotFoundException('Booking not found.');
+    }
+
+    const uiStatus = this.deriveUiStatus(row.bookingDate, row.period, row.status);
+    if (uiStatus !== 'upcoming') {
+      throw new BadRequestException('Only upcoming bookings can be edited.');
+    }
+    if (!ACTIVE_BOOKING_STATUSES.includes(row.status as (typeof ACTIVE_BOOKING_STATUSES)[number])) {
+      throw new BadRequestException('Booking cannot be edited.');
+    }
+
+    const fallbackUserId = row.licensePlate?.user_id ?? this.parseAuthSub(auth);
+    const reservedByUserId = await this.resolveReservedByUserId(
+      dto.reservedByUserId,
+      fallbackUserId,
+    );
+    const reservedUser = await this.prisma.user.findUnique({
+      where: { id: reservedByUserId },
+      select: { corpId: true, status: true },
+    });
+    if (!reservedUser) {
+      throw new BadRequestException('Reserved-by user not found');
+    }
+    if (String(reservedUser.status || '').toLowerCase() !== 'active') {
+      throw new BadRequestException('Reserved-by user is not active');
+    }
+    const userCorpId = String(reservedUser.corpId ?? '').trim();
+    if (!userCorpId) {
+      throw new BadRequestException('Reserved-by user is missing corp id');
+    }
+
+    const licensePlateId = BigInt(dto.licensePlateId);
+    const periodId = BigInt(dto.periodId);
+    const { dateKey, date: bookingDate } = this.parseBookingDateYmd(dto.bookingDate);
+    await this.hkPublicHolidaysService.assertBookableForUser(bookingDate, auth);
+    const preferredSlotId =
+      dto.slotId != null && /^\d+$/.test(String(dto.slotId).trim())
+        ? BigInt(String(dto.slotId).trim())
+        : undefined;
+
+    const weeklyLimit = await this.systemSettingsService.getEvWeeklyBookingLimit();
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const period = await tx.evTimePeriods.findUnique({ where: { id: periodId } });
+      if (!period || period.status !== 'active') {
+        throw new ConflictException('Time period unavailable.');
+      }
+
+      await this.assertLicensePlateForUser(reservedByUserId, licensePlateId, tx);
+
+      await assertEvWeeklyBookingLimit(
+        tx,
+        reservedByUserId,
+        dateKey,
+        weeklyLimit,
+        {
+          excludeBookingId: id,
+          bypassWeeklyLimit: true,
+        },
+      );
+
+      const slot = await this.pickFreeSlotForUpdate(
+        tx,
+        periodId,
+        dateKey,
+        id,
+        preferredSlotId,
+      );
+      if (!slot) {
+        throw new ConflictException('This time slot is fully booked.');
+      }
+
+      return tx.evBookings.update({
+        where: { id },
+        data: {
+          userCorpId,
+          licensePlateId,
+          slotId: slot.id,
+          periodId,
+          bookingDate,
+        },
+        include: {
+          licensePlate: { select: { plate_number: true, user_id: true } },
+          slot: { select: { evSpace: true } },
+          period: { select: { period: true, startTime: true, endTime: true } },
+        },
+      });
+    });
+
+    await this.evCache.bumpCalendarVersion();
+
+    const owners = await this.resolveBookingOwners([updated]);
+    return {
+      message: 'Booking updated',
       booking: this.mapManageBookingRow(updated, owners),
     };
   }

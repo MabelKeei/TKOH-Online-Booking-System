@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { useStatusDialogStore } from '../stores/statusDialog'
 import { pathRequiresAuth } from '../utils/publicRoutes'
+import { canAccessPath, getDeniedSystemMessage, systemForPath } from '../utils/systemAccess'
 
 function defaultHomeForUser(user) {
   const sys = user?.system
@@ -233,6 +235,13 @@ router.beforeEach((to, from, next) => {
 
   if (pathRequiresAuth(to.path) && !userStore.token) {
     next({ path: '/login', query: { redirect: to.fullPath } })
+    return
+  }
+
+  if (pathRequiresAuth(to.path) && userStore.token && !canAccessPath(userStore.userInfo, to.path)) {
+    const deniedSystem = systemForPath(to.path)
+    useStatusDialogStore().show(getDeniedSystemMessage(deniedSystem || 'unknown'), 'error')
+    next(defaultHomeForUser(userStore.userInfo))
     return
   }
 

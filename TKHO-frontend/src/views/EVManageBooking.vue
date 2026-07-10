@@ -130,6 +130,70 @@
         </div>
 
         <div class="toolbar-right flex items-center gap-2">
+          <div v-if="isAdminAllBookingsView" class="export-excel-wrapper">
+            <button
+              type="button"
+              class="export-excel-btn"
+              :class="{ active: showExportMenu }"
+              :disabled="exportingExcel"
+              @click="toggleExportMenu"
+            >
+              <font-awesome-icon :icon="['fas', 'file-excel']" />
+              <span>{{ exportingExcel ? 'Exporting...' : 'Export Excel' }}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+
+            <div v-if="showExportMenu" class="export-excel-dropdown" @click.stop>
+              <div class="export-excel-header">
+                <span class="filter-title">Export to Excel</span>
+              </div>
+              <div class="export-excel-body">
+                <button
+                  type="button"
+                  class="export-option-btn export-option-btn--primary"
+                  :disabled="exportingExcel"
+                  @click="handleExportExcel('current')"
+                >
+                  <span class="export-option-text">
+                    <span class="export-option-label">Current filters</span>
+                    <span class="export-option-desc">{{ currentExportDescription }}</span>
+                  </span>
+                  <span class="export-option-count">{{ exportOptionCounts.current }}</span>
+                </button>
+
+                <div class="export-section-label">Quick date ranges</div>
+                <p class="export-section-hint">Date range only.</p>
+                <div class="export-quick-options">
+                  <button
+                    v-for="option in quickDateOptions"
+                    :key="option.value"
+                    type="button"
+                    class="export-quick-btn"
+                    :disabled="exportingExcel"
+                    @click="handleExportExcel('quick', option.value)"
+                  >
+                    <span>{{ option.label }}</span>
+                    <span class="export-option-count export-option-count--compact">{{ exportOptionCounts[option.value] }}</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  class="export-option-btn"
+                  :disabled="exportingExcel"
+                  @click="handleExportExcel('allDates')"
+                >
+                  <span class="export-option-text">
+                    <span class="export-option-label">All dates</span>
+                  </span>
+                  <span class="export-option-count">{{ exportOptionCounts.allDates }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- View Switcher -->
           <button
             :class="['view-toggle-btn', { active: currentView === 'card' }]"
@@ -189,12 +253,23 @@
                 </div>
                 <div class="card-row">
                   <span class="card-label">Application Date</span>
-                  <span class="card-value">{{ booking.bookedOn }}</span>
+                  <span class="card-value">{{ formatApplicationDateTime(booking) }}</span>
                 </div>
               </div>
               <div class="card-footer">
-                <button v-if="booking.status === 'upcoming'" class="btn-cancel" @click="cancelBooking(booking.id)">
-                  Cancel Booking
+                <button
+                  v-if="canShowEditButton(booking)"
+                  class="btn-edit"
+                  @click="editBooking(booking.id)"
+                >
+                  Edit
+                </button>
+                <button
+                  v-if="canShowCancelButton(booking)"
+                  class="btn-cancel"
+                  @click="cancelBooking(booking.id)"
+                >
+                  Cancel
                 </button>
               </div>
             </div>
@@ -216,6 +291,7 @@
                   </th>
                   <th>
                     <SortableFilterHeader
+                      v-if="isAdmin"
                       label="License Plate"
                       :sort-indicator="getSortIndicator('licensePlate')"
                       :filter-active="columnFilterState.licensePlate.length > 0"
@@ -226,9 +302,11 @@
                       @clear-sort="clearSortByMenu('licensePlate')"
                       @update:model-value="(v) => updateFilter('licensePlate', v)"
                     />
+                    <span v-else>License Plate</span>
                   </th>
                   <th>
                     <SortableFilterHeader
+                      v-if="isAdmin"
                       label="EV Space"
                       :sort-indicator="getSortIndicator('space')"
                       :filter-active="columnFilterState.space.length > 0"
@@ -239,15 +317,24 @@
                       @clear-sort="clearSortByMenu('space')"
                       @update:model-value="(v) => updateFilter('space', v)"
                     />
+                    <span v-else>EV Space</span>
                   </th>
-                  <th>
-                    <button type="button" class="th-sort-btn" @click="toggleSort('applicationDate')">
-                      Application Date
-                      <span class="sort-indicator">{{ getSortIndicator('applicationDate') }}</span>
-                    </button>
+                  <th v-if="isAdminAllBookingsView">
+                    <SortableFilterHeader
+                      label="Reserved By"
+                      :sort-indicator="getSortIndicator('reservedBy')"
+                      :filter-active="columnFilterState.reservedBy.length > 0"
+                      :options="getFilterOptions('reservedBy')"
+                      :model-value="columnFilterState.reservedBy"
+                      @sort-asc="setSortByMenu('reservedBy', 'asc')"
+                      @sort-desc="setSortByMenu('reservedBy', 'desc')"
+                      @clear-sort="clearSortByMenu('reservedBy')"
+                      @update:model-value="(v) => updateFilter('reservedBy', v)"
+                    />
                   </th>
                   <th>
                     <SortableFilterHeader
+                      v-if="isAdmin"
                       label="Status"
                       :sort-indicator="getSortIndicator('status')"
                       :filter-active="columnFilterState.status.length > 0"
@@ -258,6 +345,26 @@
                       @clear-sort="clearSortByMenu('status')"
                       @update:model-value="(v) => updateFilter('status', v)"
                     />
+                    <span v-else>Status</span>
+                  </th>
+                  <th v-if="isAdminAllBookingsView">
+                    <SortableFilterHeader
+                      label="Submitted By"
+                      :sort-indicator="getSortIndicator('submitter')"
+                      :filter-active="columnFilterState.submitter.length > 0"
+                      :options="getFilterOptions('submitter')"
+                      :model-value="columnFilterState.submitter"
+                      @sort-asc="setSortByMenu('submitter', 'asc')"
+                      @sort-desc="setSortByMenu('submitter', 'desc')"
+                      @clear-sort="clearSortByMenu('submitter')"
+                      @update:model-value="(v) => updateFilter('submitter', v)"
+                    />
+                  </th>
+                  <th class="col-application-date">
+                    <button type="button" class="th-sort-btn" @click="toggleSort('applicationDate')">
+                      Application Date
+                      <span class="sort-indicator">{{ getSortIndicator('applicationDate') }}</span>
+                    </button>
                   </th>
                   <th class="col-actions">Actions</th>
                 </tr>
@@ -271,22 +378,32 @@
                   </td>
                   <td class="license-cell">{{ booking.licensePlate }}</td>
                   <td>{{ booking.space }}</td>
-                  <td>{{ booking.bookedOn }}</td>
+                  <td v-if="isAdminAllBookingsView">{{ booking.reservedBy || '-' }}</td>
                   <td>
                     <span :class="['status-badge', 'badge-' + booking.status]">
                       {{ formatStatus(booking.status) }}
                     </span>
                   </td>
+                  <td v-if="isAdminAllBookingsView">{{ booking.submitter || '-' }}</td>
+                  <td class="application-date-cell">{{ formatApplicationDateTime(booking) }}</td>
                   <td class="actions-td">
                     <div class="actions-cell">
                       <button
-                        v-if="booking.status === 'upcoming'"
+                        v-if="canShowEditButton(booking)"
+                        type="button"
+                        class="btn-action btn-edit"
+                        @click="editBooking(booking.id)"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        v-if="canShowCancelButton(booking)"
                         class="btn-action btn-cancel-small"
                         @click="cancelBooking(booking.id)"
                       >
                         Cancel
                       </button>
-                      <span v-else>-</span>
+                      <span v-if="!canShowEditButton(booking) && !canShowCancelButton(booking)">-</span>
                     </div>
                   </td>
                 </tr>
@@ -362,6 +479,22 @@
         <el-button type="default" class="action-confirm" @click="showNoticeDialog = false">OK</el-button>
       </template>
     </BookingStyleModal>
+
+    <EVBookingDialog
+      :visible="editDialogVisible"
+      mode="edit"
+      :initial-booking="editInitialBooking"
+      :time-periods="editTimePeriods"
+      :available-slots="editAvailableSlots"
+      :booking-window-start="editBookingWindow.currentStartDate"
+      :booking-window-end="editBookingWindow.currentEndDate"
+      :public-holiday-dates="editHolidayDates"
+      :is-admin="true"
+      :submitting="editSubmitting"
+      :refresh-calendar-availability="loadEditCalendarAvailability"
+      @close="closeEditDialog"
+      @confirm="handleEditConfirm"
+    />
   </div>
 </template>
 
@@ -369,18 +502,29 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
-import { cancelEvManageBooking, listEvManageBookings } from '@/api/evManagement'
+import { cancelEvManageBooking, listEvManageBookings, updateEvManageBooking } from '@/api/evManagement'
+import { getEvCalendarAvailability } from '@/api/parking'
+import { fetchActiveEvTimePeriods } from '@/utils/evTimePeriods'
+import { fetchEvBookingWindow } from '@/utils/evBookingWindow'
+import { resolveEvVisibleBookingRange } from '@/utils/evBookingVisibleRange'
+import { todayYmdInAppTimeZone } from '@/utils/appTimezone'
+import { useHkPublicHolidays } from '@/composables/useHkPublicHolidays'
+import { SILENT_ERROR } from '@/utils/requestOptions'
 import AppHeader from '../components/AppHeader.vue'
 import BookingStyleModal from '../components/BookingStyleModal.vue'
+import EVBookingDialog from '../components/EVBookingDialog.vue'
 import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
+import * as XLSX from 'xlsx'
 
 const userStore = useUserStore()
 const { isAdmin } = storeToRefs(userStore)
 
 const bookingView = ref('my') // 'my' or 'all' - for admin to switch between personal and all bookings
+const isAdminAllBookingsView = computed(() => isAdmin.value && bookingView.value === 'all')
 const searchQuery = ref('')
 const showStatusFilter = ref(false)
 const showDateFilter = ref(false)
+const showExportMenu = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const sortState = ref([
@@ -389,10 +533,58 @@ const sortState = ref([
 const columnFilterState = ref({
   licensePlate: [],
   space: [],
-  status: []
+  status: [],
+  submitter: [],
+  reservedBy: []
 })
 const showCancelDialog = ref(false)
 const cancelBookingId = ref(null)
+const editDialogVisible = ref(false)
+const editSubmitting = ref(false)
+const editingBooking = ref(null)
+const editTimePeriods = ref([])
+const editAvailableSlots = ref({})
+const editBookingWindow = ref({
+  currentStartDate: '',
+  currentEndDate: '',
+  evDateUpdateTime: '13:00'
+})
+const editPrerequisitesLoaded = ref(false)
+const { holidaysByDate: editHolidayDates, loadHolidays: loadEditHolidays } = useHkPublicHolidays()
+
+const canShowEditButton = (booking) => {
+  return isAdmin.value && String(booking?.status || '').toLowerCase() === 'upcoming'
+}
+
+const isSameDayEvBooking = (booking) => {
+  const bookingYmd = String(booking?.bookingDateYmd || booking?.dateSortKey || '').trim()
+  return Boolean(bookingYmd && bookingYmd === todayYmdInAppTimeZone())
+}
+
+const canShowCancelButton = (booking) => {
+  if (String(booking?.status || '').toLowerCase() !== 'upcoming') return false
+  if (isAdmin.value) return true
+  return !isSameDayEvBooking(booking)
+}
+
+const SAME_DAY_EV_CANCEL_MESSAGE =
+  'Same-day EV bookings cannot be cancelled. Please contact an administrator to release your quota.'
+
+const editInitialBooking = computed(() => {
+  const booking = editingBooking.value
+  if (!booking) return null
+  return {
+    reservedByUserId: booking.reservedByUserId || booking.employeeId || '',
+    reservedBy: booking.reservedBy || booking.corpId || '',
+    reservedByCorpId: booking.reservedBy || booking.corpId || '',
+    licensePlateId: booking.licensePlateId || '',
+    periodId: booking.periodId || '',
+    bookingDateYmd: booking.bookingDateYmd || booking.dateSortKey || '',
+    slotId: booking.slotId || '',
+    space: booking.space || '',
+    id: booking.id != null ? String(booking.id) : ''
+  }
+})
 const showNoticeDialog = ref(false)
 const noticeTitle = ref('Notice')
 const noticeMessage = ref('')
@@ -414,33 +606,48 @@ const statusFilters = ref({
 // Mock booking data（统一�?mockData 管理�?
 const bookings = ref([])
 const bookingsLoading = ref(false)
+const exportingExcel = ref(false)
 
-const filteredBookings = computed(() => {
+const applyDateRangeToBookings = (result, range) => {
+  if (!range || range.length !== 2) return result
+  const [startDate, endDate] = range
+  return result.filter((b) => {
+    const bookingDate = b.dateSortKey
+      ? new Date(`${b.dateSortKey}T12:00:00`)
+      : parseDate(b.date)
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    start.setHours(0, 0, 0, 0)
+    end.setHours(23, 59, 59, 999)
+    return bookingDate >= start && bookingDate <= end
+  })
+}
+
+const buildFilteredBookings = (options = {}) => {
+  const {
+    dateRange: dateRangeOption,
+    dateOnly = false,
+  } = options
+
   let result = bookings.value
 
+  if (dateOnly) {
+    if (dateRangeOption && dateRangeOption.length === 2) {
+      result = applyDateRangeToBookings(result, dateRangeOption)
+    }
+    return result
+  }
 
-  // Filter by status (multi-select)
   const activeStatuses = Object.keys(statusFilters.value).filter(key => statusFilters.value[key])
   if (activeStatuses.length > 0 && activeStatuses.length < 3) {
     result = result.filter(b => activeStatuses.includes(b.status))
   }
 
-  // Filter by date range
-  if (dateRange.value && dateRange.value.length === 2) {
-    const [startDate, endDate] = dateRange.value
-    result = result.filter(b => {
-      const bookingDate = b.dateSortKey
-        ? new Date(`${b.dateSortKey}T12:00:00`)
-        : parseDate(b.date)
-      const start = new Date(startDate)
-      const end = new Date(endDate)
-      start.setHours(0, 0, 0, 0)
-      end.setHours(23, 59, 59, 999)
-      return bookingDate >= start && bookingDate <= end
-    })
+  const rangeToApply = dateRangeOption === undefined ? dateRange.value : dateRangeOption
+  if (rangeToApply && rangeToApply.length === 2) {
+    result = applyDateRangeToBookings(result, rangeToApply)
   }
 
-  // Filter by search query
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(b =>
@@ -450,22 +657,33 @@ const filteredBookings = computed(() => {
     )
   }
 
-  // Column filter (table headers)
-  if (columnFilterState.value.licensePlate.length) {
-    const selected = new Set(columnFilterState.value.licensePlate)
-    result = result.filter((b) => selected.has(b.licensePlate || ''))
+  if (isAdmin.value) {
+    if (columnFilterState.value.licensePlate.length) {
+      const selected = new Set(columnFilterState.value.licensePlate)
+      result = result.filter((b) => selected.has(b.licensePlate || ''))
+    }
+    if (columnFilterState.value.space.length) {
+      const selected = new Set(columnFilterState.value.space)
+      result = result.filter((b) => selected.has(b.space || ''))
+    }
+    if (columnFilterState.value.status.length) {
+      const selected = new Set(columnFilterState.value.status)
+      result = result.filter((b) => selected.has(b.status || ''))
+    }
   }
-  if (columnFilterState.value.space.length) {
-    const selected = new Set(columnFilterState.value.space)
-    result = result.filter((b) => selected.has(b.space || ''))
+  if (columnFilterState.value.reservedBy.length) {
+    const selected = new Set(columnFilterState.value.reservedBy)
+    result = result.filter((b) => selected.has(b.reservedBy || ''))
   }
-  if (columnFilterState.value.status.length) {
-    const selected = new Set(columnFilterState.value.status)
-    result = result.filter((b) => selected.has(b.status || ''))
+  if (columnFilterState.value.submitter.length) {
+    const selected = new Set(columnFilterState.value.submitter)
+    result = result.filter((b) => selected.has(b.submitter || ''))
   }
 
   return result
-})
+}
+
+const filteredBookings = computed(() => buildFilteredBookings())
 
 // Helper function to parse date string "28 Mar 2026" to Date object
 const parseDate = (dateStr) => {
@@ -478,6 +696,17 @@ const parseDate = (dateStr) => {
   const month = months[parts[1]]
   const year = parseInt(parts[2])
   return new Date(year, month, day)
+}
+
+const parseSubmittedAt = (dateTimeStr) => {
+  if (!dateTimeStr) return new Date(0)
+  const parts = String(dateTimeStr).trim().split(' ')
+  if (parts.length < 4) return parseDate(dateTimeStr)
+  const datePart = `${parts[0]} ${parts[1]} ${parts[2]}`
+  const [h = '0', m = '0'] = (parts[3] || '').split(':')
+  const date = parseDate(datePart)
+  date.setHours(Number.parseInt(h, 10) || 0, Number.parseInt(m, 10) || 0, 0, 0)
+  return date
 }
 
 const sortPeriodOrder = {
@@ -506,7 +735,11 @@ const getSortValue = (booking, key) => {
     case 'space':
       return booking.space || ''
     case 'applicationDate':
-      return parseDate(booking.bookedOn).getTime()
+      return parseSubmittedAt(booking.submittedAt || booking.bookedOn).getTime()
+    case 'reservedBy':
+      return booking.reservedBy || ''
+    case 'submitter':
+      return booking.submitter || ''
     case 'status':
       return booking.status || ''
     default:
@@ -514,10 +747,24 @@ const getSortValue = (booking, key) => {
   }
 }
 
-const sortedBookings = computed(() => {
-  if (!sortState.value.length) return filteredBookings.value.slice()
-  return filteredBookings.value.slice().sort((a, b) => {
-    for (const criterion of sortState.value) {
+const ADMIN_ONLY_TABLE_COLUMN_KEYS = ['licensePlate', 'space', 'status']
+
+const isAdminOnlyTableColumn = (key) => ADMIN_ONLY_TABLE_COLUMN_KEYS.includes(key)
+
+const clearAdminOnlyColumnControls = () => {
+  for (const key of ADMIN_ONLY_TABLE_COLUMN_KEYS) {
+    columnFilterState.value[key] = []
+  }
+  sortState.value = sortState.value.filter((item) => !isAdminOnlyTableColumn(item.key))
+}
+
+const sortBookingsList = (list) => {
+  const activeSort = isAdmin.value
+    ? sortState.value
+    : sortState.value.filter((item) => !isAdminOnlyTableColumn(item.key))
+  if (!activeSort.length) return list.slice()
+  return list.slice().sort((a, b) => {
+    for (const criterion of activeSort) {
       const aValue = getSortValue(a, criterion.key)
       const bValue = getSortValue(b, criterion.key)
       const direction = criterion.order === 'asc' ? 1 : -1
@@ -531,9 +778,12 @@ const sortedBookings = computed(() => {
     }
     return 0
   })
-})
+}
+
+const sortedBookings = computed(() => sortBookingsList(filteredBookings.value))
 
 const toggleSort = (key) => {
+  if (!isAdmin.value && isAdminOnlyTableColumn(key)) return
   const idx = sortState.value.findIndex(item => item.key === key)
   if (idx === -1) {
     sortState.value.push({ key, order: 'asc' })
@@ -553,6 +803,7 @@ const getSortIndicator = (key) => {
 }
 
 const setSortByMenu = (key, order) => {
+  if (!isAdmin.value && isAdminOnlyTableColumn(key)) return
   const idx = sortState.value.findIndex(item => item.key === key)
   if (idx === -1) {
     sortState.value.push({ key, order })
@@ -574,6 +825,8 @@ const getFilterOptions = (key) => {
     if (key === 'licensePlate') value = booking.licensePlate || ''
     if (key === 'space') value = booking.space || ''
     if (key === 'status') value = booking.status || ''
+    if (key === 'submitter') value = booking.submitter || ''
+    if (key === 'reservedBy') value = booking.reservedBy || ''
     if (!value) continue
     if (!map.has(value)) map.set(value, String(value).toLowerCase())
   }
@@ -583,9 +836,15 @@ const getFilterOptions = (key) => {
 }
 
 const updateFilter = (key, value) => {
+  if (!isAdmin.value && isAdminOnlyTableColumn(key)) return
   columnFilterState.value[key] = Array.isArray(value) ? [...value] : []
   currentPage.value = 1
 }
+
+watch(isAdmin, (admin) => {
+  if (admin) return
+  clearAdminOnlyColumnControls()
+}, { immediate: true })
 
 // Status filter label
 const statusFilterLabel = computed(() => {
@@ -664,9 +923,141 @@ const formatStatus = (status) => {
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
+const formatApplicationDateTime = (booking) => {
+  return booking?.submittedAt || booking?.bookedOn || '-'
+}
+
+const buildExportFileName = (range, label = '') => {
+  const today = new Date().toISOString().split('T')[0]
+  if (range && range.length === 2) {
+    const [start, end] = range
+    return `EV_All_Bookings_${start}_to_${end}.xlsx`
+  }
+  if (label) {
+    const safeLabel = String(label).replace(/\s+/g, '_')
+    return `EV_All_Bookings_${safeLabel}_${today}.xlsx`
+  }
+  return `EV_All_Bookings_${today}.xlsx`
+}
+
+const getExportRows = (mode, quickValue) => {
+  if (mode === 'allDates') {
+    return sortBookingsList(buildFilteredBookings({ dateOnly: true }))
+  }
+  if (mode === 'quick') {
+    return sortBookingsList(buildFilteredBookings({
+      dateRange: getQuickDateRange(quickValue),
+      dateOnly: true,
+    }))
+  }
+  return sortedBookings.value
+}
+
+const exportOptionCounts = computed(() => {
+  if (!showExportMenu.value) {
+    return { current: 0, allDates: 0 }
+  }
+  const counts = {
+    current: getExportRows('current').length,
+    allDates: getExportRows('allDates').length
+  }
+  for (const option of quickDateOptions) {
+    counts[option.value] = getExportRows('quick', option.value).length
+  }
+  return counts
+})
+
+const currentExportDescription = computed(() => {
+  const parts = [dateFilterLabel.value, statusFilterLabel.value]
+  if (searchQuery.value.trim()) {
+    parts.push(`Search: "${searchQuery.value.trim()}"`)
+  }
+  return parts.join(' · ')
+})
+
+const closeExportMenu = () => {
+  showExportMenu.value = false
+  document.removeEventListener('click', handleExportMenuClickOutside)
+}
+
+const toggleExportMenu = (event) => {
+  event.stopPropagation()
+  if (exportingExcel.value) return
+
+  showExportMenu.value = !showExportMenu.value
+  showStatusFilter.value = false
+  showDateFilter.value = false
+  document.removeEventListener('click', handleStatusFilterClickOutside)
+  document.removeEventListener('click', handleDateFilterClickOutside)
+
+  if (showExportMenu.value) {
+    setTimeout(() => {
+      document.addEventListener('click', handleExportMenuClickOutside, { once: false })
+    }, 0)
+  } else {
+    closeExportMenu()
+  }
+}
+
+const handleExportMenuClickOutside = (event) => {
+  const dropdown = document.querySelector('.export-excel-dropdown')
+  const trigger = event.target.closest('.export-excel-wrapper')
+  if (!dropdown?.contains(event.target) && !trigger) {
+    closeExportMenu()
+  }
+}
+
+const handleExportExcel = async (mode = 'current', quickValue) => {
+  if (!isAdminAllBookingsView.value) return
+
+  const rows = getExportRows(mode, quickValue)
+  if (!rows.length) {
+    showNotice('No bookings match the selected export range. Try another option.', 'Export Excel')
+    return
+  }
+
+  let fileName = buildExportFileName()
+  if (mode === 'allDates') {
+    fileName = buildExportFileName(null, 'All_Dates')
+  } else if (mode === 'quick') {
+    const quickOption = quickDateOptions.find((option) => option.value === quickValue)
+    fileName = buildExportFileName(getQuickDateRange(quickValue), quickOption?.label)
+  } else if (dateRange.value && dateRange.value.length === 2) {
+    fileName = buildExportFileName(dateRange.value)
+  }
+
+  exportingExcel.value = true
+  closeExportMenu()
+  try {
+    const exportData = rows.map((booking, index) => ({
+      '#': index + 1,
+      'Booking ID': booking.id ?? '',
+      'Booking Date': booking.date || '',
+      'Booking Time': booking.time || '',
+      'License Plate': booking.licensePlate || '',
+      'EV Space': booking.space || '',
+      'Reserved By': booking.reservedBy || '',
+      'Status': formatStatus(booking.status || ''),
+      'Submitted By': booking.submitter || '',
+      'Application Date': formatApplicationDateTime(booking),
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(exportData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'All Bookings')
+    XLSX.writeFile(wb, fileName)
+    showNotice(`Exported ${rows.length} booking${rows.length === 1 ? '' : 's'} to Excel.`, 'Success')
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to export Excel file'), 'Error')
+  } finally {
+    exportingExcel.value = false
+  }
+}
+
 // Toggle status filter
 const toggleStatusFilter = (event) => {
   event.stopPropagation()
+  closeExportMenu()
   showStatusFilter.value = !showStatusFilter.value
 
   if (showStatusFilter.value) {
@@ -692,6 +1083,7 @@ const handleStatusFilterClickOutside = (event) => {
 // Toggle date filter
 const toggleDateFilter = (event) => {
   event.stopPropagation()
+  closeExportMenu()
   showDateFilter.value = !showDateFilter.value
 
   if (showDateFilter.value) {
@@ -809,6 +1201,11 @@ const isQuickDateActive = (option) => {
 }
 
 const cancelBooking = (id) => {
+  const booking = bookings.value.find((item) => String(item.id) === String(id))
+  if (booking && !canShowCancelButton(booking)) {
+    showNotice(SAME_DAY_EV_CANCEL_MESSAGE, 'Notice')
+    return
+  }
   cancelBookingId.value = id
   showCancelDialog.value = true
 }
@@ -836,6 +1233,7 @@ const loadBookings = async () => {
 }
 
 watch(bookingView, () => {
+  closeExportMenu()
   if (isAdmin.value) {
     void loadBookings()
   }
@@ -858,6 +1256,85 @@ const confirmCancel = async () => {
     showNotice('EV booking cancelled successfully!', 'Success')
   } catch (error) {
     showNotice(getErrorMessage(error, 'Failed to cancel booking'), 'Error')
+  }
+}
+
+const loadEditCalendarAvailability = async () => {
+  const { startYmd, endYmd } = resolveEvVisibleBookingRange(
+    editBookingWindow.value.currentStartDate,
+    editBookingWindow.value.currentEndDate,
+    { evDateUpdateTime: editBookingWindow.value.evDateUpdateTime || '13:00' }
+  )
+  if (!startYmd || !endYmd) {
+    editAvailableSlots.value = {}
+    return false
+  }
+  try {
+    const data = await getEvCalendarAvailability({
+      startDate: startYmd,
+      endDate: endYmd
+    }, SILENT_ERROR)
+    editAvailableSlots.value = data?.availability && typeof data.availability === 'object'
+      ? { ...data.availability }
+      : {}
+    return true
+  } catch {
+    editAvailableSlots.value = {}
+    return false
+  }
+}
+
+const ensureEditDialogPrerequisites = async () => {
+  if (editPrerequisitesLoaded.value) return
+  editTimePeriods.value = await fetchActiveEvTimePeriods()
+  editBookingWindow.value = await fetchEvBookingWindow()
+  const { currentStartDate, currentEndDate } = editBookingWindow.value
+  if (currentStartDate && currentEndDate) {
+    await loadEditHolidays(currentStartDate, currentEndDate)
+  }
+  await loadEditCalendarAvailability()
+  editPrerequisitesLoaded.value = true
+}
+
+const editBooking = async (id) => {
+  const booking = bookings.value.find((item) => String(item.id) === String(id))
+  if (!booking || !canShowEditButton(booking)) return
+  try {
+    await ensureEditDialogPrerequisites()
+    editingBooking.value = booking
+    editDialogVisible.value = true
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to open edit dialog'), 'Error')
+  }
+}
+
+const closeEditDialog = () => {
+  editDialogVisible.value = false
+  editingBooking.value = null
+  void loadEditCalendarAvailability()
+}
+
+const handleEditConfirm = async (bookingData) => {
+  const id = editingBooking.value?.id
+  if (id == null || id === '' || editSubmitting.value) return
+  editSubmitting.value = true
+  try {
+    await updateEvManageBooking(String(id), {
+      licensePlateId: String(bookingData.licensePlateId),
+      periodId: String(bookingData.timePeriod),
+      bookingDate: bookingData.date,
+      slotId: bookingData.slotId ? String(bookingData.slotId) : undefined,
+      reservedByUserId: bookingData.reservedByUserId
+        ? String(bookingData.reservedByUserId)
+        : undefined
+    })
+    closeEditDialog()
+    await loadBookings()
+    showNotice('EV booking updated successfully!', 'Success')
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to update booking'), 'Error')
+  } finally {
+    editSubmitting.value = false
   }
 }
 
@@ -1291,6 +1768,7 @@ onMounted(() => {
 .card-footer {
   display: flex;
   justify-content: flex-end;
+  gap: 0.3125rem;
   min-height: 0;
   align-items: flex-end;
   padding: 0 0.75rem 0.625rem 0.75rem;
@@ -1301,6 +1779,16 @@ onMounted(() => {
 .btn-cancel {
   background-color: #ef4444;
   color: white;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 0.25rem;
+  border: none;
+  font-size: 0.625rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.card-footer .btn-edit {
   padding: 0.1875rem 0.5rem;
   border-radius: 0.25rem;
   border: none;
@@ -1534,6 +2022,188 @@ onMounted(() => {
 }
 
 /* View Toggle Buttons */
+.export-excel-wrapper {
+  position: relative;
+}
+
+.export-excel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 34px;
+  padding: 0 0.75rem;
+  border: 1px solid #86c8a3;
+  border-radius: 0.375rem;
+  background: #f5fbf7;
+  color: #14532d;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.export-excel-btn .arrow-icon {
+  transition: transform 0.2s;
+}
+
+.export-excel-btn.active .arrow-icon {
+  transform: rotate(180deg);
+}
+
+.export-excel-btn:hover:not(:disabled),
+.export-excel-btn.active:not(:disabled) {
+  background: #e8f6ee;
+  border-color: #4ade80;
+  color: #14532d;
+}
+
+.export-excel-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.export-excel-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 1000;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border: 2px solid #00723a;
+  min-width: 360px;
+  animation: slideDown 0.2s ease-out;
+}
+
+.export-excel-header {
+  padding: 12px 16px;
+  border-bottom: 2px solid #00723a;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.export-excel-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.export-section-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #166534;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.export-section-hint {
+  margin: -0.35rem 0 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.export-option-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #c7e5d4;
+  border-radius: 0.5rem;
+  background: #f8fdf9;
+  color: #14532d;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.export-option-btn--primary {
+  background: #ecfdf3;
+  border-color: #86c8a3;
+}
+
+.export-option-btn:hover:not(:disabled) {
+  background: #e8f6ee;
+  border-color: #4ade80;
+}
+
+.export-option-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.export-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.export-option-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.export-option-desc {
+  font-size: 0.75rem;
+  color: #4b5563;
+  line-height: 1.35;
+}
+
+.export-option-count {
+  flex-shrink: 0;
+  min-width: 1.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.export-option-count--compact {
+  min-width: auto;
+  flex-shrink: 0;
+}
+
+.export-quick-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.export-quick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: white;
+  color: #374151;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.export-quick-btn:hover:not(:disabled) {
+  background: #f0fdf4;
+  border-color: #86c8a3;
+  color: #14532d;
+}
+
+.export-quick-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .view-toggle-btn {
   padding: 0.375rem;
   border: 1px solid #d1d5db;
@@ -1652,6 +2322,12 @@ onMounted(() => {
   z-index: 11;
 }
 
+.bookings-table th.col-application-date,
+.bookings-table td.application-date-cell {
+  min-width: 180px;
+  white-space: nowrap;
+}
+
 .bookings-table td {
   padding: 0.5rem;
   border-bottom: 1px solid #e5e7eb;
@@ -1726,5 +2402,14 @@ onMounted(() => {
 
 .btn-cancel-small:hover {
   background-color: #dc2626;
+}
+
+.btn-edit {
+  background-color: #f97316;
+  color: white;
+}
+
+.btn-edit:hover {
+  background-color: #ea580c;
 }
 </style>

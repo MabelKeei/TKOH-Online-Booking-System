@@ -7,7 +7,7 @@
   >
     {{ label }}
     <span class="sort-indicator">{{ sortIndicator }}</span>
-    <span v-if="filterActive" class="filter-dot" />
+    <span v-if="filterable && filterActive" class="filter-dot" />
   </button>
 
   <teleport to="body">
@@ -30,28 +30,30 @@
             <span class="menu-icon">✕</span><span>Clear Sorting</span>
           </button>
         </div>
-        <div class="th-menu-divider"></div>
-        <div class="th-menu-filter-title">
-          <span class="menu-icon">⌕</span><span>Filter (Single / Multiple)</span>
-        </div>
-        <div class="th-filter-popover">
-          <div class="th-filter-actions">
-            <button type="button" class="th-filter-link" @click="handleSelectAll">Select All</button>
-            <button type="button" class="th-filter-link" @click="handleClear">Clear</button>
+        <template v-if="filterable">
+          <div class="th-menu-divider"></div>
+          <div class="th-menu-filter-title">
+            <span class="menu-icon">⌕</span><span>Filter (Single / Multiple)</span>
           </div>
-          <div class="th-checkbox-list">
-            <el-checkbox-group :model-value="modelValue" @change="handleChange">
-              <el-checkbox
-                v-for="option in options"
-                :key="`${label}-${option}`"
-                :label="option"
-              >
-                {{ String(option) }}
-              </el-checkbox>
-            </el-checkbox-group>
-            <div v-if="options.length === 0" class="th-no-options">No options</div>
+          <div class="th-filter-popover">
+            <div class="th-filter-actions">
+              <button type="button" class="th-filter-link" @click="handleSelectAll">Select All</button>
+              <button type="button" class="th-filter-link" @click="handleClear">Clear</button>
+            </div>
+            <div class="th-checkbox-list">
+              <el-checkbox-group :model-value="modelValue" @change="handleChange">
+                <el-checkbox
+                  v-for="option in options"
+                  :key="`${label}-${option}`"
+                  :label="option"
+                >
+                  {{ String(option) }}
+                </el-checkbox>
+              </el-checkbox-group>
+              <div v-if="options.length === 0" class="th-no-options">No options</div>
+            </div>
           </div>
-        </div>
+        </template>
       </div>
     </div>
   </teleport>
@@ -64,6 +66,7 @@ const props = defineProps({
   label: { type: String, required: true },
   sortIndicator: { type: String, default: '↕' },
   filterActive: { type: Boolean, default: false },
+  filterable: { type: Boolean, default: true },
   options: { type: Array, default: () => [] },
   modelValue: { type: Array, default: () => [] },
   width: { type: Number, default: 260 }
@@ -132,14 +135,17 @@ onBeforeUnmount(() => {
 })
 
 const handleChange = (value) => {
+  if (!props.filterable) return
   emit('update:modelValue', value ?? [])
 }
 
 const handleSelectAll = () => {
+  if (!props.filterable) return
   emit('update:modelValue', [...props.options])
 }
 
 const handleClear = () => {
+  if (!props.filterable) return
   emit('update:modelValue', [])
 }
 

@@ -30,6 +30,7 @@ model User {
   pending_users           pending_users[]
   venueBookingsReserved VenueBookings[] @relation("VenueBookingReservedBy")
   venueBookingsHandled  VenueBookings[] @relation("VenueBookingHandler")
+  evBookingsSubmitted   EvBookings[]    @relation("EvBookingSubmitter")
 
   @@map("user")
 }
@@ -79,18 +80,20 @@ model EvTimePeriods {
 }
 
 model EvBookings {
-  id             BigInt         @id @default(autoincrement())
-  userCorpId     String?        @map("user_corp_id")
-  licensePlateId BigInt         @map("license_plate_id")
-  slotId         BigInt         @map("slot_id")
-  periodId       BigInt?        @map("period_id")
-  bookingDate    DateTime       @map("booking_date") @db.Date
-  bookedOn       DateTime?      @map("booked_on") @db.Timestamptz(6)
-  status         String
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  licensePlate   license_plates @relation(fields: [licensePlateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  period         EvTimePeriods? @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  slot           EvParkingSlots @relation(fields: [slotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id              BigInt         @id @default(autoincrement())
+  userCorpId      String?        @map("user_corp_id")
+  submitterUserId BigInt?        @map("submitter")
+  licensePlateId  BigInt         @map("license_plate_id")
+  slotId          BigInt         @map("slot_id")
+  periodId        BigInt?        @map("period_id")
+  bookingDate     DateTime       @map("booking_date") @db.Date
+  bookedOn        DateTime?      @map("booked_on") @db.Timestamptz(6)
+  status          String
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  licensePlate    license_plates @relation(fields: [licensePlateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  period          EvTimePeriods? @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  slot            EvParkingSlots @relation(fields: [slotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  submitter       User?          @relation("EvBookingSubmitter", fields: [submitterUserId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([slotId, periodId, bookingDate], map: "idx_ev_bookings_slot_period_date")
   @@map("ev_bookings")

@@ -197,7 +197,7 @@
           <span>Loading bookings...</span>
         </div>
         <!-- Month view -->
-        <div v-if="currentView === 'month'" class="month-view h-full min-h-0 flex flex-col relative">
+        <div v-if="currentView === 'month'" class="month-view flex-1 min-h-0 flex flex-col relative">
           <VenueCalendarMonth
             :current-date="currentDate"
             :bookings="calendarBookings"
@@ -1416,7 +1416,9 @@ onUnmounted(() => {
 }
 
 .month-view {
+  flex: 1 1 auto;
   min-height: 0;
+  width: 100%;
 }
 
 .week-calendar-host {

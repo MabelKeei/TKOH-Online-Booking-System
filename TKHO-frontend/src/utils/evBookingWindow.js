@@ -18,13 +18,15 @@ export async function fetchEvBookingWindow() {
     )
     return {
       currentStartDate: win?.currentStartDate || '',
-      currentEndDate: win?.currentEndDate || ''
+      currentEndDate: win?.currentEndDate || '',
+      evDateUpdateTime: win?.evDateUpdateTime || '13:00'
     }
   } catch {
     const mock = getMockBookingWindow('ev')
     return {
       currentStartDate: mock?.currentStartDate || '',
-      currentEndDate: mock?.currentEndDate || ''
+      currentEndDate: mock?.currentEndDate || '',
+      evDateUpdateTime: mock?.evDateUpdateTime || '13:00'
     }
   }
 }

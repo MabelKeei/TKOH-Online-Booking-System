@@ -4,6 +4,7 @@ import { OccupyDto } from './dto/occupy.dto';
 import { CreateEvBookingDto } from './dto/create-ev-booking.dto';
 import { CalendarAvailabilityQueryDto } from './dto/calendar-availability-query.dto';
 import { AssignmentPreviewQueryDto } from './dto/assignment-preview-query.dto';
+import { SlotOptionsQueryDto } from './dto/slot-options-query.dto';
 import { EvBookingRateLimitGuard } from './guards/ev-booking-rate-limit.guard';
 import { ParkingService } from './parking.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -28,6 +29,17 @@ export class ParkingController {
       query.bookingDate,
       query.periodId,
       query.slotId,
+    );
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('slot-options')
+  getSlotOptions(@Query() query: SlotOptionsQueryDto) {
+    return this.parkingService.getSlotOptions(
+      query.bookingDate,
+      query.periodId,
+      query.excludeBookingId,
     );
   }
 

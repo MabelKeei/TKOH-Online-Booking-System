@@ -8,6 +8,10 @@ export function getEvAssignmentPreview(params) {
   return request.get('/parking/assignment-preview', { params })
 }
 
+export function getEvSlotOptions(params) {
+  return request.get('/parking/slot-options', { params })
+}
+
 export function createEvBooking(payload) {
   return request.post('/parking/bookings', payload)
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="calendar-month h-full flex flex-col">
+  <div class="calendar-month h-full min-h-0 flex flex-col flex-1">
     <!-- 日期表头 -->
     <div class="weekday-header">
       <div
@@ -30,17 +30,20 @@
           'has-bookings': hasBookings(day, 'prev'),
           'has-more-trigger': getHiddenBookingCount(day, 'prev') > 0,
           'is-public-holiday': isPublicHolidayCell(day, 'prev'),
+          'has-holiday-label': Boolean(getHolidayLabel(day, 'prev')),
           'first-col': (index % 7) === 0,
           'last-col': (index % 7) === 6
         }"
         @click="selectDate(day, 'prev')"
       >
-        <span class="date-number">{{ day }}</span>
-        <span
-          v-if="getHolidayLabel(day, 'prev')"
-          class="holiday-label"
-          :title="getHolidayLabel(day, 'prev')"
-        >{{ getHolidayLabel(day, 'prev') }}</span>
+        <div class="date-cell-header">
+          <span class="date-number">{{ day }}</span>
+          <span
+            v-if="getHolidayLabel(day, 'prev')"
+            class="holiday-label"
+            :title="getHolidayLabel(day, 'prev')"
+          >{{ getHolidayLabel(day, 'prev') }}</span>
+        </div>
         <div
           v-if="hasBookings(day, 'prev')"
           class="month-booking-list"
@@ -86,17 +89,20 @@
           'has-bookings': hasBookings(day, 'current'),
           'has-more-trigger': getHiddenBookingCount(day, 'current') > 0,
           'is-public-holiday': isPublicHolidayCell(day, 'current'),
+          'has-holiday-label': Boolean(getHolidayLabel(day, 'current')),
           'first-col': ((prevMonthDays.length + index) % 7) === 0,
           'last-col': ((prevMonthDays.length + index) % 7) === 6
         }"
         @click="selectDate(day, 'current')"
       >
-        <span class="date-number">{{ day }}</span>
-        <span
-          v-if="getHolidayLabel(day, 'current')"
-          class="holiday-label"
-          :title="getHolidayLabel(day, 'current')"
-        >{{ getHolidayLabel(day, 'current') }}</span>
+        <div class="date-cell-header">
+          <span class="date-number">{{ day }}</span>
+          <span
+            v-if="getHolidayLabel(day, 'current')"
+            class="holiday-label"
+            :title="getHolidayLabel(day, 'current')"
+          >{{ getHolidayLabel(day, 'current') }}</span>
+        </div>
         <div
           v-if="hasBookings(day, 'current')"
           class="month-booking-list"
@@ -142,17 +148,20 @@
           'has-bookings': hasBookings(day, 'next'),
           'has-more-trigger': getHiddenBookingCount(day, 'next') > 0,
           'is-public-holiday': isPublicHolidayCell(day, 'next'),
+          'has-holiday-label': Boolean(getHolidayLabel(day, 'next')),
           'first-col': ((prevMonthDays.length + daysInMonth + index) % 7) === 0,
           'last-col': ((prevMonthDays.length + daysInMonth + index) % 7) === 6
         }"
         @click="selectDate(day, 'next')"
       >
-        <span class="date-number">{{ day }}</span>
-        <span
-          v-if="getHolidayLabel(day, 'next')"
-          class="holiday-label"
-          :title="getHolidayLabel(day, 'next')"
-        >{{ getHolidayLabel(day, 'next') }}</span>
+        <div class="date-cell-header">
+          <span class="date-number">{{ day }}</span>
+          <span
+            v-if="getHolidayLabel(day, 'next')"
+            class="holiday-label"
+            :title="getHolidayLabel(day, 'next')"
+          >{{ getHolidayLabel(day, 'next') }}</span>
+        </div>
         <div
           v-if="hasBookings(day, 'next')"
           class="month-booking-list"
@@ -234,10 +243,13 @@ const measureMoreRef = ref(null)
 /** 每格可见条数（DOM 实测后写入，key = dayCellKey） */
 const dayLayoutMap = ref(new Map())
 const layoutEpoch = ref(0)
+/** 月历网格单行高度（由容器均分，保证各行等高） */
+const monthGridRowHeightPx = ref(0)
 let gridResizeObserver = null
 let layoutRafId = null
 
-const LAYOUT_SLACK_PX = 6
+const GRID_ROW_GAP_PX = 1
+const LAYOUT_SLACK_PX = 2
 const EMPTY_DAY_LAYOUT = { visibleCount: 0, hiddenCount: 0 }
 
 function remPx (multiplier = 1) {
@@ -306,29 +318,114 @@ function measureListGapPx () {
   return 4
 }
 
-/** 从已渲染格子 DOM 扣出中间列表区可用高度（用整格高度，不用已渲染条数撑开的列表高度） */
-function measureListAreaPx (cellEl, reserveMoreFooter) {
-  if (!cellEl) return 0
+function measureListAreaFromDom (cellEl) {
+  const listEl = cellEl?.querySelector('.month-booking-list')
+  if (!listEl) return 0
+  const h = listEl.getBoundingClientRect().height
+  return h > 0 ? Math.floor(h) : 0
+}
 
-  const cellH = cellEl.getBoundingClientRect().height
-  if (cellH < 1) return 0
+function getMoreFooterReservePx () {
+  return 2 + measureMoreFooterPx() + 2
+}
 
-  const dateEl = cellEl.querySelector('.date-number')
-  const dateH = dateEl ? dateEl.offsetHeight : 0
-  const cs = getComputedStyle(cellEl)
-  const pad =
-    (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)
-  const rowGap = parseFloat(cs.rowGap) || parseFloat(cs.gap) || 0
+function measureCellRowHeightPx (grid) {
+  const cell = grid?.querySelector('.date-cell')
+  if (!cell) return 0
+  const h = cell.getBoundingClientRect().height
+  return h > 0 ? Math.floor(h) : 0
+}
 
-  const footerEl = cellEl.querySelector('.month-more-footer')
-  let moreBlock = 0
-  if (footerEl) {
-    moreBlock = footerEl.offsetHeight + 2
-  } else if (reserveMoreFooter) {
-    moreBlock = 2 + measureMoreFooterPx()
+function getMetricsCellEl (grid) {
+  if (!grid) return null
+  return (
+    grid.querySelector('.date-cell.has-bookings:not(.has-more-trigger)') ||
+    grid.querySelector('.date-cell.has-bookings') ||
+    grid.querySelector('.date-cell')
+  )
+}
+
+function getCellPaddingAndGap (cellEl, metricsCellEl) {
+  const source = metricsCellEl || cellEl
+  const cs = source ? getComputedStyle(source) : null
+  return {
+    pad: cs
+      ? (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)
+      : remPx(0.5) * 2,
+    rowGap: cs
+      ? (parseFloat(cs.rowGap) || parseFloat(cs.gap) || 0)
+      : 4
+  }
+}
+
+/** 公式兜底：用统一行高减本格 header，不读取 DOM 中已渲染的 +N 底栏 */
+function measureListAreaPx (cellEl, reserveMoreFooter, rowHeightPx, metricsCellEl = null) {
+  if (rowHeightPx < 12) return 0
+
+  const headerEl = cellEl?.querySelector('.date-cell-header')
+  const dateEl = cellEl?.querySelector('.date-number')
+  const headerH = headerEl
+    ? headerEl.offsetHeight
+    : (dateEl ? dateEl.offsetHeight : Math.ceil(remPx(1)))
+
+  const { pad, rowGap } = getCellPaddingAndGap(cellEl, metricsCellEl)
+  const moreBlock = reserveMoreFooter ? getMoreFooterReservePx() : 0
+
+  return Math.max(0, rowHeightPx - pad - headerH - rowGap - moreBlock)
+}
+
+/** 列表区：优先 month-booking-list 实测（1fr，与显示条数无关）；有 +N 时还原无底栏高度 */
+function getListAreasForCell (cellEl, rowHeightPx, metricsCellEl) {
+  const footerReserve = getMoreFooterReservePx()
+  const listDom = measureListAreaFromDom(cellEl)
+  let listNoMore = 0
+
+  if (listDom > 0) {
+    listNoMore = cellEl?.classList.contains('has-more-trigger')
+      ? listDom + footerReserve
+      : listDom
+  } else {
+    listNoMore = measureListAreaPx(cellEl, false, rowHeightPx, metricsCellEl)
   }
 
-  return Math.max(0, cellH - pad - dateH - rowGap - moreBlock)
+  if (listNoMore <= 0) {
+    listNoMore = measureListAreaPx(cellEl, false, rowHeightPx, metricsCellEl)
+  }
+
+  return {
+    listNoMore,
+    listWithMore: Math.max(0, listNoMore - footerReserve)
+  }
+}
+
+function updateUniformRowHeight () {
+  const grid = monthGridRef.value
+  if (!grid) return false
+
+  const fromCell = measureCellRowHeightPx(grid)
+  if (fromCell >= 12) {
+    const changed = fromCell !== monthGridRowHeightPx.value
+    monthGridRowHeightPx.value = fromCell
+    return changed || layoutEpoch.value === 0
+  }
+
+  const gridH = grid.getBoundingClientRect().height
+  const rowCount = gridRows.value
+  const gapTotal = Math.max(0, rowCount - 1) * GRID_ROW_GAP_PX
+  const available = gridH - gapTotal
+  if (available < rowCount * 12) return false
+
+  const next = Math.floor(available / rowCount)
+  if (next < 1) return false
+
+  const changed = next !== monthGridRowHeightPx.value
+  monthGridRowHeightPx.value = next
+  return changed || layoutEpoch.value === 0
+}
+
+function maxBarsInArea (areaPx, barPx, gapPx) {
+  if (areaPx < barPx) return 0
+  return Math.floor((areaPx + gapPx) / (barPx + gapPx))
 }
 
 function computeLayoutFromListAreas (total, listNoMore, listWithMore, barPx, gapPx) {
@@ -339,14 +436,19 @@ function computeLayoutFromListAreas (total, listNoMore, listWithMore, barPx, gap
     return { visibleCount: total, hiddenCount: 0 }
   }
 
-  let visibleCount = 1
-  for (let n = total; n >= 1; n--) {
-    if (stack(n) <= listWithMore + LAYOUT_SLACK_PX) {
-      visibleCount = n
-      break
-    }
-  }
+  let visibleCount = maxBarsInArea(listWithMore, barPx, gapPx)
+  visibleCount = Math.min(Math.max(visibleCount, 1), total - 1)
 
+  return {
+    visibleCount,
+    hiddenCount: Math.max(0, total - visibleCount)
+  }
+}
+
+function normalizeDayLayout (layout, total) {
+  if (total <= 0) return EMPTY_DAY_LAYOUT
+  let visibleCount = Math.min(Math.max(layout?.visibleCount ?? 0, 0), total)
+  if (visibleCount <= 0) visibleCount = Math.min(total, 1)
   return {
     visibleCount,
     hiddenCount: Math.max(0, total - visibleCount)
@@ -360,11 +462,12 @@ function layoutMapSignature (map) {
     .join('|')
 }
 
-/** 读取网格中任意一格的真实高度（同月各行等高） */
+/** 读取网格中任意一格的 DOM（仅用于量 padding / 日期行，不用其撑开后的高度） */
 function getReferenceCellEl () {
   const grid = monthGridRef.value
   if (!grid) return null
   return (
+    grid.querySelector('.date-cell.is-public-holiday') ||
     grid.querySelector('.date-cell.has-bookings') ||
     grid.querySelector('.date-cell')
   )
@@ -374,12 +477,16 @@ function recalculateDayLayoutsOnce () {
   const grid = monthGridRef.value
   if (!grid) return false
 
-  const refCell = getReferenceCellEl()
-  const refHeight = refCell?.getBoundingClientRect().height ?? 0
-  if (refHeight < 12) return false
+  const rowHeight = monthGridRowHeightPx.value
+  if (rowHeight < 12) return false
+
+  const gridH = grid.getBoundingClientRect().height
+  if (gridH < gridRows.value * 12) return false
 
   const barPx = measureEventBarPx()
   const gapPx = measureListGapPx()
+  const refCell = getReferenceCellEl()
+  const metricsCell = getMetricsCellEl(grid)
   const newMap = new Map()
 
   for (const cell of monthCellsInGridOrder.value) {
@@ -390,13 +497,14 @@ function recalculateDayLayoutsOnce () {
       continue
     }
 
-    const el =
-      grid.querySelector(`[data-cell-key="${key}"]`) || refCell
-    const listNoMore = measureListAreaPx(el, false)
-    const listWithMore = measureListAreaPx(el, true)
+    const el = grid.querySelector(`[data-cell-key="${key}"]`) || refCell
+    const { listNoMore, listWithMore } = getListAreasForCell(el, rowHeight, metricsCell)
     newMap.set(
       key,
-      computeLayoutFromListAreas(total, listNoMore, listWithMore, barPx, gapPx)
+      normalizeDayLayout(
+        computeLayoutFromListAreas(total, listNoMore, listWithMore, barPx, gapPx),
+        total
+      )
     )
   }
 
@@ -407,10 +515,14 @@ function recalculateDayLayoutsOnce () {
 
 async function runLayoutRecalcStable () {
   let lastSig = ''
-  for (let pass = 0; pass < 5; pass++) {
+
+  for (let pass = 0; pass < 6; pass++) {
     await nextTick()
     await new Promise((resolve) => requestAnimationFrame(resolve))
+    updateUniformRowHeight()
+    if (monthGridRowHeightPx.value < 12) continue
     if (!recalculateDayLayoutsOnce()) continue
+
     const sig = layoutMapSignature(dayLayoutMap.value)
     if (sig && sig === lastSig) break
     lastSig = sig
@@ -518,7 +630,7 @@ const monthCellsInGridOrder = computed(() => {
   return cells
 })
 
-/** 各行均分网格高度，占满月历可视区域（5 行 / 6 行月格子高度不同） */
+/** 各行均分并撑满网格剩余高度（5 行 / 6 行由月份决定） */
 const monthGridStyle = computed(() => ({
   gridTemplateRows: `repeat(${gridRows.value}, minmax(0, 1fr))`
 }))
@@ -526,22 +638,14 @@ const monthGridStyle = computed(() => ({
 function getDayLayout (day, segment = 'current') {
   void layoutEpoch.value
   const key = dayCellKey(day, segment)
-  const cached = dayLayoutMap.value.get(key)
-  if (cached) return cached
-
   const total = getBookingsForDay(day, segment).length
   if (total <= 0) return EMPTY_DAY_LAYOUT
 
-  const refCell = getReferenceCellEl()
-  if (!refCell) {
-    return { visibleCount: total, hiddenCount: 0 }
-  }
+  const cached = dayLayoutMap.value.get(key)
+  if (cached) return normalizeDayLayout(cached, total)
 
-  const barPx = measureEventBarPx()
-  const gapPx = measureListGapPx()
-  const listNoMore = measureListAreaPx(refCell, false)
-  const listWithMore = measureListAreaPx(refCell, true)
-  return computeLayoutFromListAreas(total, listNoMore, listWithMore, barPx, gapPx)
+  // 换月 / 首帧：先展示全部以便测量 month-booking-list 的 1fr 高度
+  return normalizeDayLayout({ visibleCount: total, hiddenCount: 0 }, total)
 }
 
 // 判断是否是今天
@@ -557,7 +661,9 @@ function getVisibleBookings (day, segment = 'current') {
 }
 
 function getHiddenBookingCount (day, segment = 'current') {
-  return getDayLayout(day, segment).hiddenCount
+  const total = getBookingsForDay(day, segment).length
+  const { visibleCount } = getDayLayout(day, segment)
+  return Math.max(0, total - Math.min(visibleCount, total))
 }
 
 function hasBookings (day, segment = 'current') {
@@ -581,8 +687,9 @@ function observeLayoutTargets () {
       gridResizeObserver.observe(el)
     }
   }
+  const root = monthGridRef.value.closest('.calendar-month')
+  add(root)
   add(monthGridRef.value)
-  add(monthGridRef.value.closest('.calendar-month'))
   add(monthGridRef.value.closest('.month-view'))
   add(monthGridRef.value.closest('.calendar-container'))
   add(monthGridRef.value.closest('.calendar-main'))
@@ -618,7 +725,13 @@ watch(
     props.selectedRooms
   ],
   () => {
-    scheduleLayoutRecalc()
+    monthGridRowHeightPx.value = 0
+    dayLayoutMap.value = new Map()
+    layoutEpoch.value = 0
+    nextTick(() => {
+      observeLayoutTargets()
+      scheduleLayoutRecalc()
+    })
   },
   { deep: true }
 )
@@ -681,7 +794,8 @@ watch(
   background-color: #e5e7eb;
   border-radius: 0 0 0.5rem 0.5rem;
   overflow: hidden;
-  flex: 1;
+  flex: 1 1 auto;
+  width: 100%;
   height: 100%;
   min-height: 0;
   border: 1px solid #e5e7eb;
@@ -695,7 +809,7 @@ watch(
   background-color: white;
   padding: var(--cell-pad);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -705,6 +819,7 @@ watch(
   max-height: 100%;
   position: relative;
   box-sizing: border-box;
+  align-self: stretch;
 }
 
 .date-cell.has-bookings {
@@ -719,6 +834,24 @@ watch(
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 2px 0;
   padding-bottom: 0.25rem;
+}
+
+.date-cell-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.date-cell.has-bookings .date-cell-header {
+  grid-row: 1;
+  min-height: 0;
+}
+
+.date-cell:not(.has-bookings) .date-cell-header {
+  flex: 1;
+  min-height: 0;
 }
 
 .date-cell:hover {
@@ -755,10 +888,6 @@ watch(
 }
 
 .holiday-label {
-  position: relative;
-  z-index: 1;
-  grid-row: 1;
-  margin-top: 1.15rem;
   font-size: 0.625rem;
   line-height: 1.2;
   font-weight: 600;
@@ -767,8 +896,21 @@ watch(
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   word-break: break-word;
+  min-width: 0;
+}
+
+.date-cell.has-bookings.has-holiday-label .holiday-label {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  font-size: 0.5625rem;
+  line-height: 1.15;
+}
+
+.date-cell:not(.has-bookings) .holiday-label {
+  margin-top: 1.15rem;
 }
 
 .date-cell.first-col {
@@ -786,13 +928,11 @@ watch(
 }
 
 .date-number {
-  position: relative;
-  z-index: 1;
   font-weight: 600;
   color: #111827;
   font-size: 1rem;
-  grid-row: 1;
-  align-self: start;
+  line-height: 1.1;
+  flex-shrink: 0;
 }
 
 .date-cell.empty .date-number {
@@ -806,8 +946,9 @@ watch(
   flex-direction: column;
   gap: 4px;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  flex: 1 1 0;
+  width: 100%;
+  overflow: hidden;
   padding-right: 2px;
   grid-row: 2;
 }

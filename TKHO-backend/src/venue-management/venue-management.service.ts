@@ -34,6 +34,25 @@ const teaDisplayBookingInclude = {
   venueTeaService: { select: { teaService: true, completed: true } },
 } satisfies Prisma.VenueBookingsInclude;
 
+const manageBookingRowInclude = {
+  venue: { select: { id: true, name: true } },
+  reservedBy: {
+    select: {
+      id: true,
+      corpId: true,
+      name: true,
+      contact: true,
+      email: true,
+      department: { select: { department_name: true } },
+    },
+  },
+  venueTeaService: { select: { teaService: true } },
+} satisfies Prisma.VenueBookingsInclude;
+
+type ManageBookingRow = Prisma.VenueBookingsGetPayload<{
+  include: typeof manageBookingRowInclude;
+}>;
+
 const venueDisplayBookingInclude = {
   venue: {
     select: {
@@ -476,15 +495,7 @@ export class VenueManagementService {
     return null;
   }
 
-  private mapManageBookingRow(
-    row: Prisma.VenueBookingsGetPayload<{
-      include: {
-        venue: { select: { id: true; name: true } };
-        reservedBy: { select: { id: true; corpId: true; name: true; contact: true; email: true } };
-        venueTeaService: { select: { teaService: true } };
-      };
-    }>,
-  ) {
+  private mapManageBookingRow(row: ManageBookingRow) {
     const tea = this.normalizeTeaService(row.venueTeaService?.teaService);
     const teaOrWater = String(tea?.beverages || '').toLowerCase() === 'water' ? 'Water' : 'Tea';
     const serveAs = String(tea?.serveAs || '').toLowerCase() === 'bottle'
@@ -498,8 +509,12 @@ export class VenueManagementService {
       date: row.bookingDate ? this.formatDisplayDate(row.bookingDate) : '',
       time: `${this.formatTimeValue(row.startTime)} - ${this.formatTimeValue(row.endTime)}`,
       reservedBy: row.reservedBy?.name || '',
+      department: row.reservedBy?.department?.department_name ?? '',
       contact: row.reservedBy?.contact || '',
       email: row.reservedBy?.email || '',
+      attendees: row.attendees ?? null,
+      attendeeCount: row.attendees ?? null,
+      participants: row.attendees ?? null,
       status: uiStatus,
       dbStatus: String(row.status || '').toLowerCase() || 'confirmed',
       approvalStatus: String(row.approvalStatus || '').toLowerCase() || 'pending',
@@ -542,11 +557,7 @@ export class VenueManagementService {
 
     const rows = await this.prisma.venueBookings.findMany({
       where,
-      include: {
-        venue: { select: { id: true, name: true } },
-        reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
-        venueTeaService: { select: { teaService: true } },
-      },
+      include: manageBookingRowInclude,
       orderBy: [{ bookingDate: 'desc' }, { startTime: 'desc' }, { id: 'desc' }],
     });
 
@@ -617,11 +628,7 @@ export class VenueManagementService {
       return tx.venueBookings.update({
         where: { id },
         data: { status: next },
-        include: {
-          venue: { select: { id: true, name: true } },
-          reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
-          venueTeaService: { select: { teaService: true } },
-        },
+        include: manageBookingRowInclude,
       });
     });
     return { booking: this.mapManageBookingRow(updated) };
@@ -680,11 +687,7 @@ export class VenueManagementService {
           teaServiceRequired: teaRequired,
           attendees,
         },
-        include: {
-          venue: { select: { id: true, name: true } },
-          reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
-          venueTeaService: { select: { teaService: true } },
-        },
+        include: manageBookingRowInclude,
       });
 
       if (teaRequired) {
@@ -734,11 +737,7 @@ export class VenueManagementService {
         handledAt: new Date(),
         ...(dto.topic?.trim() ? { meetingTitle: dto.topic.trim() } : {}),
       },
-      include: {
-        venue: { select: { id: true, name: true } },
-        reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
-        venueTeaService: { select: { teaService: true } },
-      },
+      include: manageBookingRowInclude,
     });
     return { booking: this.mapManageBookingRow(updated) };
   }
@@ -764,11 +763,7 @@ export class VenueManagementService {
         handledAt: new Date(),
         ...(dto.topic?.trim() ? { meetingTitle: dto.topic.trim() } : {}),
       },
-      include: {
-        venue: { select: { id: true, name: true } },
-        reservedBy: { select: { id: true, corpId: true, name: true, contact: true, email: true } },
-        venueTeaService: { select: { teaService: true } },
-      },
+      include: manageBookingRowInclude,
     });
     return { booking: this.mapManageBookingRow(updated) };
   }

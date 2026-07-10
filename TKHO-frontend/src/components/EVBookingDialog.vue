@@ -7,7 +7,7 @@
     >
       <!-- 头部 -->
       <div class="modal-header" @mousedown="handleMouseDown">
-        <span class="modal-title">ADD BOOKING | CARPARK EV BOOKING CALENDAR</span>
+        <span class="modal-title">{{ dialogTitle }}</span>
         <button class="modal-close" @click="handleClose">
           <svg viewBox="0 0 24 24" class="close-icon">
             <path d="M18 6L6 18M6 6l12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -93,7 +93,35 @@
 
           <!-- Parking space -->
           <div class="form-section parking-info-section">
-            <div class="parking-info">
+            <label class="form-label">
+              Parking space
+              <span v-if="isEditMode" class="required">*</span>
+            </label>
+            <div v-if="isEditMode" class="time-period-group parking-slot-group">
+              <p v-if="slotOptionsLoading" class="parking-slot-hint">Loading parking spaces...</p>
+              <p v-else-if="!slotOptions.length" class="parking-slot-hint">—</p>
+              <template v-else>
+                <label
+                  v-for="slot in slotOptions"
+                  :key="`parking-slot-${slot.id}`"
+                  class="time-period-option"
+                  :class="{
+                    'is-selected': selectedSlotId === slot.id,
+                    'is-disabled': !slot.available
+                  }"
+                >
+                  <input
+                    type="radio"
+                    :value="slot.id"
+                    v-model="selectedSlotId"
+                    :disabled="!slot.available"
+                    class="time-radio"
+                  />
+                  <span class="time-label">{{ slot.evSpace }}</span>
+                </label>
+              </template>
+            </div>
+            <div v-else class="parking-info">
               <span class="parking-label">Parking space:</span>
               <span class="parking-value">{{ parkingSpaceDisplay }}</span>
             </div>
@@ -141,7 +169,7 @@ import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import ReservedByUserField from '@/components/ReservedByUserField.vue'
 import { getAccountVehicles } from '@/api/accountVehicle'
-import { getEvAssignmentPreview } from '@/api/parking'
+import { getEvAssignmentPreview, getEvSlotOptions } from '@/api/parking'
 import { getMockAccountVehicleList, getMockEVParkingList } from '@/mocks/mockData'
 import { createDateAtMidnight, isEvSlotPast } from '@/utils/evSlotPast'
 import { isRestrictedBookingDay } from '@/utils/bookingDateRestriction'
@@ -193,6 +221,14 @@ const props = defineProps({
   isAdmin: {
     type: Boolean,
     default: false
+  },
+  mode: {
+    type: String,
+    default: 'create'
+  },
+  initialBooking: {
+    type: Object,
+    default: null
   }
 })
 
@@ -202,6 +238,13 @@ const userStore = useUserStore()
 const { userInfo } = storeToRefs(userStore)
 
 const defaultReservedByUser = computed(() => {
+  if (props.mode === 'edit' && props.initialBooking?.reservedByUserId) {
+    return {
+      id: String(props.initialBooking.reservedByUserId),
+      name: props.initialBooking.reservedBy || props.initialBooking.reservedByUserId,
+      corpId: props.initialBooking.reservedByCorpId || props.initialBooking.reservedBy || ''
+    }
+  }
   const u = userInfo.value
   if (!u?.id && !u?.sub) return null
   return {
@@ -210,6 +253,23 @@ const defaultReservedByUser = computed(() => {
     corpId: u.corpId || ''
   }
 })
+
+const dialogTitle = computed(() =>
+  props.mode === 'edit'
+    ? 'EDIT BOOKING | CARPARK EV BOOKING'
+    : 'ADD BOOKING | CARPARK EV BOOKING CALENDAR'
+)
+
+const isEditMode = computed(() => props.mode === 'edit')
+
+const isSameAsInitialBooking = () => {
+  const initial = props.initialBooking
+  if (!initial) return false
+  return (
+    form.value.date === initial.bookingDateYmd &&
+    String(form.value.timePeriod) === String(initial.periodId || '')
+  )
+}
 
 // 拖拽相关
 const isDragging = ref(false)
@@ -327,6 +387,7 @@ async function reloadVehiclesForReservedBy (explicitUserId) {
 async function handleReservedByUserChange (userId) {
   if (!props.isAdmin || !props.visible) return
   await reloadVehiclesForReservedBy(userId)
+  if (isEditMode.value) return
   await loadSlotPreview()
 }
 
@@ -357,7 +418,11 @@ const emptySlotPreview = () => ({
 
 const slotPreview = ref(emptySlotPreview())
 const slotPreviewLoading = ref(false)
+const slotOptions = ref([])
+const selectedSlotId = ref('')
+const slotOptionsLoading = ref(false)
 let slotPreviewRequestId = 0
+let slotOptionsRequestId = 0
 
 const statusDialog = ref({
   visible: false,
@@ -366,9 +431,14 @@ const statusDialog = ref({
 })
 
 const canSaveBooking = computed(() => {
-  if (!form.value.date || !form.value.timePeriod) return false
+  if (!form.value.licensePlateId || !form.value.date || !form.value.timePeriod) return false
   if (isEvSlotPast(form.value.date, form.value.timePeriod, props.timePeriods)) return false
   if (!isTimeAvailable(form.value.timePeriod)) return false
+  if (isEditMode.value) {
+    if (slotOptionsLoading.value) return false
+    const selected = slotOptions.value.find((slot) => slot.id === selectedSlotId.value)
+    return Boolean(selected?.available)
+  }
   if (slotPreviewLoading.value) return false
   return !slotPreview.value.isFull && !!slotPreview.value.suggestedSlot
 })
@@ -401,8 +471,92 @@ const applyMockSlotPreview = () => {
   }
 }
 
+const applyMockSlotOptions = () => {
+  const mockSlots = getMockEVParkingList().filter((slot) => slot.status === 'active')
+  const currentSlotId = String(props.initialBooking?.slotId || '')
+  const key = `${form.value.date}-${form.value.timePeriod}`
+  const grid = props.availableSlots[key]
+  const remaining = grid?.available ?? mockSlots.length
+  let unavailableBudget = Math.max(0, mockSlots.length - remaining)
+
+  slotOptions.value = mockSlots.map((slot) => {
+    const id = String(slot.id)
+    let available = true
+    if (id === currentSlotId) {
+      available = true
+    } else if (unavailableBudget > 0) {
+      available = false
+      unavailableBudget -= 1
+    }
+    return {
+      id,
+      evSpace: slot.evSpace,
+      location: slot.location || '',
+      available
+    }
+  })
+}
+
+const applySelectedSlotAfterOptionsLoad = (preferredSlotId) => {
+  const preferred = String(
+    preferredSlotId ||
+      selectedSlotId.value ||
+      props.initialBooking?.slotId ||
+      ''
+  ).trim()
+  const preferredSlot = slotOptions.value.find(
+    (slot) => slot.id === preferred && slot.available
+  )
+  if (preferredSlot) {
+    selectedSlotId.value = preferredSlot.id
+    return
+  }
+  const firstAvailable = slotOptions.value.find((slot) => slot.available)
+  selectedSlotId.value = firstAvailable?.id || ''
+}
+
+const loadSlotOptions = async (options = {}) => {
+  const { preferredSlotId } = options
+  if (!form.value.date || !form.value.timePeriod) {
+    slotOptions.value = []
+    selectedSlotId.value = ''
+    return
+  }
+
+  const requestId = ++slotOptionsRequestId
+  slotOptionsLoading.value = true
+  try {
+    const params = {
+      bookingDate: form.value.date,
+      periodId: String(form.value.timePeriod)
+    }
+    if (props.initialBooking?.id) {
+      params.excludeBookingId = String(props.initialBooking.id)
+    }
+    const data = await getEvSlotOptions(params)
+    if (requestId !== slotOptionsRequestId) return
+    slotOptions.value = Array.isArray(data?.slots)
+      ? data.slots.map((slot) => ({
+          id: String(slot.id),
+          evSpace: slot.evSpace || '',
+          location: slot.location || '',
+          available: Boolean(slot.available)
+        }))
+      : []
+    applySelectedSlotAfterOptionsLoad(preferredSlotId)
+  } catch {
+    if (requestId !== slotOptionsRequestId) return
+    applyMockSlotOptions()
+    applySelectedSlotAfterOptionsLoad(preferredSlotId)
+  } finally {
+    if (requestId === slotOptionsRequestId) {
+      slotOptionsLoading.value = false
+    }
+  }
+}
+
 const loadSlotPreview = async (options = {}) => {
-  const { shuffle = false } = options
+  const { shuffle = false, preferredSlotId } = options
   if (!form.value.date || !form.value.timePeriod) {
     slotPreview.value = emptySlotPreview()
     return
@@ -415,8 +569,11 @@ const loadSlotPreview = async (options = {}) => {
       bookingDate: form.value.date,
       periodId: String(form.value.timePeriod)
     }
-    if (!shuffle && slotPreview.value.suggestedSlot?.id) {
-      params.slotId = slotPreview.value.suggestedSlot.id
+    const slotIdHint =
+      preferredSlotId ||
+      (!shuffle ? slotPreview.value.suggestedSlot?.id : undefined)
+    if (slotIdHint) {
+      params.slotId = String(slotIdHint)
     }
     const data = await getEvAssignmentPreview(params)
     if (requestId !== slotPreviewRequestId) return
@@ -447,6 +604,29 @@ watch(
   async (visible) => {
     if (!visible) {
       slotPreview.value = emptySlotPreview()
+      slotOptions.value = []
+      selectedSlotId.value = ''
+      return
+    }
+    if (props.mode === 'edit' && props.initialBooking) {
+      const initial = props.initialBooking
+      form.value.reservedByUserId = String(initial.reservedByUserId || defaultReservedByUser.value?.id || '')
+      form.value.date = initial.bookingDateYmd || ''
+      form.value.timePeriod = String(initial.periodId || '')
+      selectedSlotId.value = String(initial.slotId || '')
+      await reloadVehiclesForReservedBy(form.value.reservedByUserId)
+      form.value.licensePlateId = String(initial.licensePlateId || '')
+      if (typeof props.refreshCalendarAvailability === 'function') {
+        try {
+          await props.refreshCalendarAvailability()
+        } catch {
+          /* 父级已 catch，忽略 */
+        }
+      }
+      if (form.value.date && form.value.timePeriod && !isTimeAvailable(form.value.timePeriod)) {
+        pickFirstAvailablePeriod()
+      }
+      await loadSlotOptions({ preferredSlotId: initial.slotId })
       return
     }
     if (props.isAdmin && defaultReservedByUser.value?.id) {
@@ -479,6 +659,10 @@ watch(
     if (form.value.date && form.value.timePeriod && !isTimeAvailable(form.value.timePeriod)) {
       pickFirstAvailablePeriod()
     }
+    if (isEditMode.value) {
+      void loadSlotOptions()
+      return
+    }
     loadSlotPreview({ shuffle: true })
   }
 )
@@ -501,7 +685,11 @@ watch(
   (slot) => {
     if (!props.visible || !slot) return
     if (slot.available === 0) {
-      void loadSlotPreview()
+      if (isEditMode.value) {
+        void loadSlotOptions()
+      } else {
+        void loadSlotPreview()
+      }
     }
   },
   { deep: true }
@@ -522,13 +710,25 @@ async function dismissStatusDialog () {
       /* 父级已 catch */
     }
   }
-  await loadSlotPreview()
+  if (isEditMode.value) {
+    await loadSlotOptions()
+  } else {
+    await loadSlotPreview()
+  }
 }
 
 // 检查时段是否可用（含已满、已过期）
 function isTimeAvailable (period) {
   if (!form.value.date) return true
   if (isEvSlotPast(form.value.date, period, props.timePeriods)) return false
+  if (
+    props.mode === 'edit' &&
+    props.initialBooking &&
+    form.value.date === props.initialBooking.bookingDateYmd &&
+    String(period) === String(props.initialBooking.periodId || '')
+  ) {
+    return true
+  }
   const key = `${form.value.date}-${period}`
   const slot = props.availableSlots[key]
   return !slot || slot.available > 0
@@ -619,6 +819,25 @@ function handleSave() {
       message: 'This time period is not available. Please select another slot.',
       type: 'error'
     }
+    return
+  }
+  if (isEditMode.value) {
+    const selected = slotOptions.value.find((slot) => slot.id === selectedSlotId.value)
+    if (!selected?.available) {
+      statusDialog.value = {
+        visible: true,
+        message: 'Please select an available parking space.',
+        type: 'error'
+      }
+      return
+    }
+    emit('confirm', {
+      reservedByUserId: form.value.reservedByUserId || defaultReservedByUser.value?.id || '',
+      licensePlateId: form.value.licensePlateId,
+      timePeriod: form.value.timePeriod,
+      date: form.value.date,
+      slotId: selectedSlotId.value
+    })
     return
   }
   if (slotPreview.value.isFull || !slotPreview.value.suggestedSlot) {
@@ -901,6 +1120,17 @@ function handleSave() {
 /* 停车位信息 */
 .parking-info-section {
   margin-top: 0;
+}
+
+.parking-slot-group {
+  margin-top: 0;
+}
+
+.parking-slot-hint {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
 }
 
 .parking-info {

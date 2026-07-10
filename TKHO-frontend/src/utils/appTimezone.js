@@ -15,6 +15,42 @@ export function todayYmdInAppTimeZone () {
   return formatYmdInAppTimeZone(new Date())
 }
 
+const WEEKDAY_TO_ISO = {
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+  Sun: 7
+}
+
+export function getIsoWeekdayInAppTimeZone (ymd, timeZone = APP_TIMEZONE) {
+  const dateKey = String(ymd || '').trim()
+  if (!dateKey) return 1
+  const anchor = new Date(`${dateKey}T12:00:00.000Z`)
+  const label = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short'
+  }).format(anchor)
+  return WEEKDAY_TO_ISO[label] ?? 1
+}
+
+export function addDaysToYmd (ymd, days) {
+  const [year, month, day] = ymd.split('-').map((value) => Number.parseInt(value, 10))
+  const shifted = new Date(Date.UTC(year, month - 1, day + days))
+  return shifted.toISOString().slice(0, 10)
+}
+
+/** Monday–Sunday week bounds in business timezone. */
+export function getAppWeekBoundsYmd (ymd, timeZone = APP_TIMEZONE) {
+  const dateKey = String(ymd || '').trim()
+  const isoWeekday = getIsoWeekdayInAppTimeZone(dateKey, timeZone)
+  const weekStartYmd = addDaysToYmd(dateKey, -(isoWeekday - 1))
+  const weekEndYmd = addDaysToYmd(weekStartYmd, 6)
+  return { weekStartYmd, weekEndYmd }
+}
+
 /** 香港时区下的当前自然年（四位数字字符串） */
 export function getCurrentCalendarYearInAppTimeZone (date = new Date()) {
   return formatYmdInAppTimeZone(date).slice(0, 4)

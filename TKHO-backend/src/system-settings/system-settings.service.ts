@@ -67,6 +67,36 @@ export class SystemSettingsService {
     return null;
   }
 
+  private parseEvDateUpdateTime(raw: string): string | null {
+    const value = String(raw ?? '').trim();
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return value;
+    return null;
+  }
+
+  private parseEvWeeklyBookingLimit(raw: string): number | null {
+    const value = Number.parseInt(String(raw ?? '').trim(), 10);
+    if (Number.isFinite(value) && value >= 1 && value <= 7) return value;
+    return null;
+  }
+
+  async getEvDateUpdateTime(): Promise<string> {
+    const map = await this.ensureDefaultSettings();
+    return (
+      this.parseEvDateUpdateTime(
+        this.getSetting(map, SystemSettingKey.evDateUpdateTime),
+      ) ?? SYSTEM_SETTING_DEFAULTS[SystemSettingKey.evDateUpdateTime]
+    );
+  }
+
+  async getEvWeeklyBookingLimit(): Promise<number> {
+    const map = await this.ensureDefaultSettings();
+    return (
+      this.parseEvWeeklyBookingLimit(
+        this.getSetting(map, SystemSettingKey.evWeeklyBookingLimit),
+      ) ?? Number.parseInt(SYSTEM_SETTING_DEFAULTS[SystemSettingKey.evWeeklyBookingLimit], 10)
+    );
+  }
+
   async getUserInactiveAfterMonths(): Promise<number> {
     const map = await this.ensureDefaultSettings();
     const fromDb = this.parseInactiveAfterMonths(
@@ -91,6 +121,15 @@ export class SystemSettingsService {
       map,
       SystemSettingKey.hkPublicHolidaysUrl,
     );
+    const evDateUpdateTime =
+      this.parseEvDateUpdateTime(
+        this.getSetting(map, SystemSettingKey.evDateUpdateTime),
+      ) ?? SYSTEM_SETTING_DEFAULTS[SystemSettingKey.evDateUpdateTime];
+    const evWeeklyBookingLimit =
+      this.parseEvWeeklyBookingLimit(
+        this.getSetting(map, SystemSettingKey.evWeeklyBookingLimit),
+      ) ??
+      Number.parseInt(SYSTEM_SETTING_DEFAULTS[SystemSettingKey.evWeeklyBookingLimit], 10);
 
     const rows = await this.prisma.system_settings.findMany({
       where: {
@@ -98,6 +137,8 @@ export class SystemSettingsService {
           in: [
             SystemSettingKey.userInactiveAfterMonths,
             SystemSettingKey.hkPublicHolidaysUrl,
+            SystemSettingKey.evDateUpdateTime,
+            SystemSettingKey.evWeeklyBookingLimit,
           ],
         },
       },
@@ -109,6 +150,8 @@ export class SystemSettingsService {
     return {
       userInactiveAfterMonths,
       hkPublicHolidaysUrl,
+      evDateUpdateTime,
+      evWeeklyBookingLimit,
       updatedAt: latestUpdatedAt,
     };
   }
@@ -147,6 +190,42 @@ export class SystemSettingsService {
         },
         update: {
           setting_value: url,
+          updated_at: now,
+        },
+      });
+    }
+
+    if (dto.evDateUpdateTime != null) {
+      const time = String(dto.evDateUpdateTime).trim();
+      await this.prisma.system_settings.upsert({
+        where: { setting_key: SystemSettingKey.evDateUpdateTime },
+        create: {
+          setting_key: SystemSettingKey.evDateUpdateTime,
+          setting_value: time,
+          description:
+            SYSTEM_SETTING_DESCRIPTIONS[SystemSettingKey.evDateUpdateTime],
+          updated_at: now,
+        },
+        update: {
+          setting_value: time,
+          updated_at: now,
+        },
+      });
+    }
+
+    if (dto.evWeeklyBookingLimit != null) {
+      const limit = String(dto.evWeeklyBookingLimit);
+      await this.prisma.system_settings.upsert({
+        where: { setting_key: SystemSettingKey.evWeeklyBookingLimit },
+        create: {
+          setting_key: SystemSettingKey.evWeeklyBookingLimit,
+          setting_value: limit,
+          description:
+            SYSTEM_SETTING_DESCRIPTIONS[SystemSettingKey.evWeeklyBookingLimit],
+          updated_at: now,
+        },
+        update: {
+          setting_value: limit,
           updated_at: now,
         },
       });

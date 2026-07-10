@@ -95,6 +95,54 @@
             </a>
           </div>
         </section>
+
+        <section class="setting-card">
+          <div class="setting-card-header">
+            <div class="setting-card-title-row">
+              <div class="setting-icon setting-icon--ev">
+                <font-awesome-icon :icon="['fas', 'car']" />
+              </div>
+              <div class="setting-card-titles">
+                <h3 class="setting-title">EV Booking Calendar</h3>
+                <p class="setting-subtitle">Daily date roll-forward time</p>
+              </div>
+            </div>
+            <span class="value-pill value-pill--green">
+              <span class="value-pill-label">Current</span>
+              <span class="value-pill-text">{{ form.evDateUpdateTime }}</span>
+            </span>
+          </div>
+
+          <div class="setting-card-body">
+            <label class="field-label" for="ev-date-update-time">EV date update time (HH:mm)</label>
+            <el-input
+              id="ev-date-update-time"
+              v-model.trim="form.evDateUpdateTime"
+              placeholder="13:00"
+              maxlength="5"
+              class="field-control field-control--time"
+            />
+            <p class="field-hint">
+              Hong Kong time when the EV calendar releases the next day quota.
+              Before this time, users see the next 14 days starting tomorrow; after this time, the window rolls forward by one day.
+            </p>
+
+            <label class="field-label field-label--spaced" for="ev-weekly-booking-limit">Weekly booking limit per user</label>
+            <el-input-number
+              id="ev-weekly-booking-limit"
+              v-model="form.evWeeklyBookingLimit"
+              :min="1"
+              :max="7"
+              :step="1"
+              controls-position="right"
+              class="field-control"
+            />
+            <p class="field-hint">
+              Maximum active EV bookings per non-admin user per week (Monday to Sunday).
+              Cancelled bookings do not count. Administrators booking on behalf of others are not limited by this rule.
+            </p>
+          </div>
+        </section>
       </div>
 
       <footer v-if="updatedAt" class="settings-footer">
@@ -119,7 +167,9 @@ const updatedAt = ref(null)
 
 const form = reactive({
   userInactiveAfterMonths: 6,
-  hkPublicHolidaysUrl: ''
+  hkPublicHolidaysUrl: '',
+  evDateUpdateTime: '13:00',
+  evWeeklyBookingLimit: 1
 })
 
 function formatUpdatedAt (value) {
@@ -140,6 +190,8 @@ function formatUpdatedAt (value) {
 function applySettings (data) {
   form.userInactiveAfterMonths = Number(data?.userInactiveAfterMonths) || 6
   form.hkPublicHolidaysUrl = String(data?.hkPublicHolidaysUrl ?? '')
+  form.evDateUpdateTime = String(data?.evDateUpdateTime ?? '13:00')
+  form.evWeeklyBookingLimit = Number(data?.evWeeklyBookingLimit) || 1
   updatedAt.value = data?.updatedAt ?? null
 }
 
@@ -161,11 +213,23 @@ async function handleSave () {
     return
   }
 
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(form.evDateUpdateTime)) {
+    ElMessage.warning('EV date update time must be HH:mm in 24-hour format')
+    return
+  }
+
+  if (!Number.isInteger(form.evWeeklyBookingLimit) || form.evWeeklyBookingLimit < 1 || form.evWeeklyBookingLimit > 7) {
+    ElMessage.warning('Weekly EV booking limit must be between 1 and 7')
+    return
+  }
+
   saving.value = true
   try {
     const data = await saveSystemSettings({
       userInactiveAfterMonths: form.userInactiveAfterMonths,
-      hkPublicHolidaysUrl: form.hkPublicHolidaysUrl
+      hkPublicHolidaysUrl: form.hkPublicHolidaysUrl,
+      evDateUpdateTime: form.evDateUpdateTime,
+      evWeeklyBookingLimit: form.evWeeklyBookingLimit
     })
     applySettings(data)
     ElMessage.success('System settings saved')
@@ -316,6 +380,12 @@ onMounted(() => {
   border: 1px solid #93c5fd;
 }
 
+.setting-icon--ev {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
 .setting-card-titles {
   min-width: 0;
 }
@@ -387,12 +457,20 @@ onMounted(() => {
   color: #374151;
 }
 
+.field-label--spaced {
+  margin-top: 1rem;
+}
+
 .field-control {
   width: 180px;
 }
 
 .field-control--full {
   width: 100%;
+}
+
+.field-control--time {
+  width: 120px;
 }
 
 .field-hint {

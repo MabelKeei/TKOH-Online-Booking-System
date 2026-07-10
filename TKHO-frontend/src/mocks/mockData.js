@@ -643,7 +643,15 @@ export function getMockAccountVehicleList () {
 }
 
 export function getMockEVManageBookingList () {
-  if (_evManageBookingList) return cloneMockList(_evManageBookingList)
+  const normalizeEvManageBookingMock = (row) => ({
+    ...row,
+    submittedAt: row.submittedAt || (row.bookedOn ? `${row.bookedOn} 09:30` : ''),
+    reservedBy: row.reservedBy || row.corpId || undefined,
+    submitter: row.submitter || row.reservedBy || row.corpId || undefined
+  })
+  if (_evManageBookingList) {
+    return cloneMockList(_evManageBookingList).map(normalizeEvManageBookingMock)
+  }
   _evManageBookingList = [
     { id: 1, licensePlate: 'YZ4567', space: 'B2', date: '28 Mar 2026', time: 'AM (08:30 - 13:00)', bookedOn: '17 Mar 2026', status: 'upcoming' },
     { id: 2, licensePlate: 'YZ4567', space: 'B3', date: '3 Mar 2026', time: 'AM (08:30 - 13:00)', bookedOn: '25 Feb 2026', status: 'upcoming' },
@@ -671,11 +679,11 @@ export function getMockEVManageBookingList () {
     { id: 24, licensePlate: 'HK7895', space: 'B1', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
     { id: 25, licensePlate: 'HK7896', space: 'B2', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
     { id: 26, licensePlate: 'HK7897', space: 'B3', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
-    { id: 27, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin-test', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B1', date: '8 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '1 Apr 2026', status: 'upcoming' },
+    { id: 27, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin-test', submitter: 'Admin-test', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B1', date: '8 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '1 Apr 2026', status: 'upcoming' },
     { id: 28, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin-test', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B2', date: '27 Mar 2026', time: 'PM (13:45 - 18:15)', bookedOn: '20 Mar 2026', status: 'past' },
     { id: 29, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin-test', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B3', date: '10 Apr 2026', time: 'Night (19:00 - 23:30)', bookedOn: '3 Apr 2026', status: 'cancelled' }
   ]
-  return cloneMockList(_evManageBookingList)
+  return cloneMockList(_evManageBookingList).map(normalizeEvManageBookingMock)
 }
 
 export function getMockVenueManageBookingList () {
@@ -809,6 +817,7 @@ function ensureBookingWindows () {
       resourceType: 'ev',
       currentStartDate: formatDate(today),
       currentEndDate: formatDate(evEnd),
+      evDateUpdateTime: '13:00',
       updatedBy: 'System Admin',
       updatedAt: now,
       history: [

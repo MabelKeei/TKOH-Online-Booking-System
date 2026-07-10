@@ -118,8 +118,8 @@
           </svg>
           <span class="logout-text">Log out</span>
         </button>
-        <!-- 仅非管理员：悬停显示 Venue/EV 切换 -->
-        <div v-if="!isAdmin" class="switch-dropdown">
+        <!-- 非管理员且非单一系统角色：悬停显示 Venue/EV 切换 -->
+        <div v-if="showSwitchButton" class="switch-dropdown">
           <button type="button" class="switch-btn" @click="handleSwitch">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="17 1 21 5 17 9"></polyline>
@@ -142,13 +142,16 @@ import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
 import { storeToRefs } from 'pinia'
 import { useAdminPendingUsersSync } from '@/composables/useAdminPendingUsersSync'
+import { canSwitchBookingSystem } from '@/utils/systemAccess'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const adminStore = useAdminStore()
-const { isAdmin } = storeToRefs(userStore)
+const { isAdmin, userInfo } = storeToRefs(userStore)
 const { totalPendingCount } = storeToRefs(adminStore)
+
+const showSwitchButton = computed(() => !isAdmin.value && canSwitchBookingSystem(userInfo.value))
 
 /** 管理员任意页面/任意窗口均监听待审批同步（跨窗口更新顶栏与 Admin 侧栏角标） */
 const { startSync: startAdminPendingSync, stopSync: stopAdminPendingSync } = useAdminPendingUsersSync()

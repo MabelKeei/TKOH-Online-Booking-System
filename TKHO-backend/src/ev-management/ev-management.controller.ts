@@ -9,6 +9,7 @@ import { UpdateEvTimePeriodDto } from './dto/update-ev-time-period.dto';
 import { PublishEvWindowDto } from './dto/publish-ev-window.dto';
 import { EvPublicDisplayQueryDto } from './dto/ev-public-display-query.dto';
 import { ListEvBookingsQueryDto } from './dto/list-ev-bookings-query.dto';
+import { UpdateEvManageBookingDto } from './dto/update-ev-manage-booking.dto';
 
 @ApiTags('ev-management')
 @ApiBearerAuth()
@@ -86,5 +87,14 @@ export class EvManagementController {
     @Param('id') id: string,
   ) {
     return this.evManagementService.cancelManageBooking(req.user, id);
+  }
+
+  @Patch('bookings/:id')
+  updateBooking(
+    @Req() req: { user: { sub?: string; corpId?: string; role?: string; system?: string } },
+    @Param('id') id: string,
+    @Body() dto: UpdateEvManageBookingDto,
+  ) {
+    return this.evManagementService.updateManageBooking(req.user, id, dto);
   }
 }

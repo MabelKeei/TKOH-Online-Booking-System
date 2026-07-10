@@ -3,8 +3,11 @@
     <AppHeader />
 
     <main class="account-main flex-1 flex items-start justify-center px-2 md:px-3 lg:px-4 py-1 md:py-2 overflow-y-auto">
-      <div class="account-container max-w-6xl w-full">
-        <div class="account-grid">
+      <div
+        class="account-container max-w-6xl w-full"
+        :class="{ 'account-container--two-cards': !showVehicleSection }"
+      >
+        <div class="account-grid" :class="{ 'account-grid--two-cards': !showVehicleSection }">
           <!-- Profile Section -->
           <section class="profile-section card-style">
             <div class="section-header">
@@ -152,7 +155,7 @@
           </section>
 
           <!-- Vehicle License Plates Section -->
-          <section class="vehicle-section card-style">
+          <section v-if="showVehicleSection" class="vehicle-section card-style">
             <div class="section-header">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="section-icon">
                 <path d="M5 17h14v-5H5v5z"></path>
@@ -228,8 +231,12 @@ import {
   getAccountVehicles,
   setDefaultAccountVehicle
 } from '../api/accountVehicle'
+import { isUserVenueRole } from '@/utils/systemAccess'
 
 const userStore = useUserStore()
+
+const showVehicleSection = computed(() => !isUserVenueRole(userStore.userInfo))
+
 const profile = ref({
   fullName: 'Karen SHEN',
   corpId: 'E001',
@@ -387,10 +394,12 @@ onMounted(async () => {
     profile.value.accessLevel = u.role || ''
     profile.value.bookingRule = `EV: ${formatQuotaRule(u.usedQuotaEv, u.annualQuotaEv)}; Venue: ${formatQuotaRule(u.usedQuotaVenue, u.annualQuotaVenue)}`
   }
-  loadVehicles().catch((error) => {
-    const msg = error?.response?.data?.message || error?.message || 'Failed to load vehicles'
-    notifyError(msg)
-  })
+  if (!isUserVenueRole(u)) {
+    loadVehicles().catch((error) => {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to load vehicles'
+      notifyError(msg)
+    })
+  }
   __accountLogPx()
   window.addEventListener('resize', __accountOnResize, { passive: true })
 })
@@ -1131,6 +1140,10 @@ onUnmounted(() => {
     min-height: 0;
   }
 
+  .account-container--two-cards {
+    justify-content: center;
+  }
+
   .account-grid {
     grid-template-columns: repeat(3, 1fr);
     height: 100%;
@@ -1138,6 +1151,13 @@ onUnmounted(() => {
     flex: 1;
     min-height: 0;
     gap: 0.75rem;
+  }
+
+  .account-grid--two-cards {
+    grid-template-columns: repeat(2, 1fr);
+    width: 66.666667%;
+    flex: none;
+    margin-inline: auto;
   }
 
   .profile-section,

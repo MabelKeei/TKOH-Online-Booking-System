@@ -101,6 +101,7 @@ import { login as loginApi } from '../api/auth'
 import { getPublicPointsToNote } from '@/api/promptManagement'
 import { getMockPromptList } from '@/mocks/mockData'
 import { formatPointsToNoteForDisplay } from '@/utils/pointsToNoteHtml'
+import { canAccessSystem, canAccessPath, getDeniedSystemMessage, systemForPath } from '@/utils/systemAccess'
 import '@/styles/rich-content.css'
 
 const route = useRoute()
@@ -220,9 +221,20 @@ const handleLogin = async () => {
       password,
       system: loginForm.system
     })
-    userStore.login(res.user, res.token)
+
+    if (!canAccessSystem(res.user, loginForm.system)) {
+      showStatusDialog(getDeniedSystemMessage(loginForm.system), 'error')
+      return
+    }
 
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+    if (redirect && !canAccessPath(res.user, redirect)) {
+      showStatusDialog(getDeniedSystemMessage(systemForPath(redirect) || loginForm.system), 'error')
+      return
+    }
+
+    userStore.login(res.user, res.token)
+
     if (redirect) {
       router.push(redirect)
       return

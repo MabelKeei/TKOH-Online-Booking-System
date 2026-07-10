@@ -190,6 +190,70 @@
             </div>
           </div>
 
+          <div v-if="isAdminAllBookingsView" class="export-excel-wrapper">
+            <button
+              type="button"
+              class="export-excel-btn"
+              :class="{ active: showExportMenu }"
+              :disabled="exportingExcel"
+              @click="toggleExportMenu"
+            >
+              <font-awesome-icon :icon="['fas', 'file-excel']" />
+              <span>{{ exportingExcel ? 'Exporting...' : 'Export Excel' }}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+
+            <div v-if="showExportMenu" class="export-excel-dropdown" @click.stop>
+              <div class="export-excel-header">
+                <span class="filter-title">Export to Excel</span>
+              </div>
+              <div class="export-excel-body">
+                <button
+                  type="button"
+                  class="export-option-btn export-option-btn--primary"
+                  :disabled="exportingExcel"
+                  @click="handleExportExcel('current')"
+                >
+                  <span class="export-option-text">
+                    <span class="export-option-label">Current filters</span>
+                    <span class="export-option-desc">{{ currentExportDescription }}</span>
+                  </span>
+                  <span class="export-option-count">{{ exportOptionCounts.current }}</span>
+                </button>
+
+                <div class="export-section-label">Quick date ranges</div>
+                <p class="export-section-hint">Date range only.</p>
+                <div class="export-quick-options">
+                  <button
+                    v-for="option in quickDateOptions"
+                    :key="option.value"
+                    type="button"
+                    class="export-quick-btn"
+                    :disabled="exportingExcel"
+                    @click="handleExportExcel('quick', option.value)"
+                  >
+                    <span>{{ option.label }}</span>
+                    <span class="export-option-count export-option-count--compact">{{ exportOptionCounts[option.value] }}</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  class="export-option-btn"
+                  :disabled="exportingExcel"
+                  @click="handleExportExcel('allDates')"
+                >
+                  <span class="export-option-text">
+                    <span class="export-option-label">All dates</span>
+                  </span>
+                  <span class="export-option-count">{{ exportOptionCounts.allDates }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- View Switcher -->
           <button
             :class="['view-toggle-btn', { active: currentView === 'card' }]"
@@ -861,6 +925,7 @@ import { getPrompts } from '@/api/promptManagement'
 import { useAdminStore } from '@/stores/admin'
 import { notifyAdminPendingUpdated } from '@/utils/adminPendingSync'
 import { HTML_ZOOM_BREAKPOINT_MQ } from '@/utils/venueCalendarApi'
+import * as XLSX from 'xlsx'
 
 const userStore = useUserStore()
 const adminStore = useAdminStore()
@@ -891,6 +956,8 @@ const showColumnsFilter = ref(false)
 const showStatusFilter = ref(false)
 const showApprovalFilter = ref(false)
 const showDateFilter = ref(false)
+const showExportMenu = ref(false)
+const exportingExcel = ref(false)
 const approvalFilters = ref({
   pending: true,
   approved: true,
@@ -1384,12 +1451,48 @@ const availableColumns = ref([
 const bookings = ref([])
 const bookingsLoading = ref(false)
 
-const filteredBookings = computed(() => {
+// Helper function to parse date string "10 Feb 2026" to Date object
+const parseDate = (dateStr) => {
+  const months = {
+    'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+    'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+  }
+  const parts = dateStr.split(' ')
+  const day = parseInt(parts[0])
+  const month = months[parts[1]]
+  const year = parseInt(parts[2])
+  return new Date(year, month, day)
+}
+
+const applyDateRangeToBookings = (result, range) => {
+  if (!range || range.length !== 2) return result
+  const [startDate, endDate] = range
+  return result.filter((b) => {
+    const bookingDate = parseDate(b.date)
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    start.setHours(0, 0, 0, 0)
+    end.setHours(23, 59, 59, 999)
+    return bookingDate >= start && bookingDate <= end
+  })
+}
+
+const buildFilteredBookings = (options = {}) => {
+  const {
+    dateRange: dateRangeOption,
+    dateOnly = false,
+  } = options
+
   let result = bookings.value
 
-  // Filter by booking view (admin only)
+  if (dateOnly) {
+    if (dateRangeOption && dateRangeOption.length === 2) {
+      result = applyDateRangeToBookings(result, dateRangeOption)
+    }
+    return result
+  }
+
   if (isAdmin.value && bookingView.value === 'my') {
-    // ??????id ?????? mock ??? corpId / email
     const currentUserId = userInfo.value?.id
     const currentUserCorpId = userInfo.value?.corpId
     const currentUserEmail = userInfo.value?.email || 'karen.shen@ha.org.hk'
@@ -1399,15 +1502,12 @@ const filteredBookings = computed(() => {
       return (b.email || '') === currentUserEmail
     })
   }
-  // If bookingView is 'all' or user is not admin, show all bookings
 
-  // Filter by status (multi-select)
   const activeStatuses = Object.keys(statusFilters.value).filter(key => statusFilters.value[key])
   if (activeStatuses.length > 0 && activeStatuses.length < 3) {
     result = result.filter(b => activeStatuses.includes(b.status))
   }
 
-  // Admin all bookings: filter by approval status (multi-select)
   if (isAdminAllBookingsView.value) {
     const activeApprovals = Object.keys(approvalFilters.value).filter((key) => approvalFilters.value[key])
     if (activeApprovals.length > 0 && activeApprovals.length < 3) {
@@ -1417,20 +1517,11 @@ const filteredBookings = computed(() => {
     }
   }
 
-  // Filter by date range
-  if (dateRange.value && dateRange.value.length === 2) {
-    const [startDate, endDate] = dateRange.value
-    result = result.filter(b => {
-      const bookingDate = parseDate(b.date)
-      const start = new Date(startDate)
-      const end = new Date(endDate)
-      start.setHours(0, 0, 0, 0)
-      end.setHours(23, 59, 59, 999)
-      return bookingDate >= start && bookingDate <= end
-    })
+  const rangeToApply = dateRangeOption === undefined ? dateRange.value : dateRangeOption
+  if (rangeToApply && rangeToApply.length === 2) {
+    result = applyDateRangeToBookings(result, rangeToApply)
   }
 
-  // Filter by search query
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(b =>
@@ -1441,7 +1532,6 @@ const filteredBookings = computed(() => {
     )
   }
 
-  // Column filter (table headers)
   if (columnFilterState.value.room.length) {
     const selected = new Set(columnFilterState.value.room)
     result = result.filter((b) => selected.has(b.room || ''))
@@ -1460,20 +1550,9 @@ const filteredBookings = computed(() => {
   }
 
   return result
-})
-
-// Helper function to parse date string "10 Feb 2026" to Date object
-const parseDate = (dateStr) => {
-  const months = {
-    'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
-    'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
-  }
-  const parts = dateStr.split(' ')
-  const day = parseInt(parts[0])
-  const month = months[parts[1]]
-  const year = parseInt(parts[2])
-  return new Date(year, month, day)
 }
+
+const filteredBookings = computed(() => buildFilteredBookings())
 
 const parseBookedOnDateTime = (dateTimeStr) => {
   if (!dateTimeStr) return new Date(0)
@@ -1578,9 +1657,9 @@ const getSortValue = (booking, key) => {
   }
 }
 
-const sortedBookings = computed(() => {
-  if (!sortState.value.length) return filteredBookings.value.slice()
-  return filteredBookings.value.slice().sort((a, b) => {
+const sortBookingsList = (list) => {
+  if (!sortState.value.length) return list.slice()
+  return list.slice().sort((a, b) => {
     for (const criterion of sortState.value) {
       const aValue = getSortValue(a, criterion.key)
       const bValue = getSortValue(b, criterion.key)
@@ -1595,7 +1674,9 @@ const sortedBookings = computed(() => {
     }
     return 0
   })
-})
+}
+
+const sortedBookings = computed(() => sortBookingsList(filteredBookings.value))
 
 const toggleSort = (key) => {
   const idx = sortState.value.findIndex(item => item.key === key)
@@ -1727,6 +1808,165 @@ const dateFilterLabel = computed(() => {
   return `${formatDate(startDate)} - ${formatDate(endDate)}`
 })
 
+const buildExportFileName = (range, label = '') => {
+  const today = new Date().toISOString().split('T')[0]
+  if (range && range.length === 2) {
+    const [start, end] = range
+    return `Venue_All_Bookings_${start}_to_${end}.xlsx`
+  }
+  if (label) {
+    const safeLabel = String(label).replace(/\s+/g, '_')
+    return `Venue_All_Bookings_${safeLabel}_${today}.xlsx`
+  }
+  return `Venue_All_Bookings_${today}.xlsx`
+}
+
+const getExportRows = (mode, quickValue) => {
+  if (mode === 'allDates') {
+    return sortBookingsList(buildFilteredBookings({ dateOnly: true }))
+  }
+  if (mode === 'quick') {
+    return sortBookingsList(buildFilteredBookings({
+      dateRange: getQuickDateRange(quickValue),
+      dateOnly: true,
+    }))
+  }
+  return sortedBookings.value
+}
+
+const exportOptionCounts = computed(() => {
+  if (!showExportMenu.value) {
+    return { current: 0, allDates: 0 }
+  }
+  const counts = {
+    current: getExportRows('current').length,
+    allDates: getExportRows('allDates').length,
+  }
+  for (const option of quickDateOptions) {
+    counts[option.value] = getExportRows('quick', option.value).length
+  }
+  return counts
+})
+
+const currentExportDescription = computed(() => {
+  const parts = [dateFilterLabel.value, statusFilterLabel.value, approvalFilterLabel.value]
+  if (searchQuery.value.trim()) {
+    parts.push(`Search: "${searchQuery.value.trim()}"`)
+  }
+  return parts.join(' · ')
+})
+
+const closeExportMenu = () => {
+  showExportMenu.value = false
+  document.removeEventListener('click', handleExportMenuClickOutside)
+}
+
+const toggleExportMenu = (event) => {
+  event.stopPropagation()
+  if (exportingExcel.value) return
+
+  showExportMenu.value = !showExportMenu.value
+  showStatusFilter.value = false
+  showApprovalFilter.value = false
+  showDateFilter.value = false
+  showColumnsFilter.value = false
+  document.removeEventListener('click', handleStatusFilterClickOutside)
+  document.removeEventListener('click', handleApprovalFilterClickOutside)
+  document.removeEventListener('mousedown', handleDateFilterClickOutside, true)
+  document.removeEventListener('click', handleColumnsFilterClickOutside)
+
+  if (showExportMenu.value) {
+    setTimeout(() => {
+      document.addEventListener('click', handleExportMenuClickOutside, { once: false })
+    }, 0)
+  } else {
+    closeExportMenu()
+  }
+}
+
+const handleExportMenuClickOutside = (event) => {
+  const dropdown = document.querySelector('.export-excel-dropdown')
+  const trigger = event.target.closest('.export-excel-wrapper')
+  if (!dropdown?.contains(event.target) && !trigger) {
+    closeExportMenu()
+  }
+}
+
+const getExportDepartment = (booking) => {
+  if (booking?.department) return String(booking.department)
+  const matched = employeeList.value.find(
+    (e) => e.name === booking?.reservedBy
+      || (e.name && booking?.reservedBy && e.name.toLowerCase() === booking.reservedBy.toLowerCase())
+      || (booking?.corpId && e.corpId === booking.corpId)
+      || (booking?.email && e.email === booking.email),
+  )
+  return matched?.department || ''
+}
+
+const getExportParticipantCount = (booking) => {
+  const count = booking?.attendees
+    ?? booking?.attendeeCount
+    ?? booking?.participants
+    ?? booking?.teaServiceParticipants
+    ?? booking?.teaService?.attendees
+  const n = Number(count)
+  return Number.isFinite(n) ? n : ''
+}
+
+const handleExportExcel = async (mode = 'current', quickValue) => {
+  if (!isAdminAllBookingsView.value) return
+
+  const rows = getExportRows(mode, quickValue)
+  if (!rows.length) {
+    showNotice('No bookings match the selected export range. Try another option.', 'Export Excel')
+    return
+  }
+
+  let fileName = buildExportFileName()
+  if (mode === 'allDates') {
+    fileName = buildExportFileName(null, 'All_Dates')
+  } else if (mode === 'quick') {
+    const quickOption = quickDateOptions.find((option) => option.value === quickValue)
+    fileName = buildExportFileName(getQuickDateRange(quickValue), quickOption?.label)
+  } else if (dateRange.value && dateRange.value.length === 2) {
+    fileName = buildExportFileName(dateRange.value)
+  }
+
+  exportingExcel.value = true
+  closeExportMenu()
+  try {
+    const exportData = rows.map((booking, index) => ({
+      '#': index + 1,
+      'Booking ID': booking.id ?? '',
+      'Date': booking.date || '',
+      'Time': booking.time || '',
+      'Venue': booking.room || '',
+      'Meeting / Event': booking.topic || '',
+      'Reserved By': booking.reservedBy || '',
+      'Department': getExportDepartment(booking),
+      'No. of participants': getExportParticipantCount(booking),
+      'Contact No.': booking.contact || '',
+      'Email': booking.email || '',
+      'Status': formatStatus(booking.status || ''),
+      'Approval': formatStatus(booking.approvalStatus || 'pending'),
+      'Application Date': booking.bookedOn || '',
+      'Tea Service': formatTeaServiceStatus(booking),
+      'Tea Special Requests': formatTeaSpecialRequest(booking),
+      'Reject Reason': booking.reason || booking.rejectReason || '',
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(exportData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'All Bookings')
+    XLSX.writeFile(wb, fileName)
+    showNotice(`Exported ${rows.length} booking${rows.length === 1 ? '' : 's'} to Excel.`, 'Success')
+  } catch (error) {
+    showNotice(getErrorMessage(error, 'Failed to export Excel file'), 'Error')
+  } finally {
+    exportingExcel.value = false
+  }
+}
+
 // Pagination
 const totalPages = computed(() => Math.ceil(sortedBookings.value.length / pageSize.value))
 
@@ -1854,6 +2094,7 @@ const formatApplicationDateForCard = (bookedOn) => {
 // Toggle status filter
 const toggleStatusFilter = (event) => {
   event.stopPropagation()
+  closeExportMenu()
   showApprovalFilter.value = false
   document.removeEventListener('click', handleApprovalFilterClickOutside)
   showStatusFilter.value = !showStatusFilter.value
@@ -1878,6 +2119,7 @@ const handleStatusFilterClickOutside = (event) => {
 
 const toggleApprovalFilter = (event) => {
   event.stopPropagation()
+  closeExportMenu()
   showStatusFilter.value = false
   document.removeEventListener('click', handleStatusFilterClickOutside)
   showApprovalFilter.value = !showApprovalFilter.value
@@ -1901,6 +2143,7 @@ const handleApprovalFilterClickOutside = (event) => {
 // Toggle columns filter
 const toggleColumnsFilter = (event) => {
   event.stopPropagation()
+  closeExportMenu()
   showColumnsFilter.value = !showColumnsFilter.value
 
   if (showColumnsFilter.value) {
@@ -1926,6 +2169,7 @@ const handleColumnsFilterClickOutside = (event) => {
 // Toggle date filter
 const toggleDateFilter = (event) => {
   event.stopPropagation()
+  closeExportMenu()
   showDateFilter.value = !showDateFilter.value
 
   if (showDateFilter.value) {
@@ -2294,6 +2538,7 @@ const loadEditableVenues = async () => {
 }
 
 watch(bookingView, () => {
+  closeExportMenu()
   if (isAdmin.value) {
     void loadBookings()
   }
@@ -2326,6 +2571,7 @@ onUnmounted(() => {
   }
   document.removeEventListener('mousedown', handleDateFilterClickOutside, true)
   document.removeEventListener('click', handleApprovalFilterClickOutside)
+  document.removeEventListener('click', handleExportMenuClickOutside)
 })
 </script>
 
@@ -2606,6 +2852,188 @@ onUnmounted(() => {
 
 .date-range-picker :deep(.el-date-editor .el-range__close-icon) {
   color: #ef4444;
+}
+
+.export-excel-wrapper {
+  position: relative;
+}
+
+.export-excel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 34px;
+  padding: 0 0.75rem;
+  border: 1px solid #86c8a3;
+  border-radius: 0.375rem;
+  background: #f5fbf7;
+  color: #14532d;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.export-excel-btn .arrow-icon {
+  transition: transform 0.2s;
+}
+
+.export-excel-btn.active .arrow-icon {
+  transform: rotate(180deg);
+}
+
+.export-excel-btn:hover:not(:disabled),
+.export-excel-btn.active:not(:disabled) {
+  background: #e8f6ee;
+  border-color: #4ade80;
+  color: #14532d;
+}
+
+.export-excel-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.export-excel-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 1000;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border: 2px solid #00723a;
+  min-width: 360px;
+  animation: slideDown 0.2s ease-out;
+}
+
+.export-excel-header {
+  padding: 12px 16px;
+  border-bottom: 2px solid #00723a;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.export-excel-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.export-section-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #166534;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.export-section-hint {
+  margin: -0.35rem 0 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.export-option-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #c7e5d4;
+  border-radius: 0.5rem;
+  background: #f8fdf9;
+  color: #14532d;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.export-option-btn--primary {
+  background: #ecfdf3;
+  border-color: #86c8a3;
+}
+
+.export-option-btn:hover:not(:disabled) {
+  background: #e8f6ee;
+  border-color: #4ade80;
+}
+
+.export-option-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.export-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.export-option-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.export-option-desc {
+  font-size: 0.75rem;
+  color: #4b5563;
+  line-height: 1.35;
+}
+
+.export-option-count {
+  flex-shrink: 0;
+  min-width: 1.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.export-option-count--compact {
+  min-width: auto;
+  flex-shrink: 0;
+}
+
+.export-quick-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.export-quick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: white;
+  color: #374151;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.export-quick-btn:hover:not(:disabled) {
+  background: #f0fdf4;
+  border-color: #86c8a3;
+  color: #14532d;
+}
+
+.export-quick-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .view-toggle-btn {

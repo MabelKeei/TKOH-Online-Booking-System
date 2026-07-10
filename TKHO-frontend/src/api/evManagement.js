@@ -41,12 +41,16 @@ export function publishEvBookingWindow(payload) {
 }
 
 /** scope: 'my' | 'all'（all 仅管理员） */
-export function listEvManageBookings(scope = 'my') {
-  return request.get('/ev-management/bookings', { params: { scope } })
+export function listEvManageBookings(scope = 'my', config = {}) {
+  return request.get('/ev-management/bookings', { params: { scope }, ...config })
 }
 
 export function cancelEvManageBooking(id) {
   return request.patch(`/ev-management/bookings/${id}/cancel`)
+}
+
+export function updateEvManageBooking(id, payload) {
+  return request.patch(`/ev-management/bookings/${id}`, payload)
 }
 
 /** 公開 EV 展示屏數據（無需登入）；date 為香港業務日 YYYY-MM-DD */

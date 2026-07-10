@@ -14,7 +14,9 @@ import { CreateEvBookingDto } from './dto/create-ev-booking.dto';
 import { isSuperAdminAuth } from '../auth/super-admin.util';
 import { isAdminRole } from '../auth/admin-role.util';
 import { consumeEvQuota } from '../common/user-quota';
+import { assertEvWeeklyBookingLimit } from '../common/ev-weekly-booking-limit';
 import { HkPublicHolidaysService } from '../system-settings/hk-public-holidays.service';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed'] as const;
 const MAX_BOOKING_SLOT_ATTEMPTS = 5;
@@ -39,6 +41,7 @@ export class ParkingService {
     private readonly prisma: PrismaService,
     private readonly evCache: EvRedisCacheService,
     private readonly hkPublicHolidaysService: HkPublicHolidaysService,
+    private readonly systemSettingsService: SystemSettingsService,
   ) {}
 
   private toDateOnlyString(date: Date): string {
@@ -311,6 +314,86 @@ export class ParkingService {
     return this.buildAssignmentPreviewResponse(base, preferredSlotId);
   }
 
+  async getSlotOptions(
+    bookingDate: string,
+    periodIdRaw: string,
+    excludeBookingIdRaw?: string,
+  ) {
+    const { dateKey } = this.parseBookingDateYmd(bookingDate);
+    const periodId = BigInt(periodIdRaw);
+
+    const period = await this.prisma.evTimePeriods.findUnique({ where: { id: periodId } });
+    if (!period || period.status !== 'active') {
+      throw new BadRequestException('Time period unavailable.');
+    }
+
+    const excludeBookingId =
+      excludeBookingIdRaw && /^\d+$/.test(String(excludeBookingIdRaw).trim())
+        ? BigInt(String(excludeBookingIdRaw).trim())
+        : null;
+
+    type SlotOptionRow = {
+      id: bigint;
+      ev_space: string;
+      location: string | null;
+      available: boolean;
+    };
+
+    const rows: SlotOptionRow[] = excludeBookingId
+      ? await this.prisma.$queryRaw<SlotOptionRow[]>`
+          SELECT
+            s.id,
+            s.ev_space,
+            s.location,
+            NOT EXISTS (
+              SELECT 1
+              FROM ev_bookings b
+              WHERE b.slot_id = s.id
+                AND b.period_id = ${periodId}
+                AND b.booking_date = ${dateKey}::date
+                AND b.status IN ('pending', 'confirmed')
+                AND b.id <> ${excludeBookingId}
+            ) AS available
+          FROM ev_parking_slots s
+          WHERE s.status = 'active'
+          ORDER BY s.id
+        `
+      : await this.prisma.$queryRaw<SlotOptionRow[]>`
+          SELECT
+            s.id,
+            s.ev_space,
+            s.location,
+            NOT EXISTS (
+              SELECT 1
+              FROM ev_bookings b
+              WHERE b.slot_id = s.id
+                AND b.period_id = ${periodId}
+                AND b.booking_date = ${dateKey}::date
+                AND b.status IN ('pending', 'confirmed')
+            ) AS available
+          FROM ev_parking_slots s
+          WHERE s.status = 'active'
+          ORDER BY s.id
+        `;
+
+    const slots = rows.map((row) => ({
+      id: row.id.toString(),
+      evSpace: row.ev_space,
+      location: row.location ?? undefined,
+      available: Boolean(row.available),
+    }));
+    const availableCount = slots.filter((slot) => slot.available).length;
+
+    return {
+      bookingDate: dateKey,
+      periodId: periodId.toString(),
+      total: slots.length,
+      booked: slots.length - availableCount,
+      remaining: availableCount,
+      slots,
+    };
+  }
+
   private buildAssignmentPreviewResponse(
     base: {
       total: number;
@@ -472,6 +555,7 @@ export class ParkingService {
         : undefined;
 
     let lastError: unknown;
+    const weeklyLimit = await this.systemSettingsService.getEvWeeklyBookingLimit();
 
     for (let attempt = 0; attempt < MAX_BOOKING_SLOT_ATTEMPTS; attempt++) {
       try {
@@ -494,6 +578,16 @@ export class ParkingService {
             throw new ConflictException('This time slot is fully booked.');
           }
 
+          await assertEvWeeklyBookingLimit(
+            tx,
+            reservedByUserId,
+            dateKey,
+            weeklyLimit,
+            {
+              bypassWeeklyLimit:
+                isAdminRole(auth) && reservedByUserId !== actorUserId,
+            },
+          );
           await consumeEvQuota(tx, reservedByUserId);
 
           const now = new Date();
@@ -501,6 +595,7 @@ export class ParkingService {
           return tx.evBookings.create({
             data: {
               userCorpId,
+              submitterUserId: actorUserId,
               licensePlateId,
               slotId: slot.id,
               periodId,

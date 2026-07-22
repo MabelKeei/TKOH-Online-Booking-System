@@ -403,10 +403,11 @@ onUnmounted(() => {
 
 .board-content {
   display: grid;
-  grid-template-columns: minmax(0, 0.19fr) minmax(0, 0.81fr);
+  grid-template-columns: minmax(0, 0.18fr) minmax(0, 0.82fr);
   gap: calc(2px * var(--ui-scale) * var(--space-scale));
   min-height: 0;
 }
+
 
 .left-time-panel {
   display: grid;
@@ -444,43 +445,46 @@ onUnmounted(() => {
 }
 
 .period-name {
-  font-size: calc(50px * var(--ui-scale) * var(--text-scale-boost));
+  font-size: calc(40px * var(--ui-scale) * var(--text-scale-boost));
   line-height: 1;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .period-name-zh {
-  font-size: calc(30px * var(--ui-scale) * var(--text-scale-boost));
+  font-size: calc(40px * var(--ui-scale) * var(--text-scale-boost));
   line-height: 0;
-  font-weight: 400;
+  font-weight: 600;
   flex-shrink: 0;
   vertical-align: super;
 }
 
 .period-range {
-  font-size: calc(42px * var(--ui-scale) * var(--text-scale-boost));
+  font-size: calc(40px * var(--ui-scale) * var(--text-scale-boost));
   line-height: 1.1;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .right-grid-panel {
   margin-left: 0;
-  margin-right: calc(28px * var(--ui-scale) * var(--space-scale));
+  margin-right: calc(12px * var(--ui-scale) * var(--space-scale));
   margin-bottom: 0;
   border: calc(8px * var(--ui-scale)) solid #9ccf62;
-  padding: calc(2px * var(--ui-scale) * var(--space-scale));
+  border-radius: 90px;
+  padding: calc(8px * var(--ui-scale) * var(--space-scale)) calc(12px * var(--ui-scale) * var(--space-scale));
   min-height: 0;
   display: grid;
   grid-template-rows: repeat(4, minmax(0, 1fr));
   align-items: stretch;
+  container-type: inline-size;
+  container-name: ev-plate-grid;
 }
 
 .space-header-row,
 .plate-row {
   display: grid;
   grid-template-columns: repeat(var(--space-count, 3), minmax(0, 1fr));
-  gap: clamp(12px, calc(16px * var(--ui-scale)), 24px);
+  gap: clamp(8px, calc(12px * var(--ui-scale)), 20px);
   min-height: 0;
   align-items: center;
 }
@@ -494,6 +498,7 @@ onUnmounted(() => {
   color: #ffffff;
   font-weight: 800;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .space-name {
@@ -518,11 +523,29 @@ onUnmounted(() => {
 .plate-cell {
   text-align: center;
   color: #ffff00;
-  font-size: calc(72px * var(--ui-scale) * var(--text-scale-boost));
+  /* 列宽按容器均分，按最多 8 位车牌适配字号，避免全屏重叠/溢出 */
+  font-size: min(
+    calc(64px * var(--ui-scale) * var(--text-scale-boost)),
+    calc(
+      (
+        100cqw
+        - clamp(8px, calc(12px * var(--ui-scale)), 20px) * (var(--space-count, 3) - 1)
+        - 24px
+      )
+      / var(--space-count, 3)
+      / 5.35
+    )
+  );
   font-weight: 800;
   line-height: 1.04;
-  letter-spacing: calc(1px * var(--ui-scale));
-  min-height: calc(96px * var(--ui-scale));
+  letter-spacing: 0;
+  min-width: 0;
+  max-width: 100%;
+  min-height: calc(72px * var(--ui-scale));
+  padding-inline: calc(4px * var(--ui-scale));
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
   display: flex;
   align-items: center;
   justify-content: center;

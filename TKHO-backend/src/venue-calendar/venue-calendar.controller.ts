@@ -83,13 +83,17 @@ export class VenueCalendarController {
   }
 
   @Get('rooms/availability')
-  checkAvailability(@Query() query: RoomAvailabilityQueryDto) {
+  checkAvailability(
+    @Query() query: RoomAvailabilityQueryDto,
+    @Req() req: { user?: { sub?: string; role?: string; isSuperAdmin?: boolean } },
+  ) {
     return this.venueCalendarService.checkRoomAvailability(
       query.roomId,
       query.date,
       query.startTime,
       query.endTime,
       query.excludeBookingId,
+      req?.user,
     );
   }
 }

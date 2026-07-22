@@ -27,10 +27,11 @@ export class LicensePlateManagementService {
   private normalizePlateNumber(raw: string): string {
     const cleaned = String(raw ?? '')
       .replace(/[^A-Za-z0-9]/g, '')
-      .trim();
+      .trim()
+      .slice(0, 8);
     if (!cleaned) {
       throw new BadRequestException(
-        'plateNumber can only contain letters and numbers',
+        'plateNumber can only contain letters and numbers (max 8)',
       );
     }
     return cleaned.toUpperCase();

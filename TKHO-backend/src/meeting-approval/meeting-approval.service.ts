@@ -60,7 +60,7 @@ export class MeetingApprovalService {
   }
 
   /** 待审批且未超过预约日（含当日） */
-  private pendingNotTimedOutWhere(): Prisma.VenueBookingsWhereInput {
+  private pendingNotExpiredWhere(): Prisma.VenueBookingsWhereInput {
     const today = this.getUtcTodayDate();
     return {
       ...this.pendingBaseWhere(),
@@ -69,7 +69,7 @@ export class MeetingApprovalService {
   }
 
   /** 待审批且预约日已过（仍未 Handle） */
-  private pendingTimedOutWhere(): Prisma.VenueBookingsWhereInput {
+  private pendingExpiredWhere(): Prisma.VenueBookingsWhereInput {
     return {
       ...this.pendingBaseWhere(),
       bookingDate: { lt: this.getUtcTodayDate() },
@@ -202,27 +202,27 @@ export class MeetingApprovalService {
   /** Pending Approval：未超过 booking date 的待审批 */
   async listPending() {
     const rows = await this.prisma.venueBookings.findMany({
-      where: this.pendingNotTimedOutWhere(),
+      where: this.pendingNotExpiredWhere(),
       orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
       include: bookingInclude,
     });
     return rows.map((row) => this.mapBookingRow(row, 'pending'));
   }
 
-  /** Timeout：已超过 booking date 仍未 Handle 的待审批 */
-  async listPendingTimeout() {
+  /** Expired：已超过 booking date 仍未 Handle 的待审批 */
+  async listPendingExpired() {
     const rows = await this.prisma.venueBookings.findMany({
-      where: this.pendingTimedOutWhere(),
+      where: this.pendingExpiredWhere(),
       orderBy: [{ bookingDate: 'asc' }, { submittedAt: 'desc' }, { id: 'desc' }],
       include: bookingInclude,
     });
     return rows.map((row) => this.mapBookingRow(row, 'pending'));
   }
 
-  /** Admin 角标：仅统计未超时的待审批会议 */
-  async countPendingNotTimedOut(): Promise<number> {
+  /** Admin 角标：仅统计未过期的待审批会议 */
+  async countPendingNotExpired(): Promise<number> {
     return this.prisma.venueBookings.count({
-      where: this.pendingNotTimedOutWhere(),
+      where: this.pendingNotExpiredWhere(),
     });
   }
 

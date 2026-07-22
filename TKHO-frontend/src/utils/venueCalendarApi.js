@@ -115,6 +115,22 @@ export function viewportRectToZoomLayout (rect, zoom = getHtmlZoomScale()) {
   }
 }
 
+/**
+ * 历史兼容：若仍有调用可保留 absolute + 禁用 flip。
+ * 提示层请优先 :teleported="false"（14" zoom），勿 append-to 未挂载选择器（Teleport 目标 null 会崩）。
+ */
+export function createHtmlZoomAwarePopperOptions (extra = {}) {
+  const extraModifiers = Array.isArray(extra.modifiers) ? extra.modifiers : []
+  return {
+    ...extra,
+    strategy: 'absolute',
+    modifiers: [
+      { name: 'flip', enabled: false },
+      ...extraModifiers.filter((m) => m?.name !== 'flip')
+    ]
+  }
+}
+
 export function resolveBookingAccentColor (booking, rooms = []) {
   const direct = String(booking?.color || '').trim()
   if (direct) return direct

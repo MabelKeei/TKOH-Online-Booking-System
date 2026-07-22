@@ -262,11 +262,19 @@ export class UserManagementService {
     keyword?: string,
     page: number = 1,
     pageSize: number = 20,
+    scopeRaw?: string,
   ) {
     const q = String(keyword ?? '').trim();
+    const scope = String(scopeRaw ?? '').trim().toLowerCase();
+    const venueOwnerScope = scope === 'venue';
     const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
     const safePageSize = Number.isFinite(pageSize) ? Math.min(100, Math.max(1, Math.floor(pageSize))) : 20;
     const skip = (safePage - 1) * safePageSize;
+
+    const hideSuperAdmin =
+      venueOwnerScope ||
+      !isSuperAdminAuth(auth);
+
     const where: Prisma.UserWhereInput = {
       status: 'Active',
       ...(q
@@ -277,7 +285,7 @@ export class UserManagementService {
             ],
           }
         : {}),
-      ...(!isSuperAdminAuth(auth)
+      ...(hideSuperAdmin
         ? {
             NOT: {
               access_roles: {
@@ -287,6 +295,18 @@ export class UserManagementService {
                     mode: 'insensitive',
                   },
                 },
+              },
+            },
+          }
+        : {}),
+      ...(venueOwnerScope
+        ? {
+            access_roles: {
+              is: {
+                OR: [
+                  { annual_venue_quota: { gt: 0 } },
+                  { annual_venue_quota: -1 },
+                ],
               },
             },
           }
@@ -538,7 +558,12 @@ export class UserManagementService {
     }));
   }
 
-  async approvePending(id: string, dto: ApprovePendingDto, approverSub: any) {
+  async approvePending(
+    id: string,
+    dto: ApprovePendingDto,
+    approverSub: any,
+    auth?: { isSuperAdmin?: boolean; role?: string },
+  ) {
     const pid = BigInt(id);
     const approverUserId = this.parseApproverId(approverSub);
     const approver = await this.prisma.user.findUnique({
@@ -554,20 +579,37 @@ export class UserManagementService {
       throw new BadRequestException('Pending user already handled');
     }
 
+    const corpId = (dto.corpId ?? p.corp_id).trim();
+    const name = (dto.name ?? p.name).trim();
+    const contact =
+      dto.contact !== undefined
+        ? dto.contact.trim() || null
+        : p.contact_no?.trim() || null;
+    const departmentId =
+      dto.department !== undefined
+        ? await this.resolveDepartmentId(dto.department)
+        : p.department_id;
+    const roleName = dto.role !== undefined ? dto.role : undefined;
+    this.assertCanAssignRole(roleName, auth);
+    const accessRoleId =
+      dto.role !== undefined
+        ? await this.resolveAccessRoleId(dto.role)
+        : p.access_role_id;
+
     const newId = await this.nextUserId();
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.user.create({
           data: {
             id: newId,
-            corpId: p.corp_id.trim(),
-            account: p.corp_id.trim(),
+            corpId,
+            account: corpId,
             password: bcrypt.hashSync(dto.password, 10),
-            name: p.name.trim(),
+            name,
             email: p.email?.trim() || null,
-            contact: p.contact_no?.trim() || null,
-            departmentId: p.department_id,
-            accessRoleId: p.access_role_id,
+            contact,
+            departmentId,
+            accessRoleId,
             annualQuotaEv: dto.annualQuotaEV ?? 30,
             usedQuotaEv: 0,
             annualQuotaVenue: dto.annualQuotaVenue ?? 30,

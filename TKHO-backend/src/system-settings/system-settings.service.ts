@@ -79,6 +79,12 @@ export class SystemSettingsService {
     return null;
   }
 
+  private parseVenueBookingMinGapMinutes(raw: string): number | null {
+    const value = Number.parseInt(String(raw ?? '').trim(), 10);
+    if (Number.isFinite(value) && value >= 0 && value <= 120) return value;
+    return null;
+  }
+
   async getEvDateUpdateTime(): Promise<string> {
     const map = await this.ensureDefaultSettings();
     return (
@@ -94,6 +100,19 @@ export class SystemSettingsService {
       this.parseEvWeeklyBookingLimit(
         this.getSetting(map, SystemSettingKey.evWeeklyBookingLimit),
       ) ?? Number.parseInt(SYSTEM_SETTING_DEFAULTS[SystemSettingKey.evWeeklyBookingLimit], 10)
+    );
+  }
+
+  async getVenueBookingMinGapMinutes(): Promise<number> {
+    const map = await this.ensureDefaultSettings();
+    return (
+      this.parseVenueBookingMinGapMinutes(
+        this.getSetting(map, SystemSettingKey.venueBookingMinGapMinutes),
+      ) ??
+      Number.parseInt(
+        SYSTEM_SETTING_DEFAULTS[SystemSettingKey.venueBookingMinGapMinutes],
+        10,
+      )
     );
   }
 
@@ -130,6 +149,14 @@ export class SystemSettingsService {
         this.getSetting(map, SystemSettingKey.evWeeklyBookingLimit),
       ) ??
       Number.parseInt(SYSTEM_SETTING_DEFAULTS[SystemSettingKey.evWeeklyBookingLimit], 10);
+    const venueBookingMinGapMinutes =
+      this.parseVenueBookingMinGapMinutes(
+        this.getSetting(map, SystemSettingKey.venueBookingMinGapMinutes),
+      ) ??
+      Number.parseInt(
+        SYSTEM_SETTING_DEFAULTS[SystemSettingKey.venueBookingMinGapMinutes],
+        10,
+      );
 
     const rows = await this.prisma.system_settings.findMany({
       where: {
@@ -139,6 +166,7 @@ export class SystemSettingsService {
             SystemSettingKey.hkPublicHolidaysUrl,
             SystemSettingKey.evDateUpdateTime,
             SystemSettingKey.evWeeklyBookingLimit,
+            SystemSettingKey.venueBookingMinGapMinutes,
           ],
         },
       },
@@ -152,6 +180,7 @@ export class SystemSettingsService {
       hkPublicHolidaysUrl,
       evDateUpdateTime,
       evWeeklyBookingLimit,
+      venueBookingMinGapMinutes,
       updatedAt: latestUpdatedAt,
     };
   }
@@ -226,6 +255,26 @@ export class SystemSettingsService {
         },
         update: {
           setting_value: limit,
+          updated_at: now,
+        },
+      });
+    }
+
+    if (dto.venueBookingMinGapMinutes != null) {
+      const gap = String(dto.venueBookingMinGapMinutes);
+      await this.prisma.system_settings.upsert({
+        where: { setting_key: SystemSettingKey.venueBookingMinGapMinutes },
+        create: {
+          setting_key: SystemSettingKey.venueBookingMinGapMinutes,
+          setting_value: gap,
+          description:
+            SYSTEM_SETTING_DESCRIPTIONS[
+              SystemSettingKey.venueBookingMinGapMinutes
+            ],
+          updated_at: now,
+        },
+        update: {
+          setting_value: gap,
           updated_at: now,
         },
       });

@@ -164,7 +164,7 @@ const currentPointsToNoteContent = computed(() => {
   const targetKey = POINTS_TO_NOTE_KEYS[loginForm.system]
   if (!targetKey) return ''
   const raw = pointsToNoteByKey.value[targetKey] || ''
-  return formatPointsToNoteForDisplay(raw)
+  return formatPointsToNoteForDisplay(raw, { includeHeading: true })
 })
 
 onMounted(() => {

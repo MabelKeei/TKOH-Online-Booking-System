@@ -17,6 +17,7 @@ import {
 import { DisplayManagementService } from '../display-management/display-management.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { HkPublicHolidaysService } from '../system-settings/hk-public-holidays.service';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { UpsertVenueDto } from './dto/upsert-venue.dto';
 import { PublishVenueWindowDto } from './dto/publish-venue-window.dto';
 import { CreateVenueBlockDto } from './dto/create-venue-block.dto';
@@ -25,6 +26,11 @@ import {
   ApproveVenueManageBookingDto,
   RejectVenueManageBookingDto,
 } from './dto/review-venue-booking.dto';
+import {
+  buildVenueTeaServiceJson,
+  formatVenueTeaServiceDisplay,
+  normalizeVenueTeaService,
+} from '../common/venue-tea-service';
 
 /** 公共显示屏上未获批会议标题的统一占位文案 */
 const DEFAULT_PUBLIC_VENUE_MEETING_TITLE = 'Reserved';
@@ -44,6 +50,13 @@ const manageBookingRowInclude = {
       contact: true,
       email: true,
       department: { select: { department_name: true } },
+    },
+  },
+  submitter: {
+    select: {
+      id: true,
+      corpId: true,
+      name: true,
     },
   },
   venueTeaService: { select: { teaService: true } },
@@ -81,6 +94,7 @@ export class VenueManagementService {
     private readonly prisma: PrismaService,
     private readonly displayManagementService: DisplayManagementService,
     private readonly hkPublicHolidaysService: HkPublicHolidaysService,
+    private readonly systemSettingsService: SystemSettingsService,
   ) {}
   private readonly uploadsBasePath = '/api/uploads/venues/';
   private readonly displayMonths = [
@@ -124,6 +138,27 @@ export class VenueManagementService {
     return 'other';
   }
 
+  private normalizeDailyBookingTime(value?: string | null) {
+    const raw = String(value ?? '').trim();
+    return raw || null;
+  }
+
+  private resolveDailyBookingWindow(dto: UpsertVenueDto) {
+    const start = this.normalizeDailyBookingTime(dto.dailyBookingStartTime);
+    const end = this.normalizeDailyBookingTime(dto.dailyBookingEndTime);
+    if ((start && !end) || (!start && end)) {
+      throw new BadRequestException(
+        'Daily open booking hours require both start and end time',
+      );
+    }
+    if (start && end && start >= end) {
+      throw new BadRequestException(
+        'Daily open booking end time must be later than start time',
+      );
+    }
+    return { start, end };
+  }
+
   private mapVenue(venue: any, blocks: any[] = []) {
     const type = this.toVenueType(venue.venueType);
     return {
@@ -136,6 +171,9 @@ export class VenueManagementService {
       location: venue.location || '',
       locationZh: venue.locationZh || '',
       roomCapacity: venue.roomCapacity ?? null,
+      teaServiceAvailable: venue.teaServiceAvailable !== false,
+      dailyBookingStartTime: venue.dailyBookingStartTime || null,
+      dailyBookingEndTime: venue.dailyBookingEndTime || null,
       displayType: venue.displayType || 'single',
       image: venue.imageUrl || '',
       status: String(venue.status || 'active').toLowerCase(),
@@ -176,6 +214,7 @@ export class VenueManagementService {
   async createVenue(dto: UpsertVenueDto) {
     const max = await this.prisma.venues.aggregate({ _max: { id: true } });
     const nextId = (max._max.id ?? BigInt(0)) + BigInt(1);
+    const dailyWindow = this.resolveDailyBookingWindow(dto);
 
     const created = await this.prisma.venues.create({
       data: {
@@ -188,6 +227,9 @@ export class VenueManagementService {
         location: dto.location || null,
         locationZh: dto.locationZh || null,
         roomCapacity: dto.roomCapacity ?? null,
+        teaServiceAvailable: dto.teaServiceAvailable ?? true,
+        dailyBookingStartTime: dailyWindow.start,
+        dailyBookingEndTime: dailyWindow.end,
         displayType: dto.displayType || 'single',
         imageUrl: dto.image || null,
         status: dto.status || 'active',
@@ -212,6 +254,24 @@ export class VenueManagementService {
       await this.unlinkVenueUploadFile(prevImage);
     }
 
+    const dailyWindow =
+      dto.dailyBookingStartTime !== undefined || dto.dailyBookingEndTime !== undefined
+        ? this.resolveDailyBookingWindow({
+            ...dto,
+            dailyBookingStartTime:
+              dto.dailyBookingStartTime !== undefined
+                ? dto.dailyBookingStartTime
+                : exists.dailyBookingStartTime,
+            dailyBookingEndTime:
+              dto.dailyBookingEndTime !== undefined
+                ? dto.dailyBookingEndTime
+                : exists.dailyBookingEndTime,
+          })
+        : {
+            start: exists.dailyBookingStartTime,
+            end: exists.dailyBookingEndTime,
+          };
+
     const updated = await this.prisma.venues.update({
       where: { id: venueId },
       data: {
@@ -223,6 +283,12 @@ export class VenueManagementService {
         location: dto.location ?? exists.location,
         locationZh: dto.locationZh ?? exists.locationZh,
         roomCapacity: dto.roomCapacity ?? exists.roomCapacity,
+        teaServiceAvailable:
+          dto.teaServiceAvailable !== undefined
+            ? dto.teaServiceAvailable
+            : exists.teaServiceAvailable,
+        dailyBookingStartTime: dailyWindow.start,
+        dailyBookingEndTime: dailyWindow.end,
         displayType: dto.displayType ?? exists.displayType,
         imageUrl: nextImageUrl,
         status: dto.status ?? exists.status,
@@ -412,6 +478,17 @@ export class VenueManagementService {
     return date;
   }
 
+  private assertManageBookingNotPast(row: {
+    bookingDate: Date | null | undefined;
+    endTime: Date | null | undefined;
+    status?: string | null;
+  }) {
+    const uiStatus = this.deriveUiStatus(row.bookingDate, row.endTime, row.status);
+    if (uiStatus === 'past') {
+      throw new BadRequestException('Past bookings cannot be cancelled or restored.');
+    }
+  }
+
   private deriveUiStatus(
     bookingDate: Date | null | undefined,
     endTime: Date | null | undefined,
@@ -469,38 +546,53 @@ export class VenueManagementService {
     return date.getUTCHours() * 60 + date.getUTCMinutes();
   }
 
-  private timeOverlap(a0: Date, a1: Date, b0: Date, b1: Date): boolean {
+  private timeOverlap(
+    a0: Date,
+    a1: Date,
+    b0: Date,
+    b1: Date,
+    gapMinutes = 0,
+  ): boolean {
     const s1 = this.timeToMinutes(a0);
     const e1 = this.timeToMinutes(a1);
     const s2 = this.timeToMinutes(b0);
     const e2 = this.timeToMinutes(b1);
-    return s1 < e2 && e1 > s2;
+    const gap = Math.max(0, Number(gapMinutes) || 0);
+    return s1 < e2 + gap && e1 + gap > s2;
   }
 
-  private normalizeTeaService(raw: unknown): Record<string, unknown> | null {
-    if (!raw) return null;
-    if (typeof raw === 'object' && !Array.isArray(raw)) {
-      return raw as Record<string, unknown>;
+  private normalizeTeaService(raw: unknown) {
+    return normalizeVenueTeaService(raw);
+  }
+
+  private async resolveManageReservedByUserId(
+    admin: boolean,
+    reservedByUserIdRaw: string | undefined,
+    currentReservedByUserId: bigint,
+  ): Promise<bigint | undefined> {
+    if (!admin || reservedByUserIdRaw === undefined) return undefined;
+    const raw = String(reservedByUserIdRaw ?? '').trim();
+    if (!raw) return undefined;
+    if (!/^\d+$/.test(raw)) {
+      throw new BadRequestException('Invalid reservedByUserId');
     }
-    if (typeof raw === 'string') {
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          return parsed as Record<string, unknown>;
-        }
-      } catch {
-        return null;
-      }
+    const nextId = BigInt(raw);
+    if (nextId === currentReservedByUserId) return undefined;
+    const user = await this.prisma.user.findUnique({
+      where: { id: nextId },
+      select: { id: true, status: true },
+    });
+    if (!user) {
+      throw new BadRequestException('Reserved-by user not found');
     }
-    return null;
+    if (String(user.status || '').toLowerCase() !== 'active') {
+      throw new BadRequestException('Reserved-by user is not active');
+    }
+    return nextId;
   }
 
   private mapManageBookingRow(row: ManageBookingRow) {
     const tea = this.normalizeTeaService(row.venueTeaService?.teaService);
-    const teaOrWater = String(tea?.beverages || '').toLowerCase() === 'water' ? 'Water' : 'Tea';
-    const serveAs = String(tea?.serveAs || '').toLowerCase() === 'bottle'
-      ? 'One Bottle Per Person'
-      : 'One Pot';
     const uiStatus = this.deriveUiStatus(row.bookingDate, row.endTime, row.status);
     return {
       id: row.id.toString(),
@@ -509,6 +601,7 @@ export class VenueManagementService {
       date: row.bookingDate ? this.formatDisplayDate(row.bookingDate) : '',
       time: `${this.formatTimeValue(row.startTime)} - ${this.formatTimeValue(row.endTime)}`,
       reservedBy: row.reservedBy?.name || '',
+      submitter: row.submitter?.name ?? '',
       department: row.reservedBy?.department?.department_name ?? '',
       contact: row.reservedBy?.contact || '',
       email: row.reservedBy?.email || '',
@@ -526,10 +619,16 @@ export class VenueManagementService {
       corpId: row.reservedBy?.corpId || '',
       reason: row.rejectReason || '',
       teaServiceRequired: row.teaServiceRequired,
+      displayTitlePublic: row.displayTitlePublic !== false,
       teaServiceParticipants: Number(tea?.attendees || row.attendees || 1),
-      teaServiceSummary: row.teaServiceRequired ? `${teaOrWater} / ${serveAs}` : '',
-      teaServiceSpecialRequest: String(tea?.notes || '').trim(),
+      teaServiceSummary: formatVenueTeaServiceDisplay(tea, row.attendees ?? null),
+      teaServiceSpecialRequest: String(tea?.specialRequest || tea?.notes || '').trim(),
       teaService: tea,
+      teaServiceOption: tea?.option ?? (row.teaServiceRequired ? '1' : 'none'),
+      teaServiceRatioFrom: tea?.ratioFrom ?? null,
+      teaServiceRatioTo: tea?.ratioTo ?? null,
+      teaServiceTeaPots: tea?.teaPots ?? null,
+      teaServiceWaterPots: tea?.waterPots ?? null,
     };
   }
 
@@ -591,9 +690,20 @@ export class VenueManagementService {
       select: { id: true, startTime: true, endTime: true },
     });
 
+    const gapMinutes =
+      await this.systemSettingsService.getVenueBookingMinGapMinutes();
+
     for (const row of conflictRows) {
-      if (row.startTime && row.endTime && this.timeOverlap(startTime, endTime, row.startTime, row.endTime)) {
-        throw new BadRequestException('Selected time slot is not available');
+      if (
+        row.startTime &&
+        row.endTime &&
+        this.timeOverlap(startTime, endTime, row.startTime, row.endTime, gapMinutes)
+      ) {
+        throw new BadRequestException(
+          gapMinutes > 0
+            ? `Selected time slot is not available. A minimum ${gapMinutes}-minute gap is required between bookings of the same venue.`
+            : 'Selected time slot is not available',
+        );
       }
     }
   }
@@ -611,10 +721,19 @@ export class VenueManagementService {
       include: { reservedBy: { select: { id: true, corpId: true } } },
     });
     if (!row) throw new NotFoundException('Booking not found');
+    this.assertManageBookingNotPast(row);
     const isOwner = row.reservedByUserId === me || (!!corpId && row.reservedBy?.corpId === corpId);
     if (!isOwner && !admin) throw new ForbiddenException('You can only manage your own bookings.');
 
+    if (admin && this.isCanceledStatus(row.status)) {
+      throw new BadRequestException('Administrators cannot restore cancelled bookings.');
+    }
+
+    const uiStatus = this.deriveUiStatus(row.bookingDate, row.endTime, row.status);
     const next = this.isCanceledStatus(row.status) ? 'confirmed' : 'cancelled';
+    if (next === 'cancelled' && uiStatus !== 'upcoming') {
+      throw new BadRequestException('Booking cannot be cancelled.');
+    }
     const ownerUserId = row.reservedByUserId;
     const updated = await this.prisma.$transaction(async (tx) => {
       if (ownerUserId != null) {
@@ -647,25 +766,49 @@ export class VenueManagementService {
       include: { venue: { select: { name: true } }, reservedBy: { select: { corpId: true } } },
     });
     if (!row) throw new NotFoundException('Booking not found');
-    const isOwner = row.reservedByUserId === me || (!!corpId && row.reservedBy?.corpId === corpId);
-    if (!isOwner) throw new ForbiddenException('You can only edit your own bookings.');
-
     const admin = this.isAdminRole(auth);
+    const isOwner = row.reservedByUserId === me || (!!corpId && row.reservedBy?.corpId === corpId);
+    if (!isOwner && !admin) {
+      throw new ForbiddenException('You can only edit your own bookings.');
+    }
+    if (admin) {
+      const uiStatus = this.deriveUiStatus(row.bookingDate, row.endTime, row.status);
+      if (uiStatus !== 'upcoming') {
+        throw new BadRequestException('Only upcoming bookings can be edited.');
+      }
+    }
+
+    const approval = String(row.approvalStatus || '').toLowerCase();
+    // Approved：非管理员仅允许更新 My Note；管理员（All Bookings 等）可改任意字段
+    if (approval === 'approved' && !admin) {
+      const updated = await this.prisma.venueBookings.update({
+        where: { id },
+        data: {
+          notes: dto.myNote !== undefined ? dto.myNote.trim() : row.notes,
+        },
+        include: manageBookingRowInclude,
+      });
+      return { booking: this.mapManageBookingRow(updated) };
+    }
+
+    /** 管理员，或 pending（含空/未设）本人：可改会场/日期/时间 */
+    const canEditSchedule =
+      admin || approval === 'pending' || approval === '';
 
     const roomName = (
-      admin ? (dto.room ?? row.venue?.name ?? '') : (row.venue?.name ?? '')
+      canEditSchedule ? (dto.room ?? row.venue?.name ?? '') : (row.venue?.name ?? '')
     ).trim();
     if (!roomName) throw new BadRequestException('Room is required');
     const venue = await this.prisma.venues.findFirst({ where: { name: roomName, status: 'active' } });
     if (!venue) throw new NotFoundException('Venue not found');
 
-    const bookingDate = admin && dto.date
+    const bookingDate = canEditSchedule && dto.date
       ? this.parseDateOnlyYmd(dto.date)
       : row.bookingDate!;
-    const startTime = admin && dto.startTime
+    const startTime = canEditSchedule && dto.startTime
       ? this.parseTimeValue(dto.startTime)
       : row.startTime!;
-    const endTime = admin && dto.endTime
+    const endTime = canEditSchedule && dto.endTime
       ? this.parseTimeValue(dto.endTime)
       : row.endTime!;
     await this.hkPublicHolidaysService.assertBookableForUser(bookingDate, auth);
@@ -673,6 +816,15 @@ export class VenueManagementService {
 
     const teaRequired = dto.teaServiceRequired ?? row.teaServiceRequired;
     const attendees = dto.teaServiceParticipants ?? row.attendees ?? 1;
+    const displayTitlePublic =
+      canEditSchedule && dto.displayTitlePublic !== undefined
+        ? Boolean(dto.displayTitlePublic)
+        : row.displayTitlePublic;
+    const nextReservedByUserId = await this.resolveManageReservedByUserId(
+      admin,
+      dto.reservedByUserId,
+      row.reservedByUserId,
+    );
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const booking = await tx.venueBookings.update({
@@ -686,6 +838,10 @@ export class VenueManagementService {
           endTime,
           teaServiceRequired: teaRequired,
           attendees,
+          displayTitlePublic,
+          ...(nextReservedByUserId != null
+            ? { reservedByUserId: nextReservedByUserId }
+            : {}),
         },
         include: manageBookingRowInclude,
       });
@@ -696,23 +852,34 @@ export class VenueManagementService {
           select: { teaService: true },
         });
         const existingTeaObj = this.normalizeTeaService(existingTea?.teaService);
-        const specialRequest = dto.teaServiceSpecialRequest !== undefined
-          ? String(dto.teaServiceSpecialRequest || '').trim()
-          : String(existingTeaObj?.notes || '').trim();
-        const teaService = {
+        const teaService = buildVenueTeaServiceJson({
+          teaServiceRequired: true,
           attendees,
-          beverages: dto.teaOrWater ?? 'tea',
-          serveAs: dto.serviceType ?? 'pot',
-          quantity: attendees,
-          notes: specialRequest,
-        };
+          option: dto.teaServiceOption ?? existingTeaObj?.option,
+          ratioFrom: dto.teaServiceRatioFrom ?? existingTeaObj?.ratioFrom,
+          ratioTo: dto.teaServiceRatioTo ?? existingTeaObj?.ratioTo,
+          teaPots: dto.teaServiceTeaPots ?? existingTeaObj?.teaPots,
+          waterPots: dto.teaServiceWaterPots ?? existingTeaObj?.waterPots,
+          specialRequest: dto.teaServiceSpecialRequest ?? existingTeaObj?.specialRequest ?? existingTeaObj?.notes,
+          teaOrWater: dto.teaOrWater,
+          serviceType: dto.serviceType,
+          teaServiceSpecialRequest: dto.teaServiceSpecialRequest,
+        });
         await tx.venueTeaService.upsert({
           where: { venueBookingId: id },
           create: { venueBookingId: id, teaService },
           update: { teaService },
         });
       } else {
-        await tx.venueTeaService.deleteMany({ where: { venueBookingId: id } });
+        const teaService = buildVenueTeaServiceJson({
+          teaServiceRequired: false,
+          attendees,
+        });
+        await tx.venueTeaService.upsert({
+          where: { venueBookingId: id },
+          create: { venueBookingId: id, teaService },
+          update: { teaService },
+        });
       }
       return booking;
     });
@@ -781,6 +948,20 @@ export class VenueManagementService {
     return raw || getAppTodayYmd();
   }
 
+  private async resolveTeaDisplayDates(fromDateYmd?: string) {
+    const fromDate = this.resolveTeaDisplayFromDate(fromDateYmd);
+    const today = this.parseBookingDateYmd(fromDate);
+    const nextWorkingDayYmd =
+      await this.hkPublicHolidaysService.getNextWorkingDayYmd(fromDate);
+    const nextWorkingDay = this.parseBookingDateYmd(nextWorkingDayYmd);
+
+    return {
+      fromDate,
+      dates: [fromDate, nextWorkingDayYmd],
+      bookingDates: [today, nextWorkingDay],
+    };
+  }
+
   private formatTeaDisplayDate(value: Date | null | undefined): string {
     if (!value) return '';
     const y = value.getUTCFullYear();
@@ -801,7 +982,15 @@ export class VenueManagementService {
   }
 
   private mapTeaDisplayRequestRow(row: TeaDisplayBookingRow) {
-    const tea = this.normalizeTeaService(row.venueTeaService?.teaService);
+    const teaRaw = this.normalizeTeaService(row.venueTeaService?.teaService);
+    const attendees = row.attendees ?? teaRaw?.attendees ?? 1;
+    const teaService = teaRaw ?? buildVenueTeaServiceJson({
+      teaServiceRequired: Boolean(row.teaServiceRequired),
+      attendees,
+    });
+    if (teaService.attendees == null) {
+      teaService.attendees = attendees;
+    }
     return {
       id: row.id.toString(),
       bookingId: row.id.toString(),
@@ -811,7 +1000,9 @@ export class VenueManagementService {
       meetingTitle: row.meetingTitle ?? '',
       date: this.formatTeaDisplayDate(row.bookingDate),
       time: this.formatTeaDisplayTimeRange(row.startTime, row.endTime),
-      teaService: tea ? { ...tea } : null,
+      attendees,
+      teaServiceRequired: Boolean(row.teaServiceRequired),
+      teaService: { ...teaService },
       completed: Boolean(row.venueTeaService?.completed),
       approvalStatus: String(row.approvalStatus || '').toLowerCase() || 'pending',
     };
@@ -885,20 +1076,30 @@ export class VenueManagementService {
   }
 
   async getPublicTeaServiceDisplay(fromDateYmd?: string) {
-    const fromDate = this.resolveTeaDisplayFromDate(fromDateYmd);
-    const bookingDateFrom = this.parseBookingDateYmd(fromDate);
+    const { fromDate, dates, bookingDates } =
+      await this.resolveTeaDisplayDates(fromDateYmd);
+
+    // 茶水展示屏：即使当天/下一个工作日完全没有预订，
+    // 也需要显示「支持 Tea Service 的 venue 名称」。
+    const displayVenues = await this.prisma.venues.findMany({
+      where: {
+        teaServiceAvailable: true,
+        status: { equals: 'active', mode: 'insensitive' },
+      },
+      orderBy: { id: 'asc' },
+      select: { id: true, name: true, nameZh: true },
+    });
 
     const rows = await this.prisma.venueBookings.findMany({
       where: {
         bookingType: 'venue',
+        venue: { teaServiceAvailable: true },
         OR: [
           { approvalStatus: { equals: 'pending', mode: 'insensitive' } },
           { approvalStatus: { equals: 'approved', mode: 'insensitive' } },
         ],
         status: { notIn: ['canceled', 'cancelled'] },
-        teaServiceRequired: true,
-        venueTeaService: { isNot: null },
-        bookingDate: { gte: bookingDateFrom },
+        bookingDate: { in: bookingDates },
       },
       include: teaDisplayBookingInclude,
       orderBy: [
@@ -912,7 +1113,12 @@ export class VenueManagementService {
 
     return {
       fromDate,
-      venues: this.buildTeaDisplayVenuesFromRows(rows),
+      dates,
+      venues: displayVenues.map((v) => ({
+        id: v.id.toString(),
+        name: v.name ?? '',
+        nameZh: v.nameZh || v.name || '',
+      })),
       requests,
     };
   }
@@ -923,17 +1129,38 @@ export class VenueManagementService {
       where: { id: bookingId },
       include: teaDisplayBookingInclude,
     });
-    if (!row || !row.venueTeaService) {
+    if (!row) {
       throw new NotFoundException('Tea service request not found');
+    }
+    const todayYmd = getAppTodayYmd();
+    const bookingDateYmd = this.formatTeaDisplayDate(row.bookingDate);
+    if (bookingDateYmd !== todayYmd) {
+      throw new BadRequestException(
+        'Only today\'s tea service tasks can be marked complete',
+      );
     }
     if (String(row.approvalStatus || '').toLowerCase() === 'rejected') {
       throw new BadRequestException('Rejected bookings cannot be updated on the tea display');
     }
-
-    await this.prisma.venueTeaService.update({
-      where: { venueBookingId: bookingId },
-      data: { completed },
-    });
+    if (!row.venueTeaService) {
+      const attendees = row.attendees ?? 1;
+      const teaService = buildVenueTeaServiceJson({
+        teaServiceRequired: Boolean(row.teaServiceRequired),
+        attendees,
+      });
+      await this.prisma.venueTeaService.create({
+        data: {
+          venueBookingId: bookingId,
+          teaService,
+          completed,
+        },
+      });
+    } else {
+      await this.prisma.venueTeaService.update({
+        where: { venueBookingId: bookingId },
+        data: { completed },
+      });
+    }
 
     const refreshed = await this.prisma.venueBookings.findUnique({
       where: { id: bookingId },
@@ -1007,14 +1234,16 @@ export class VenueManagementService {
     const approval = String(row.approvalStatus ?? '')
       .trim()
       .toLowerCase();
-    if (approval === 'rejected') {
+    // 未审批通过（pending / rejected / 空）时大屏统一显示 Reserved
+    if (approval !== 'approved') {
+      return DEFAULT_PUBLIC_VENUE_MEETING_TITLE;
+    }
+    // 用户未允许公开标题时，大屏统一显示 Reserved
+    if (row.displayTitlePublic === false) {
       return DEFAULT_PUBLIC_VENUE_MEETING_TITLE;
     }
     const title = String(row.meetingTitle ?? '').trim();
-    if (approval === 'approved') {
-      return title || DEFAULT_PUBLIC_VENUE_MEETING_TITLE;
-    }
-    return title;
+    return title || DEFAULT_PUBLIC_VENUE_MEETING_TITLE;
   }
 
   private mapVenueDisplayEventRow(row: VenueDisplayBookingRow) {

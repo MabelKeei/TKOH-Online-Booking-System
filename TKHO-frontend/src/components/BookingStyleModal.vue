@@ -267,7 +267,7 @@ onUnmounted(() => {
 /* Tea Service = Yes：整段表单在弹窗内容区统一上下滚动 */
 .booking-style-modal-root.edit-booking-modal.edit-booking-modal--unified-scroll .modal-body {
   overflow-y: auto;
-  overflow-x: visible;
+  overflow-x: clip;
   min-height: 0;
 }
 

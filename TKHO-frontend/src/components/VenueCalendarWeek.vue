@@ -51,7 +51,7 @@
                     @click="selectBooking(day.fullDate)"
                   >
                     <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-                    <div class="booking-reserved">{{ booking.reservedBy || 'N/A' }}</div>
+                    <div class="booking-reserved">{{ booking.roomName || 'N/A' }}</div>
                   </div>
                 </template>
               </CalendarBookingPopover>

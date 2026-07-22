@@ -71,6 +71,7 @@ import BookingStyleModal from '../components/BookingStyleModal.vue'
 import VenueBookingCardImages from '@/components/VenueBookingCardImages.vue'
 import { useVenueBookingImages } from '@/composables/useVenueBookingImages'
 import { useVenueBookingRuleNotice } from '@/composables/useVenueBookingRuleNotice'
+import { markVenueCalendarBookNowFilter } from '@/utils/venueCalendarRoomFilter'
 import '@/styles/rich-content.css'
 
 const router = useRouter()
@@ -95,8 +96,14 @@ onMounted(() => {
   loadVenueBookingImages()
 })
 
-const goToConference = () => router.push({ name: 'VenueCalendarView', query: { roomType: 'conference' } })
-const goToOtherVenues = () => router.push({ name: 'VenueCalendarView', query: { roomType: 'other' } })
+const goToConference = () => {
+  markVenueCalendarBookNowFilter('conference')
+  router.push({ name: 'VenueCalendarView', query: { roomType: 'conference' } })
+}
+const goToOtherVenues = () => {
+  markVenueCalendarBookNowFilter('other')
+  router.push({ name: 'VenueCalendarView', query: { roomType: 'other' } })
+}
 </script>
 
 

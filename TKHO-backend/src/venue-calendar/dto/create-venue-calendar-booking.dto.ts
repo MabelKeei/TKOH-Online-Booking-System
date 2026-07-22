@@ -38,10 +38,41 @@ export class CreateVenueCalendarBookingDto {
   @IsBoolean()
   teaServiceRequired?: boolean;
 
+  /** 是否允许会议标题在 display 大屏公开显示 */
+  @IsOptional()
+  @IsBoolean()
+  displayTitlePublic?: boolean;
+
+  @IsOptional()
+  @IsString()
+  teaServiceOption?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  teaServiceRatioFrom?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  teaServiceRatioTo?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  teaServiceTeaPots?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  teaServiceWaterPots?: number;
+
+  /** @deprecated legacy */
   @IsOptional()
   @IsString()
   teaOrWater?: string;
 
+  /** @deprecated legacy */
   @IsOptional()
   @IsString()
   serviceType?: string;

@@ -78,6 +78,7 @@
                       />
                     </template>
                   </el-table-column>
+                  <el-table-column prop="contact" label="Contact No." min-width="140" />
                   <el-table-column prop="email" label="Email" min-width="220" />
                   <el-table-column width="160" class-name="table-nowrap-col quota-col" label-class-name="table-nowrap-col quota-col">
                     <template #header>
@@ -243,7 +244,30 @@
                       />
                     </template>
                   </el-table-column>
+                  <el-table-column prop="contact" label="Contact No." min-width="140" />
                   <el-table-column prop="email" label="Email" min-width="220" />
+                  <el-table-column width="160" class-name="table-nowrap-col quota-col" label-class-name="table-nowrap-col quota-col">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'evQuota')">
+                        EV Quota
+                        <span class="sort-indicator">{{ getSortIndicator('expired', 'evQuota') }}</span>
+                      </button>
+                    </template>
+                    <template #default="{ row }">
+                      {{ formatQuotaDisplay(row.usedQuotaEV, row.annualQuotaEV) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column width="160" class-name="table-nowrap-col quota-col" label-class-name="table-nowrap-col quota-col">
+                    <template #header>
+                      <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'venueQuota')">
+                        Venue Quota
+                        <span class="sort-indicator">{{ getSortIndicator('expired', 'venueQuota') }}</span>
+                      </button>
+                    </template>
+                    <template #default="{ row }">
+                      {{ formatQuotaDisplay(row.usedQuotaVenue, row.annualQuotaVenue) }}
+                    </template>
+                  </el-table-column>
                   <el-table-column prop="status" min-width="120">
                     <template #header>
                       <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'status')">
@@ -266,28 +290,6 @@
                     </template>
                     <template #default="{ row }">
                       {{ formatDateTimeDisplay(row.lastLoginTime) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column width="160" class-name="table-nowrap-col quota-col" label-class-name="table-nowrap-col quota-col">
-                    <template #header>
-                      <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'evQuota')">
-                        EV Quota
-                        <span class="sort-indicator">{{ getSortIndicator('expired', 'evQuota') }}</span>
-                      </button>
-                    </template>
-                    <template #default="{ row }">
-                      {{ formatQuotaDisplay(row.usedQuotaEV, row.annualQuotaEV) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column width="160" class-name="table-nowrap-col quota-col" label-class-name="table-nowrap-col quota-col">
-                    <template #header>
-                      <button type="button" class="th-sort-btn" @click="toggleSort('expired', 'venueQuota')">
-                        Venue Quota
-                        <span class="sort-indicator">{{ getSortIndicator('expired', 'venueQuota') }}</span>
-                      </button>
-                    </template>
-                    <template #default="{ row }">
-                      {{ formatQuotaDisplay(row.usedQuotaVenue, row.annualQuotaVenue) }}
                     </template>
                   </el-table-column>
                   <el-table-column label="Actions" width="130" fixed="right" class-name="actions-col">
@@ -407,6 +409,11 @@
                           />
                         </template>
                       </el-table-column>
+                      <el-table-column label="Contact No." min-width="140">
+                        <template #default="{ row }">
+                          {{ row.contactNo ?? row.contact ?? '' }}
+                        </template>
+                      </el-table-column>
                       <el-table-column prop="email" label="Email" min-width="220" />
                       <el-table-column prop="reason" label="Application Reason" min-width="240" />
                       <el-table-column prop="submittedAt" min-width="180" class-name="submitted-at-col">
@@ -509,6 +516,11 @@
                             @clear-sort="clearSortByMenu('pendingApproved', 'role')"
                             @update:model-value="(v) => updateFilter('pendingApproved', 'role', v)"
                           />
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="Contact No." min-width="140">
+                        <template #default="{ row }">
+                          {{ row.contactNo ?? row.contact ?? '' }}
                         </template>
                       </el-table-column>
                       <el-table-column prop="email" label="Email" min-width="220" />
@@ -616,6 +628,11 @@
                             @clear-sort="clearSortByMenu('pendingRejected', 'role')"
                             @update:model-value="(v) => updateFilter('pendingRejected', 'role', v)"
                           />
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="Contact No." min-width="140">
+                        <template #default="{ row }">
+                          {{ row.contactNo ?? row.contact ?? '' }}
                         </template>
                       </el-table-column>
                       <el-table-column prop="email" label="Email" min-width="220" />
@@ -836,9 +853,6 @@
         <el-form-item label="Name">
           <el-input v-model="pendingHandleForm.name" />
         </el-form-item>
-        <el-form-item label="Email">
-          <el-input v-model="pendingHandleForm.email" disabled />
-        </el-form-item>
         <el-form-item label="Department">
           <el-select
             v-model="pendingHandleForm.department"
@@ -874,8 +888,34 @@
             <el-option v-for="r in roleOptions" :key="r" :label="r" :value="r" />
           </el-select>
         </el-form-item>
+        <el-form-item label="Contact No.">
+          <el-input v-model="pendingHandleForm.contact" />
+        </el-form-item>
+        <el-form-item label="Email">
+          <el-input v-model="pendingHandleForm.email" disabled />
+        </el-form-item>
         <el-form-item label="Initial Password">
           <el-input v-model="pendingHandleForm.password" type="text" autocomplete="new-password" />
+        </el-form-item>
+        <el-form-item label="EV Quota">
+          <div class="quota-input-row">
+            <el-input-number
+              v-model="pendingHandleForm.annualQuotaEV"
+              :min="0"
+              :disabled="isPendingEvQuotaUnlimited"
+            />
+            <el-checkbox v-model="isPendingEvQuotaUnlimited">Unlimited</el-checkbox>
+          </div>
+        </el-form-item>
+        <el-form-item label="Venue Quota">
+          <div class="quota-input-row">
+            <el-input-number
+              v-model="pendingHandleForm.annualQuotaVenue"
+              :min="0"
+              :disabled="isPendingVenueQuotaUnlimited"
+            />
+            <el-checkbox v-model="isPendingVenueQuotaUnlimited">Unlimited</el-checkbox>
+          </div>
         </el-form-item>
         <el-form-item label="Submitted At">
           <el-input
@@ -1050,7 +1090,8 @@ async function loadRoleAndDepartmentOptions () {
     getAccessRoles(),
     getAccessDepartments()
   ])
-  roleOptions.value = (rolesRes || []).map((r) => r.roleName)
+  accessRoleRows.value = Array.isArray(rolesRes) ? rolesRes : []
+  roleOptions.value = accessRoleRows.value.map((r) => r.roleName)
   const depts = Array.isArray(deptsRes) ? deptsRes : []
   departmentRows.value = depts
   departmentOptions.value = depts.map((d) => d.departmentName)
@@ -1155,6 +1196,8 @@ const expiredList = computed(() =>
 )
 
 const roleOptions = ref([])
+/** Access Right 角色完整列表（含 AnnualEvQuota / AnnualVenueQuota） */
+const accessRoleRows = ref([])
 const departmentOptions = ref([])
 /** 部门完整列表（含 id），供 Pending Approval 下拉与 Add License Owner 同款交互 */
 const departmentRows = ref([])
@@ -1198,6 +1241,7 @@ const filteredUserList = computed(() => {
     String(item.corpId).toLowerCase().includes(keyword) ||
     String(item.name).toLowerCase().includes(keyword) ||
     String(item.department).toLowerCase().includes(keyword) ||
+    String(item.contact || '').toLowerCase().includes(keyword) ||
     String(item.email).toLowerCase().includes(keyword) ||
     String(item.role).toLowerCase().includes(keyword)
   )
@@ -1386,6 +1430,7 @@ const filteredExpiredList = computed(() => {
     String(item.corpId).toLowerCase().includes(keyword) ||
     String(item.name).toLowerCase().includes(keyword) ||
     String(item.department).toLowerCase().includes(keyword) ||
+    String(item.contact || '').toLowerCase().includes(keyword) ||
     String(item.email).toLowerCase().includes(keyword) ||
     String(item.role).toLowerCase().includes(keyword)
   )
@@ -1462,6 +1507,7 @@ const filteredPendingList = computed(() => {
     String(item.corpId).toLowerCase().includes(keyword) ||
     String(item.name).toLowerCase().includes(keyword) ||
     String(item.department).toLowerCase().includes(keyword) ||
+    String(item.contactNo ?? item.contact ?? '').toLowerCase().includes(keyword) ||
     String(item.email).toLowerCase().includes(keyword)
   )
 })
@@ -1591,8 +1637,8 @@ const formData = ref({
   contact: '',
   email: '',
   password: DEFAULT_PASSWORD,
-  annualQuotaEV: 30,
-  annualQuotaVenue: 30,
+  annualQuotaEV: 0,
+  annualQuotaVenue: 0,
   usedQuotaEV: 0,
   usedQuotaVenue: 0,
   status: 'active'
@@ -1608,16 +1654,80 @@ watch(isVenueQuotaUnlimited, (checked) => {
   else if (Number(formData.value.annualQuotaVenue) < 0) formData.value.annualQuotaVenue = 0
 })
 
+function getRoleQuotaDefaults (roleName) {
+  if (!roleName) return null
+  const role = accessRoleRows.value.find((r) => r.roleName === roleName)
+  if (!role) return null
+  const evQuota = Number(role.AnnualEvQuota ?? 0)
+  const venueQuota = Number(role.AnnualVenueQuota ?? 0)
+  return {
+    evQuota,
+    venueQuota,
+    evUnlimited: evQuota === -1,
+    venueUnlimited: venueQuota === -1
+  }
+}
+
+function applyRoleQuotaDefaults (roleName) {
+  const defaults = getRoleQuotaDefaults(roleName)
+  if (!defaults) return
+  isEvQuotaUnlimited.value = defaults.evUnlimited
+  isVenueQuotaUnlimited.value = defaults.venueUnlimited
+  formData.value.annualQuotaEV = defaults.evUnlimited ? -1 : defaults.evQuota
+  formData.value.annualQuotaVenue = defaults.venueUnlimited ? -1 : defaults.venueQuota
+}
+
+function applyPendingRoleQuotaDefaults (roleName) {
+  const defaults = getRoleQuotaDefaults(roleName)
+  if (!defaults) return
+  isPendingEvQuotaUnlimited.value = defaults.evUnlimited
+  isPendingVenueQuotaUnlimited.value = defaults.venueUnlimited
+  pendingHandleForm.value.annualQuotaEV = defaults.evUnlimited ? -1 : defaults.evQuota
+  pendingHandleForm.value.annualQuotaVenue = defaults.venueUnlimited ? -1 : defaults.venueQuota
+}
+
+watch(
+  () => formData.value.role,
+  (roleName) => {
+    if (formMode.value !== 'add' || !showForm.value) return
+    applyRoleQuotaDefaults(roleName)
+  }
+)
+
+const isPendingEvQuotaUnlimited = ref(false)
+const isPendingVenueQuotaUnlimited = ref(false)
+
 const pendingHandleForm = ref({
   id: null,
   corpId: '',
   name: '',
   department: '',
   role: '',
+  contact: '',
   email: '',
   password: DEFAULT_PASSWORD,
+  annualQuotaEV: 0,
+  annualQuotaVenue: 0,
   submittedAt: ''
 })
+
+watch(isPendingEvQuotaUnlimited, (checked) => {
+  if (checked) pendingHandleForm.value.annualQuotaEV = -1
+  else if (Number(pendingHandleForm.value.annualQuotaEV) < 0) pendingHandleForm.value.annualQuotaEV = 0
+})
+
+watch(isPendingVenueQuotaUnlimited, (checked) => {
+  if (checked) pendingHandleForm.value.annualQuotaVenue = -1
+  else if (Number(pendingHandleForm.value.annualQuotaVenue) < 0) pendingHandleForm.value.annualQuotaVenue = 0
+})
+
+watch(
+  () => pendingHandleForm.value.role,
+  (roleName) => {
+    if (!showPendingHandleDialog.value) return
+    applyPendingRoleQuotaDefaults(roleName)
+  }
+)
 
 /** 拒绝弹窗是否从「Pending Approval Details」中的 Reject 打开（与列表行拒绝区分） */
 const rejectFromPendingDetails = ref(false)
@@ -1741,6 +1851,7 @@ const handleExport = () => {
     'Name': item.name,
     'Department': item.department,
     'Role': item.role,
+    'Contact No.': item.contact || '',
     'Email': item.email,
     'EV Quota': item.annualQuotaEV,
     'Used Quota (EV)': item.usedQuotaEV,
@@ -1769,8 +1880,8 @@ const handleAdd = () => {
     contact: '',
     email: '',
     password: DEFAULT_PASSWORD,
-    annualQuotaEV: 30,
-    annualQuotaVenue: 30,
+    annualQuotaEV: 0,
+    annualQuotaVenue: 0,
     usedQuotaEV: 0,
     usedQuotaVenue: 0,
     status: 'active'
@@ -1890,21 +2001,34 @@ const handleInactivate = async (row) => {
 
 const handlePending = (row) => {
   currentRow.value = row
+  isPendingEvQuotaUnlimited.value = false
+  isPendingVenueQuotaUnlimited.value = false
   pendingHandleForm.value = {
     ...row,
-    password: DEFAULT_PASSWORD
+    contact: row.contactNo ?? row.contact ?? '',
+    password: DEFAULT_PASSWORD,
+    annualQuotaEV: 0,
+    annualQuotaVenue: 0
   }
   pendingDepartmentKeyword.value = ''
   showPendingHandleDialog.value = true
+  if (pendingHandleForm.value.role) {
+    applyPendingRoleQuotaDefaults(pendingHandleForm.value.role)
+  }
 }
 
 const confirmPendingApprove = async () => {
   const data = { ...pendingHandleForm.value }
   try {
     await approvePendingUser(data.id, {
+      corpId: String(data.corpId || '').trim(),
+      name: String(data.name || '').trim(),
+      department: data.department || undefined,
+      role: data.role || undefined,
+      contact: data.contact ?? '',
       password: data.password || DEFAULT_PASSWORD,
-      annualQuotaEV: 30,
-      annualQuotaVenue: 30
+      annualQuotaEV: isPendingEvQuotaUnlimited.value ? -1 : Number(data.annualQuotaEV ?? 0),
+      annualQuotaVenue: isPendingVenueQuotaUnlimited.value ? -1 : Number(data.annualQuotaVenue ?? 0)
     })
     await loadUsers()
     await loadPendingUsers()

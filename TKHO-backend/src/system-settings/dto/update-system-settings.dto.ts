@@ -24,4 +24,10 @@ export class UpdateSystemSettingsDto {
   @Min(1)
   @Max(7)
   evWeeklyBookingLimit?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(120)
+  venueBookingMinGapMinutes?: number;
 }

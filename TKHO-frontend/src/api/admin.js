@@ -190,9 +190,9 @@ export const getPendingBookings = (params) => {
   })
 }
 
-export const getTimeoutBookings = (params) => {
+export const getExpiredBookings = (params) => {
   return request({
-    url: '/admin/bookings/pending-timeout',
+    url: '/admin/bookings/pending-expired',
     method: 'get',
     params
   })

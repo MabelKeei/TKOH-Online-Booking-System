@@ -43,12 +43,14 @@ export class UserManagementController {
     @Query('keyword') keyword?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
+    @Query('scope') scope?: string,
   ) {
     return this.userManagementService.listUserOwnerOptions(
       req?.user,
       keyword,
       Number(page ?? 1),
       Number(pageSize ?? 20),
+      scope,
     );
   }
 
@@ -112,7 +114,7 @@ export class UserManagementController {
   @UseGuards(AdminRoleGuard)
   @Post('pending-users/:id/approve')
   approvePending(@Param('id') id: string, @Body() dto: ApprovePendingDto, @Req() req: any) {
-    return this.userManagementService.approvePending(id, dto, req?.user?.sub);
+    return this.userManagementService.approvePending(id, dto, req?.user?.sub, req?.user);
   }
 
   @ApiBearerAuth()

@@ -125,7 +125,12 @@ export class DisplayManagementService {
 
   private buildVenueRulesResponse(
     evDisplayMode: string,
-    venues: Array<{ id: bigint; name: string; displayType: string | null }>,
+    venues: Array<{
+      id: bigint;
+      name: string;
+      displayType: string | null;
+      status: string | null;
+    }>,
     rules: Array<{
       venue_id: bigint;
       merge_group: string | null;
@@ -142,6 +147,7 @@ export class DisplayManagementService {
         venueId: id,
         venueName: venue.name,
         displayType: this.normalizeVenueDisplayType(venue.displayType),
+        status: String(venue.status || 'active').toLowerCase() || 'active',
         mergeGroup: rule?.merge_group ?? '',
         displayName: rule?.display_name ?? '',
         arrowDirection: rule?.arrow_direction ?? '',
@@ -152,6 +158,7 @@ export class DisplayManagementService {
       venueId: null,
       venueName: 'EV',
       displayType: this.normalizeVenueDisplayType(evDisplayMode),
+      status: 'active',
       mergeGroup: '',
       displayName: 'EV',
       arrowDirection: '',
@@ -166,6 +173,7 @@ export class DisplayManagementService {
       venueId: string | null;
       venueName: string;
       displayType: string;
+      status: string;
       mergeGroup: string;
       displayName: string;
       arrowDirection: string;
@@ -238,7 +246,7 @@ export class DisplayManagementService {
     const [venues, rules] = await Promise.all([
       this.prisma.venues.findMany({
         orderBy: { id: 'asc' },
-        select: { id: true, name: true, displayType: true },
+        select: { id: true, name: true, displayType: true, status: true },
       }),
       this.prisma.display_venue_rules.findMany({
         select: venueRuleSelect,

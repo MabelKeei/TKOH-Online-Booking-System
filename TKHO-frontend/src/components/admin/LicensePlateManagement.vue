@@ -139,12 +139,12 @@
         <el-form-item label="Plate Number">
           <el-input
             :model-value="formData.plateNumber"
-            placeholder="Letters and numbers only"
-            maxlength="20"
+            placeholder="e.g. AB1234"
+            maxlength="8"
             show-word-limit
             @update:model-value="onPlateNumberInput"
           />
-          <div class="field-hint">No spaces or symbols — letters and numbers only.</div>
+          <div class="field-hint">Max 8 characters — letters and numbers only (no spaces or symbols).</div>
         </el-form-item>
       </el-form>
 
@@ -494,8 +494,12 @@ const getErrorMessage = (error, fallback = 'Operation failed') => {
   return fallback
 }
 
-/** Plate number: letters and digits only (no spaces or punctuation). */
-const sanitizePlateNumber = (raw) => String(raw ?? '').replace(/[^A-Za-z0-9]/g, '')
+/** Plate number: letters and digits only, max 8 (strips spaces / symbols / control chars). */
+const PLATE_MAX_LENGTH = 8
+const sanitizePlateNumber = (raw) =>
+  String(raw ?? '')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .slice(0, PLATE_MAX_LENGTH)
 
 /** 与后端 normalizePlateNumber 一致，用于查重比较 */
 const normalizePlateKey = (raw) => sanitizePlateNumber(raw).toUpperCase()
@@ -572,7 +576,11 @@ const handleSave = async () => {
   formData.value.plateNumber = plate
 
   if (!plate) {
-    showNotice('Please enter a plate number (letters and digits only; no spaces or symbols).', 'Validation')
+    showNotice('Please enter a plate number (letters and digits only; max 8 characters).', 'Validation')
+    return
+  }
+  if (plate.length > PLATE_MAX_LENGTH) {
+    showNotice(`Plate number must be at most ${PLATE_MAX_LENGTH} characters.`, 'Validation')
     return
   }
 

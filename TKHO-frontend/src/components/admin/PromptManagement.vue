@@ -28,7 +28,7 @@
         <el-tab-pane label="User Application" name="user_application" />
       </el-tabs>
       <div class="table-card">
-      <el-table :data="paginatedData" height="100%" border stripe table-layout="auto" style="width: 100%">
+      <el-table :data="paginatedData" height="100%" border stripe table-layout="fixed" style="width: 100%">
         <el-table-column
           type="index"
           label="#"
@@ -41,8 +41,8 @@
         <el-table-column
           prop="name"
           label="Name"
-          :width="activeTab === 'reject' ? 360 : undefined"
-          :min-width="activeTab === 'reject' ? undefined : 220"
+          width="290"
+          show-overflow-tooltip
         />
         <el-table-column label="Content" min-width="320">
           <template #default="{ row }">
@@ -233,24 +233,36 @@ const currentSearch = computed({
   }
 })
 const searchPlaceholder = computed(() =>
-  activeTab.value === 'system' ? 'Search by name' : 'Search reject templates by name'
+  activeTab.value === 'system' ? 'Search by name or content' : 'Search reject templates by name or content'
 )
 
-const filterByName = (list, query) => {
+const stripHtmlForSearch = (value) =>
+  String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+
+const filterByNameOrContent = (list, query) => {
   const keyword = String(query || '').trim().toLowerCase()
   if (!keyword) return list
-  return list.filter(item => String(item?.name || '').toLowerCase().includes(keyword))
+  return list.filter((item) => {
+    const name = String(item?.name || '').toLowerCase()
+    const content = stripHtmlForSearch(item?.content)
+    return name.includes(keyword) || content.includes(keyword)
+  })
 }
 
 const currentList = computed(() => {
   if (activeTab.value === 'system') {
     const base = promptList.value.filter(item => item.category === 'system_fixed')
-    return filterByName(base, searchState.value.system)
+    return filterByNameOrContent(base, searchState.value.system)
   }
   const base = promptList.value.filter(
     item => item.category === 'reject_template' && item.templateType === rejectSubTab.value
   )
-  return filterByName(base, searchState.value[rejectSubTab.value])
+  return filterByNameOrContent(base, searchState.value[rejectSubTab.value])
 })
 
 const currentPage = ref(1)

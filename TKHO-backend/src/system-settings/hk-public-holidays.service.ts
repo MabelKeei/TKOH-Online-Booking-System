@@ -4,6 +4,7 @@ import { APP_TIMEZONE } from '../common/app-timezone';
 import {
   assertPublicHolidayBookableForUser,
   assertWeekendBookableForUser,
+  isWeekendDate,
 } from '../common/booking-date-restriction';
 import { PrismaService } from '../prisma/prisma.service';
 import { parse1823HolidayJson } from './hk-public-holidays.parser';
@@ -81,6 +82,26 @@ export class HkPublicHolidaysService implements OnModuleInit {
       select: { holiday_date: true },
     });
     return Boolean(row);
+  }
+
+  private addDays(date: Date, days: number): Date {
+    const next = new Date(date);
+    next.setUTCDate(next.getUTCDate() + days);
+    return next;
+  }
+
+  async isWorkingDay(date: Date): Promise<boolean> {
+    if (isWeekendDate(date)) return false;
+    return !(await this.isPublicHoliday(date));
+  }
+
+  /** 从 fromYmd 起向后找第一个工作日（跳过周末及香港公众假期）。 */
+  async getNextWorkingDayYmd(fromYmd: string): Promise<string> {
+    let date = this.parseDateOnlyYmd(fromYmd);
+    do {
+      date = this.addDays(date, 1);
+    } while (!(await this.isWorkingDay(date)));
+    return this.toYmd(date);
   }
 
   async assertNotPublicHoliday(date: Date) {

@@ -206,15 +206,15 @@
           </div>
         </el-tab-pane>
 
-        <el-tab-pane name="timeout">
+        <el-tab-pane name="expired">
           <template #label>
             <span>
-              Timeout
+              Expired
               <el-badge
-                :value="timeoutBookingsCount"
+                :value="expiredBookingsCount"
                 :max="99"
                 :show-zero="false"
-                class="badge-item badge-item--timeout"
+                class="badge-item badge-item--expired"
               />
             </span>
           </template>
@@ -223,7 +223,7 @@
           <div class="table-view">
             <div class="table-wrapper">
           <el-table
-            :data="paginatedTimeoutData"
+            :data="paginatedExpiredData"
             class="meeting-approval-table"
             height="100%"
             border
@@ -240,20 +240,20 @@
               fixed="left"
               class-name="table-nowrap-col"
               label-class-name="table-nowrap-col"
-              :index="getTimeoutRowIndex"
+              :index="getExpiredRowIndex"
             />
             <el-table-column prop="venueName" min-width="200" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
               <template #header>
                 <SortableFilterHeader
                   label="Room / Venue"
-                  :sort-indicator="getTimeoutSortIndicator('venueName')"
-                  :filter-active="columnFilterState.timeout.venueName.length > 0"
-                  :options="timeoutVenueOptions"
-                  :model-value="columnFilterState.timeout.venueName"
-                  @sort-asc="setSortByMenu('timeout', 'venueName', 'asc')"
-                  @sort-desc="setSortByMenu('timeout', 'venueName', 'desc')"
-                  @clear-sort="clearSortByMenu('timeout', 'venueName')"
-                  @update:model-value="(v) => updateFilter('timeout', 'venueName', v)"
+                  :sort-indicator="getExpiredSortIndicator('venueName')"
+                  :filter-active="columnFilterState.expired.venueName.length > 0"
+                  :options="expiredVenueOptions"
+                  :model-value="columnFilterState.expired.venueName"
+                  @sort-asc="setSortByMenu('expired', 'venueName', 'asc')"
+                  @sort-desc="setSortByMenu('expired', 'venueName', 'desc')"
+                  @clear-sort="clearSortByMenu('expired', 'venueName')"
+                  @update:model-value="(v) => updateFilter('expired', 'venueName', v)"
                 />
               </template>
             </el-table-column>
@@ -261,14 +261,14 @@
               <template #header>
                 <SortableFilterHeader
                   label="Reserved By"
-                  :sort-indicator="getTimeoutSortIndicator('reservedBy')"
-                  :filter-active="columnFilterState.timeout.reservedBy.length > 0"
-                  :options="timeoutReservedByOptions"
-                  :model-value="columnFilterState.timeout.reservedBy"
-                  @sort-asc="setSortByMenu('timeout', 'reservedBy', 'asc')"
-                  @sort-desc="setSortByMenu('timeout', 'reservedBy', 'desc')"
-                  @clear-sort="clearSortByMenu('timeout', 'reservedBy')"
-                  @update:model-value="(v) => updateFilter('timeout', 'reservedBy', v)"
+                  :sort-indicator="getExpiredSortIndicator('reservedBy')"
+                  :filter-active="columnFilterState.expired.reservedBy.length > 0"
+                  :options="expiredReservedByOptions"
+                  :model-value="columnFilterState.expired.reservedBy"
+                  @sort-asc="setSortByMenu('expired', 'reservedBy', 'asc')"
+                  @sort-desc="setSortByMenu('expired', 'reservedBy', 'desc')"
+                  @clear-sort="clearSortByMenu('expired', 'reservedBy')"
+                  @update:model-value="(v) => updateFilter('expired', 'reservedBy', v)"
                 />
               </template>
               <template #default="{ row }">
@@ -278,25 +278,25 @@
             <el-table-column prop="meetingTitle" label="Meeting / Event Title" min-width="240" class-name="table-nowrap-col" label-class-name="table-nowrap-col" />
             <el-table-column prop="date" min-width="130" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
               <template #header>
-                <button type="button" class="th-sort-btn" @click="toggleTimeoutSort('date')">
+                <button type="button" class="th-sort-btn" @click="toggleExpiredSort('date')">
                   Date
-                  <span class="sort-indicator">{{ getTimeoutSortIndicator('date') }}</span>
+                  <span class="sort-indicator">{{ getExpiredSortIndicator('date') }}</span>
                 </button>
               </template>
             </el-table-column>
             <el-table-column prop="time" min-width="150" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
               <template #header>
-                <button type="button" class="th-sort-btn" @click="toggleTimeoutSort('time')">
+                <button type="button" class="th-sort-btn" @click="toggleExpiredSort('time')">
                   Time
-                  <span class="sort-indicator">{{ getTimeoutSortIndicator('time') }}</span>
+                  <span class="sort-indicator">{{ getExpiredSortIndicator('time') }}</span>
                 </button>
               </template>
             </el-table-column>
             <el-table-column prop="submittedAt" min-width="180" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
               <template #header>
-                <button type="button" class="th-sort-btn" @click="toggleTimeoutSort('submittedAt')">
+                <button type="button" class="th-sort-btn" @click="toggleExpiredSort('submittedAt')">
                   Submitted
-                  <span class="sort-indicator">{{ getTimeoutSortIndicator('submittedAt') }}</span>
+                  <span class="sort-indicator">{{ getExpiredSortIndicator('submittedAt') }}</span>
                 </button>
               </template>
             </el-table-column>
@@ -313,22 +313,22 @@
 
           <div class="pagination-bar">
             <div class="pagination-info">
-              Showing {{ timeoutStartIndex + 1 }}-{{ timeoutEndIndex }} of {{ columnFilteredTimeoutList.length }} records
+              Showing {{ expiredStartIndex + 1 }}-{{ expiredEndIndex }} of {{ columnFilteredExpiredList.length }} records
             </div>
             <div class="pagination-controls">
-              <button class="pagination-btn" :disabled="timeoutCurrentPage === 1" @click="timeoutCurrentPage--">Previous</button>
+              <button class="pagination-btn" :disabled="expiredCurrentPage === 1" @click="expiredCurrentPage--">Previous</button>
               <button
-                v-for="page in timeoutVisiblePages"
+                v-for="page in expiredVisiblePages"
                 :key="page"
-                :class="['pagination-btn', 'page-number', { active: page === timeoutCurrentPage }]"
-                @click="timeoutCurrentPage = page"
+                :class="['pagination-btn', 'page-number', { active: page === expiredCurrentPage }]"
+                @click="expiredCurrentPage = page"
               >
                 {{ page }}
               </button>
-              <button class="pagination-btn" :disabled="timeoutCurrentPage === timeoutTotalPages" @click="timeoutCurrentPage++">Next</button>
+              <button class="pagination-btn" :disabled="expiredCurrentPage === expiredTotalPages" @click="expiredCurrentPage++">Next</button>
             </div>
             <div class="pagination-size">
-              <select v-model.number="timeoutPageSize" class="page-size-select" @change="timeoutCurrentPage = 1">
+              <select v-model.number="expiredPageSize" class="page-size-select" @change="expiredCurrentPage = 1">
                 <option :value="10">10 / page</option>
                 <option :value="20">20 / page</option>
                 <option :value="50">50 / page</option>
@@ -698,7 +698,7 @@ import SortableFilterHeader from '@/components/admin/SortableFilterHeader.vue'
 import { useAdminStore } from '@/stores/admin'
 import {
   getPendingBookings,
-  getTimeoutBookings,
+  getExpiredBookings,
   getApprovedBookings,
   getRejectedBookings,
   approveBooking,
@@ -706,6 +706,7 @@ import {
 } from '@/api/admin'
 import { getPrompts } from '@/api/promptManagement'
 import { notifyAdminPendingUpdated } from '@/utils/adminPendingSync'
+import { formatTeaServiceDisplay } from '@/utils/venueTeaService'
 
 const adminStore = useAdminStore()
 const { pendingBookingsCount } = storeToRefs(adminStore)
@@ -713,7 +714,7 @@ const { pendingBookingsCount } = storeToRefs(adminStore)
 const activeTab = ref('pending')
 const searchState = ref({
   pending: '',
-  timeout: '',
+  expired: '',
   approved: '',
   rejected: ''
 })
@@ -735,7 +736,7 @@ const showNotice = (message, title = 'Notice') => {
 }
 
 const pendingList = ref([])
-const timeoutList = ref([])
+const expiredList = ref([])
 const approvedList = ref([])
 const rejectedList = ref([])
 const rejectTemplateOptions = ref([])
@@ -744,15 +745,15 @@ const listsLoading = ref(false)
 async function loadMeetingApprovalLists () {
   listsLoading.value = true
   try {
-    const [pending, timeout, approved, rejected, prompts] = await Promise.all([
+    const [pending, expired, approved, rejected, prompts] = await Promise.all([
       getPendingBookings(),
-      getTimeoutBookings(),
+      getExpiredBookings(),
       getApprovedBookings(),
       getRejectedBookings(),
       getPrompts({ category: 'reject_template' })
     ])
     pendingList.value = Array.isArray(pending) ? pending : []
-    timeoutList.value = Array.isArray(timeout) ? timeout : []
+    expiredList.value = Array.isArray(expired) ? expired : []
     approvedList.value = Array.isArray(approved) ? approved : []
     rejectedList.value = Array.isArray(rejected) ? rejected : []
     rejectTemplateOptions.value = (Array.isArray(prompts) ? prompts : []).filter(
@@ -778,8 +779,8 @@ const quickDateOptions = [
 
 const pendingCurrentPage = ref(1)
 const pendingPageSize = ref(20)
-const timeoutCurrentPage = ref(1)
-const timeoutPageSize = ref(20)
+const expiredCurrentPage = ref(1)
+const expiredPageSize = ref(20)
 const approvedCurrentPage = ref(1)
 const approvedPageSize = ref(20)
 const rejectedCurrentPage = ref(1)
@@ -813,7 +814,7 @@ function isDateInRange(item) {
 }
 
 const filteredPendingList = computed(() => pendingList.value.filter(isDateInRange))
-const filteredTimeoutList = computed(() => timeoutList.value.filter(isDateInRange))
+const filteredExpiredList = computed(() => expiredList.value.filter(isDateInRange))
 const filteredApprovedList = computed(() => approvedList.value.filter(isDateInRange))
 const filteredRejectedList = computed(() => rejectedList.value.filter(isDateInRange))
 
@@ -845,13 +846,13 @@ function rowMatchesSearchKeyword (row, keyword) {
 }
 
 const searchedPendingList = computed(() => applyKeywordSearch(filteredPendingList.value, searchState.value.pending))
-const searchedTimeoutList = computed(() => applyKeywordSearch(filteredTimeoutList.value, searchState.value.timeout))
+const searchedExpiredList = computed(() => applyKeywordSearch(filteredExpiredList.value, searchState.value.expired))
 const searchedApprovedList = computed(() => applyKeywordSearch(filteredApprovedList.value, searchState.value.approved))
 const searchedRejectedList = computed(() => applyKeywordSearch(filteredRejectedList.value, searchState.value.rejected))
 
 const columnFilterState = ref({
   pending: { venueName: [], reservedBy: [] },
-  timeout: { venueName: [], reservedBy: [] },
+  expired: { venueName: [], reservedBy: [] },
   approved: { venueName: [], reservedBy: [] },
   rejected: { venueName: [], reservedBy: [] }
 })
@@ -860,8 +861,8 @@ const getUniqueOptions = (list, mapper) => [...new Set((list || []).map(mapper).
 
 const pendingVenueOptions = computed(() => getUniqueOptions(searchedPendingList.value, row => row.venueName || ''))
 const pendingReservedByOptions = computed(() => getUniqueOptions(searchedPendingList.value, row => formatReservedBy(row)))
-const timeoutVenueOptions = computed(() => getUniqueOptions(searchedTimeoutList.value, row => row.venueName || ''))
-const timeoutReservedByOptions = computed(() => getUniqueOptions(searchedTimeoutList.value, row => formatReservedBy(row)))
+const expiredVenueOptions = computed(() => getUniqueOptions(searchedExpiredList.value, row => row.venueName || ''))
+const expiredReservedByOptions = computed(() => getUniqueOptions(searchedExpiredList.value, row => formatReservedBy(row)))
 const approvedVenueOptions = computed(() => getUniqueOptions(searchedApprovedList.value, row => row.venueName || ''))
 const approvedReservedByOptions = computed(() => getUniqueOptions(searchedApprovedList.value, row => formatReservedBy(row)))
 const rejectedVenueOptions = computed(() => getUniqueOptions(searchedRejectedList.value, row => row.venueName || ''))
@@ -869,14 +870,14 @@ const rejectedReservedByOptions = computed(() => getUniqueOptions(searchedReject
 
 function getTableSortState (tableKey) {
   if (tableKey === 'pending') return pendingSortState
-  if (tableKey === 'timeout') return timeoutSortState
+  if (tableKey === 'expired') return expiredSortState
   if (tableKey === 'approved') return approvedSortState
   return rejectedSortState
 }
 
 function resetTablePage (tableKey) {
   if (tableKey === 'pending') pendingCurrentPage.value = 1
-  else if (tableKey === 'timeout') timeoutCurrentPage.value = 1
+  else if (tableKey === 'expired') expiredCurrentPage.value = 1
   else if (tableKey === 'approved') approvedCurrentPage.value = 1
   else if (tableKey === 'rejected') rejectedCurrentPage.value = 1
 }
@@ -907,14 +908,14 @@ const applyColumnFilters = (rows, tableKey) => {
 }
 
 const columnFilteredPendingList = computed(() => applyColumnFilters(searchedPendingList.value, 'pending'))
-const columnFilteredTimeoutList = computed(() => applyColumnFilters(searchedTimeoutList.value, 'timeout'))
+const columnFilteredExpiredList = computed(() => applyColumnFilters(searchedExpiredList.value, 'expired'))
 const columnFilteredApprovedList = computed(() => applyColumnFilters(searchedApprovedList.value, 'approved'))
 const columnFilteredRejectedList = computed(() => applyColumnFilters(searchedRejectedList.value, 'rejected'))
 
-const timeoutBookingsCount = computed(() => columnFilteredTimeoutList.value.length)
+const expiredBookingsCount = computed(() => columnFilteredExpiredList.value.length)
 
 const pendingSortState = ref([])
-const timeoutSortState = ref([])
+const expiredSortState = ref([])
 const approvedSortState = ref([])
 const rejectedSortState = ref([])
 
@@ -1012,7 +1013,7 @@ function getSortIndicatorFromState(state, key) {
 }
 
 const sortedPendingList = computed(() => sortRowsByState(columnFilteredPendingList.value, pendingSortState))
-const sortedTimeoutList = computed(() => sortRowsByState(columnFilteredTimeoutList.value, timeoutSortState))
+const sortedExpiredList = computed(() => sortRowsByState(columnFilteredExpiredList.value, expiredSortState))
 const sortedApprovedList = computed(() => sortRowsByState(columnFilteredApprovedList.value, approvedSortState))
 const sortedRejectedList = computed(() => sortRowsByState(columnFilteredRejectedList.value, rejectedSortState))
 
@@ -1020,9 +1021,9 @@ const togglePendingSort = (key) => {
   toggleSortState(pendingSortState, key)
   pendingCurrentPage.value = 1
 }
-const toggleTimeoutSort = (key) => {
-  toggleSortState(timeoutSortState, key)
-  timeoutCurrentPage.value = 1
+const toggleExpiredSort = (key) => {
+  toggleSortState(expiredSortState, key)
+  expiredCurrentPage.value = 1
 }
 const toggleApprovedSort = (key) => {
   toggleSortState(approvedSortState, key)
@@ -1034,7 +1035,7 @@ const toggleRejectedSort = (key) => {
 }
 
 const getPendingSortIndicator = (key) => getSortIndicatorFromState(pendingSortState, key)
-const getTimeoutSortIndicator = (key) => getSortIndicatorFromState(timeoutSortState, key)
+const getExpiredSortIndicator = (key) => getSortIndicatorFromState(expiredSortState, key)
 const getApprovedSortIndicator = (key) => getSortIndicatorFromState(approvedSortState, key)
 const getRejectedSortIndicator = (key) => getSortIndicatorFromState(rejectedSortState, key)
 
@@ -1074,20 +1075,20 @@ const pendingVisiblePages = computed(() => {
   return pages
 })
 
-const paginatedTimeoutData = computed(() => {
-  const start = (timeoutCurrentPage.value - 1) * timeoutPageSize.value
-  const end = start + timeoutPageSize.value
-  return sortedTimeoutList.value.slice(start, end)
+const paginatedExpiredData = computed(() => {
+  const start = (expiredCurrentPage.value - 1) * expiredPageSize.value
+  const end = start + expiredPageSize.value
+  return sortedExpiredList.value.slice(start, end)
 })
-const timeoutTotalPages = computed(() => Math.max(1, Math.ceil(sortedTimeoutList.value.length / timeoutPageSize.value)))
-const timeoutStartIndex = computed(() => (timeoutCurrentPage.value - 1) * timeoutPageSize.value)
-const timeoutEndIndex = computed(() => Math.min(timeoutStartIndex.value + timeoutPageSize.value, sortedTimeoutList.value.length))
-const getTimeoutRowIndex = (index) => (timeoutCurrentPage.value - 1) * timeoutPageSize.value + index + 1
-const timeoutVisiblePages = computed(() => {
+const expiredTotalPages = computed(() => Math.max(1, Math.ceil(sortedExpiredList.value.length / expiredPageSize.value)))
+const expiredStartIndex = computed(() => (expiredCurrentPage.value - 1) * expiredPageSize.value)
+const expiredEndIndex = computed(() => Math.min(expiredStartIndex.value + expiredPageSize.value, sortedExpiredList.value.length))
+const getExpiredRowIndex = (index) => (expiredCurrentPage.value - 1) * expiredPageSize.value + index + 1
+const expiredVisiblePages = computed(() => {
   const pages = []
   const maxVisible = 5
-  let start = Math.max(1, timeoutCurrentPage.value - Math.floor(maxVisible / 2))
-  let end = Math.min(timeoutTotalPages.value, start + maxVisible - 1)
+  let start = Math.max(1, expiredCurrentPage.value - Math.floor(maxVisible / 2))
+  let end = Math.min(expiredTotalPages.value, start + maxVisible - 1)
   if (end - start < maxVisible - 1) start = Math.max(1, end - maxVisible + 1)
   for (let i = start; i <= end; i++) pages.push(i)
   return pages
@@ -1218,7 +1219,7 @@ function isQuickDateActive(option) {
 
 watch(dateRange, () => {
   pendingCurrentPage.value = 1
-  timeoutCurrentPage.value = 1
+  expiredCurrentPage.value = 1
   approvedCurrentPage.value = 1
   rejectedCurrentPage.value = 1
 })
@@ -1335,17 +1336,17 @@ const handleForm = ref({
 })
 
 function formatTeaServiceStatus(row) {
-  if (row?.teaService && typeof row.teaService === 'object') {
-    const beverages = row.teaService.beverages
-    if (beverages) return String(beverages)
-    return 'Required'
+  const count = row?.teaServiceParticipants ?? row?.attendeeCount ?? row?.participants ?? row?.teaService?.attendees
+  if (row?.teaServiceRequired !== true) {
+    return formatTeaServiceDisplay({ option: 'none', attendees: count }, count)
   }
-
-  const count = row.teaServiceParticipants ?? row.attendeeCount ?? row.participants
-  const countSuffix = Number.isFinite(Number(count)) ? ` (${count})` : ''
-  if (row.teaServiceSummary) return `${row.teaServiceSummary}${countSuffix}`
-  if (row.teaServiceRequired === true) return `Required${countSuffix}`
-  return 'No'
+  if (row?.teaService && typeof row.teaService === 'object') {
+    return formatTeaServiceDisplay(row.teaService, count)
+  }
+  if (row?.teaServiceSummary) {
+    return String(row.teaServiceSummary)
+  }
+  return formatTeaServiceDisplay(row?.teaService, count)
 }
 
 const getPendingRowIndex = (index) => (pendingCurrentPage.value - 1) * pendingPageSize.value + index + 1
@@ -1365,22 +1366,22 @@ function formatReservedBy (row) {
 const handleExport = () => {
   const allData = [
     ...pendingList.value.map(item => ({ ...item, status: 'Pending' })),
-    ...timeoutList.value.map(item => ({ ...item, status: 'Timeout' })),
+    ...expiredList.value.map(item => ({ ...item, status: 'Expired' })),
     ...approvedList.value.map(item => ({ ...item, status: 'Approved' })),
     ...rejectedList.value.map(item => ({ ...item, status: 'Rejected' }))
   ]
 
   const exportData = allData.map(item => ({
     'Booking ID': item.bookingId,
-    'Venue ID': item.venueId ?? '',
     'Room / Venue': item.venueName,
     'Reserved By': formatReservedBy(item),
     'Department': item.department || '',
     'Meeting / Event Title': item.meetingTitle,
     'Date': item.date,
     'Time': item.time,
+    'Submitted': item.submittedAt || '',
     'Status': item.status,
-    'Processed At': item.approvedAt || item.rejectedAt || item.submittedAt,
+    'Processed At': item.approvedAt || item.rejectedAt || '',
     'Processed By': item.approvedBy || item.rejectedBy || '',
     'Reason': item.reason || ''
   }))
@@ -1813,7 +1814,7 @@ const confirmRejectBooking = async () => {
   font-weight: 600;
 }
 
-.badge-item--timeout :deep(.el-badge__content) {
+.badge-item--expired :deep(.el-badge__content) {
   background-color: #e6a23c;
 }
 

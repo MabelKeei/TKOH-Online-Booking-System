@@ -45,7 +45,7 @@
                     @click="selectBooking(booking)"
                   >
                     <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-                    <div class="booking-reserved">{{ booking.reservedBy || 'N/A' }}</div>
+                    <div class="booking-reserved">{{ booking.topic || booking.notes || 'Booking' }}</div>
                   </div>
                 </template>
               </CalendarBookingPopover>

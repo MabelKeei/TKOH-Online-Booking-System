@@ -7,11 +7,21 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { HkPublicHolidaysService } from '../system-settings/hk-public-holidays.service';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { CreateVenueCalendarBookingDto } from './dto/create-venue-calendar-booking.dto';
 import { UpdateVenueCalendarBookingDto } from './dto/update-venue-calendar-booking.dto';
 import { isSuperAdminAuth } from '../auth/super-admin.util';
 import { isAdminRole } from '../auth/admin-role.util';
 import { consumeVenueQuota, releaseVenueQuota } from '../common/user-quota';
+import {
+  buildVenueTeaServiceJson,
+  normalizeVenueTeaService,
+} from '../common/venue-tea-service';
+import {
+  buildVenueDailyBookingWindowMessage,
+  hasVenueDailyBookingWindow,
+  isWithinVenueDailyBookingWindow,
+} from '../common/venue-daily-booking-window';
 
 const bookingInclude = {
   venue: { select: { id: true, name: true, color: true, tab: true, venueType: true } },
@@ -28,6 +38,7 @@ export class VenueCalendarService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly hkPublicHolidaysService: HkPublicHolidaysService,
+    private readonly systemSettingsService: SystemSettingsService,
   ) {}
 
   private parseUserId(authSub: unknown): bigint {
@@ -113,12 +124,85 @@ export class VenueCalendarService {
     endA: Date,
     startB: Date,
     endB: Date,
+    gapMinutes = 0,
   ): boolean {
     const a0 = this.timeToMinutes(startA);
     const a1 = this.timeToMinutes(endA);
     const b0 = this.timeToMinutes(startB);
     const b1 = this.timeToMinutes(endB);
-    return a0 < b1 && a1 > b0;
+    const gap = Math.max(0, Number(gapMinutes) || 0);
+    // Treat consecutive bookings as conflicting unless separated by at least `gap` minutes
+    return a0 < b1 + gap && a1 + gap > b0;
+  }
+
+  /**
+   * 将冲突归到 Start / End：间隔不足时只标责任端。
+   * 例：前场 09:00–11:00、后场 13:00–14:00，欲订 11:00–13:00、gap=15
+   * → Start ✕（需 ≥11:15）、End ✕（需 ≤12:45）；Date 仍 ✓
+   */
+  private analyzeSlotFieldErrors(
+    startTime: Date,
+    endTime: Date,
+    peers: Array<{ startMin: number; endMin: number }>,
+    gapMinutes = 0,
+  ): { date: boolean; startTime: boolean; endTime: boolean } {
+    const a0 = this.timeToMinutes(startTime);
+    const a1 = this.timeToMinutes(endTime);
+    const gap = Math.max(0, Number(gapMinutes) || 0);
+    let startFail = false;
+    let endFail = false;
+    let anyOverlap = false;
+
+    for (const peer of peers) {
+      const b0 = peer.startMin;
+      const b1 = peer.endMin;
+      if (!(a0 < b1 + gap && a1 + gap > b0)) continue;
+      anyOverlap = true;
+
+      // 开始落在占用段或占用结束后的强制间隔内
+      if (a0 >= b0 && a0 < b1 + gap) {
+        startFail = true;
+      }
+      // 结束落在占用段或占用开始前的强制间隔内
+      if (a1 <= b1 && a1 > b0 - gap) {
+        endFail = true;
+      }
+      // 新时段完全包住既有预订
+      if (a0 < b0 && a1 > b1) {
+        startFail = true;
+        endFail = true;
+      }
+    }
+
+    if (anyOverlap && !startFail && !endFail) {
+      startFail = true;
+      endFail = true;
+    }
+
+    return {
+      date: false,
+      startTime: startFail,
+      endTime: endFail,
+    };
+  }
+
+  private blockRangeToDayMinutes(
+    bookingDate: Date,
+    blockStart: Date,
+    blockEnd: Date,
+  ): { startMin: number; endMin: number } | null {
+    const y = bookingDate.getUTCFullYear();
+    const mo = bookingDate.getUTCMonth();
+    const d = bookingDate.getUTCDate();
+    const dayStartMs = Date.UTC(y, mo, d, 0, 0, 0);
+    const dayEndMs = dayStartMs + 24 * 60 * 60 * 1000;
+    const startMs = Math.max(blockStart.getTime(), dayStartMs);
+    const endMs = Math.min(blockEnd.getTime(), dayEndMs);
+    if (!(endMs > startMs)) return null;
+    return {
+      startMin: Math.floor((startMs - dayStartMs) / 60_000),
+      endMin: Math.floor((endMs - dayStartMs) / 60_000),
+    };
   }
 
   /** venue_bookings.notes 仅存备注纯文本；茶歇等写入 venue_tea_service */
@@ -152,6 +236,7 @@ export class VenueCalendarService {
       status: row.status ?? 'upcoming',
       approvalStatus: String(row.approvalStatus ?? '').toLowerCase() || null,
       teaServiceRequired: row.teaServiceRequired,
+      displayTitlePublic: row.displayTitlePublic !== false,
       isBlocked: false,
     };
   }
@@ -325,6 +410,48 @@ export class VenueCalendarService {
     return venue;
   }
 
+  private assertWithinDailyBookingWindow(
+    venue: {
+      name?: string | null;
+      dailyBookingStartTime?: string | null;
+      dailyBookingEndTime?: string | null;
+    },
+    startTime: Date,
+    endTime: Date,
+    auth?: { role?: string },
+  ) {
+    if (isAdminRole(auth)) return;
+    if (!hasVenueDailyBookingWindow(venue)) return;
+
+    const startHm = this.formatTimeValue(startTime);
+    const endHm = this.formatTimeValue(endTime);
+    if (!isWithinVenueDailyBookingWindow(venue, startHm, endHm)) {
+      throw new BadRequestException(buildVenueDailyBookingWindowMessage(venue));
+    }
+  }
+
+  private getDailyBookingWindowFieldErrors(
+    venue: {
+      name?: string | null;
+      dailyBookingStartTime?: string | null;
+      dailyBookingEndTime?: string | null;
+    },
+    startTime: string,
+    endTime: string,
+  ) {
+    if (!hasVenueDailyBookingWindow(venue)) {
+      return { startFail: false, endFail: false, message: '' };
+    }
+    if (isWithinVenueDailyBookingWindow(venue, startTime, endTime)) {
+      return { startFail: false, endFail: false, message: '' };
+    }
+    return {
+      startFail: true,
+      endFail: true,
+      message: buildVenueDailyBookingWindowMessage(venue),
+    };
+  }
+
   private async assertSlotAvailable(
     venueId: bigint,
     bookingDate: Date,
@@ -376,13 +503,20 @@ export class VenueCalendarService {
       select: { id: true, startTime: true, endTime: true },
     });
 
+    const gapMinutes =
+      await this.systemSettingsService.getVenueBookingMinGapMinutes();
+
     for (const row of conflicts) {
       if (
         row.startTime &&
         row.endTime &&
-        this.timesOverlap(startTime, endTime, row.startTime, row.endTime)
+        this.timesOverlap(startTime, endTime, row.startTime, row.endTime, gapMinutes)
       ) {
-        throw new BadRequestException('Selected time slot is not available');
+        throw new BadRequestException(
+          gapMinutes > 0
+            ? `Selected time slot is not available. A minimum ${gapMinutes}-minute gap is required between bookings of the same venue.`
+            : 'Selected time slot is not available',
+        );
       }
     }
   }
@@ -393,26 +527,153 @@ export class VenueCalendarService {
     startTime: string,
     endTime: string,
     excludeBookingId?: string,
+    auth?: { role?: string },
   ) {
     const venueId = BigInt(roomId);
     const venue = await this.prisma.venues.findUnique({ where: { id: venueId } });
     if (!venue) throw new NotFoundException('Venue not found');
 
+    const bookingDate = this.parseDateOnly(date);
+    let start: Date;
+    let end: Date;
     try {
-      await this.assertSlotAvailable(
-        venueId,
-        this.parseDateOnly(date),
-        this.parseTimeHm(startTime),
-        this.parseTimeHm(endTime),
-        excludeBookingId ? BigInt(excludeBookingId) : undefined,
-      );
-      return { available: true, roomId, date, startTime, endTime };
+      start = this.parseTimeHm(startTime);
+      end = this.parseTimeHm(endTime);
     } catch (e) {
       if (e instanceof BadRequestException) {
-        return { available: false, message: e.message };
+        return {
+          available: false,
+          message: e.message,
+          fieldErrors: { date: false, startTime: true, endTime: true },
+        };
       }
       throw e;
     }
+
+    if (this.timeToMinutes(start) >= this.timeToMinutes(end)) {
+      return {
+        available: false,
+        message: 'End time must be after start time',
+        fieldErrors: { date: false, startTime: true, endTime: true },
+      };
+    }
+
+    if (!isAdminRole(auth)) {
+      const windowErrors = this.getDailyBookingWindowFieldErrors(
+        venue,
+        startTime,
+        endTime,
+      );
+      if (windowErrors.startFail || windowErrors.endFail) {
+        return {
+          available: false,
+          message: windowErrors.message,
+          fieldErrors: {
+            date: false,
+            startTime: windowErrors.startFail,
+            endTime: windowErrors.endFail,
+          },
+        };
+      }
+    }
+
+    const bookingStartAt = this.combineDateAndTime(bookingDate, start);
+    const bookingEndAt = this.combineDateAndTime(bookingDate, end);
+    const excludeId = excludeBookingId ? BigInt(excludeBookingId) : undefined;
+
+    const [blocks, bookings, gapMinutes] = await Promise.all([
+      this.prisma.venue_blocks.findMany({
+        where: {
+          venue_id: venueId,
+          start_at: { lt: bookingEndAt },
+          end_at: { gt: bookingStartAt },
+        },
+        select: { start_at: true, end_at: true },
+      }),
+      this.prisma.venueBookings.findMany({
+        where: {
+          venueId,
+          bookingDate,
+          bookingType: 'venue',
+          AND: [
+            {
+              OR: [
+                { status: null },
+                { status: { not: 'cancelled', mode: 'insensitive' } },
+              ],
+            },
+            {
+              OR: [
+                { approvalStatus: null },
+                {
+                  approvalStatus: {
+                    in: ['pending', 'approved'],
+                    mode: 'insensitive',
+                  },
+                },
+              ],
+            },
+          ],
+          ...(excludeId ? { id: { not: excludeId } } : {}),
+        },
+        select: { startTime: true, endTime: true },
+      }),
+      this.systemSettingsService.getVenueBookingMinGapMinutes(),
+    ]);
+
+    const peers: Array<{ startMin: number; endMin: number; gap: number }> = [];
+    for (const block of blocks) {
+      const range = this.blockRangeToDayMinutes(bookingDate, block.start_at, block.end_at);
+      if (range) peers.push({ ...range, gap: 0 });
+    }
+    for (const row of bookings) {
+      if (!row.startTime || !row.endTime) continue;
+      peers.push({
+        startMin: this.timeToMinutes(row.startTime),
+        endMin: this.timeToMinutes(row.endTime),
+        gap: gapMinutes,
+      });
+    }
+
+    let startFail = false;
+    let endFail = false;
+    let hitBookingGap = false;
+    let hitBlock = false;
+
+    for (const peer of peers) {
+      const gap = Math.max(0, Number(peer.gap) || 0);
+      const fieldErrors = this.analyzeSlotFieldErrors(
+        start,
+        end,
+        [{ startMin: peer.startMin, endMin: peer.endMin }],
+        gap,
+      );
+      if (!fieldErrors.startTime && !fieldErrors.endTime) continue;
+      if (gap > 0) hitBookingGap = true;
+      else hitBlock = true;
+      if (fieldErrors.startTime) startFail = true;
+      if (fieldErrors.endTime) endFail = true;
+    }
+
+    if (!startFail && !endFail) {
+      return { available: true, roomId, date, startTime, endTime };
+    }
+
+    const message = hitBlock
+      ? 'Selected time conflicts with a blocked period'
+      : gapMinutes > 0 || hitBookingGap
+        ? `Selected time slot is not available. A minimum ${gapMinutes}-minute gap is required between bookings of the same venue.`
+        : 'Selected time slot is not available';
+
+    return {
+      available: false,
+      message,
+      fieldErrors: {
+        date: false,
+        startTime: startFail,
+        endTime: endFail,
+      },
+    };
   }
 
   async listRooms(roomType?: string) {
@@ -426,6 +687,9 @@ export class VenueCalendarService {
         tab: true,
         venueType: true,
         roomCapacity: true,
+        teaServiceAvailable: true,
+        dailyBookingStartTime: true,
+        dailyBookingEndTime: true,
       },
     });
     return venues.map((v) => ({
@@ -435,6 +699,9 @@ export class VenueCalendarService {
       tab: v.tab,
       type: v.venueType,
       roomCapacity: v.roomCapacity,
+      teaServiceAvailable: v.teaServiceAvailable !== false,
+      dailyBookingStartTime: v.dailyBookingStartTime || null,
+      dailyBookingEndTime: v.dailyBookingEndTime || null,
     }));
   }
 
@@ -452,6 +719,7 @@ export class VenueCalendarService {
     const endTime = this.parseTimeHm(dto.endTime);
 
     await this.hkPublicHolidaysService.assertBookableForUser(bookingDate, auth);
+    this.assertWithinDailyBookingWindow(venue, startTime, endTime, auth);
     await this.assertSlotAvailable(venue.id, bookingDate, startTime, endTime);
 
     const notes = this.buildNotesPayload(dto);
@@ -475,19 +743,38 @@ export class VenueCalendarService {
           bookingType: 'venue',
           approvalStatus: 'pending',
           teaServiceRequired: teaRequired,
+          displayTitlePublic: dto.displayTitlePublic !== false,
           submittedAt: new Date(),
+          submitterUserId: actorUserId,
         },
         include: bookingInclude,
       });
 
       if (teaRequired) {
-        const teaService = {
+        const teaService = buildVenueTeaServiceJson({
+          teaServiceRequired: true,
           attendees,
-          beverages: dto.teaOrWater ?? 'tea',
-          serveAs: dto.serviceType ?? 'pot',
-          quantity: attendees,
-          notes: dto.teaServiceSpecialRequest ?? '',
-        };
+          option: dto.teaServiceOption,
+          ratioFrom: dto.teaServiceRatioFrom,
+          ratioTo: dto.teaServiceRatioTo,
+          teaPots: dto.teaServiceTeaPots,
+          waterPots: dto.teaServiceWaterPots,
+          specialRequest: dto.teaServiceSpecialRequest,
+          teaOrWater: dto.teaOrWater,
+          serviceType: dto.serviceType,
+          teaServiceSpecialRequest: dto.teaServiceSpecialRequest,
+        });
+        await tx.venueTeaService.create({
+          data: {
+            venueBookingId: row.id,
+            teaService,
+          },
+        });
+      } else {
+        const teaService = buildVenueTeaServiceJson({
+          teaServiceRequired: false,
+          attendees,
+        });
         await tx.venueTeaService.create({
           data: {
             venueBookingId: row.id,
@@ -518,6 +805,21 @@ export class VenueCalendarService {
     });
     if (!existing) throw new NotFoundException('Booking not found');
 
+    const approval = String(existing.approvalStatus || '').toLowerCase();
+    // Approved：非管理员仅允许更新 remark；管理员可改任意字段
+    if (approval === 'approved' && !isAdminRole(auth)) {
+      const notes =
+        dto.remark !== undefined
+          ? this.buildNotesPayload(dto)
+          : existing.notes;
+      const updated = await this.prisma.venueBookings.update({
+        where: { id: bookingId },
+        data: { notes },
+        include: bookingInclude,
+      });
+      return this.mapCalendarBooking(updated);
+    }
+
     const roomName = dto.roomName ?? existing.venue?.name;
     if (!roomName) throw new BadRequestException('Room is required');
 
@@ -533,6 +835,7 @@ export class VenueCalendarService {
       : existing.endTime!;
 
     await this.hkPublicHolidaysService.assertBookableForUser(bookingDate, auth);
+    this.assertWithinDailyBookingWindow(venue, startTime, endTime, auth);
     await this.assertSlotAvailable(
       venue.id,
       bookingDate,
@@ -558,6 +861,13 @@ export class VenueCalendarService {
         notes,
         teaServiceRequired:
           dto.teaServiceRequired ?? existing.teaServiceRequired,
+        displayTitlePublic:
+          (isAdminRole(auth) ||
+            approval === 'pending' ||
+            approval === '') &&
+          dto.displayTitlePublic !== undefined
+            ? Boolean(dto.displayTitlePublic)
+            : existing.displayTitlePublic,
       },
       include: bookingInclude,
     });

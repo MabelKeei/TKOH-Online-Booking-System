@@ -3,37 +3,33 @@
     <div class="display-above-footer">
       <!-- Header -->
       <div class="display-header">
-        <div class="date-time">
-          <span class="date">{{ currentDate }}</span>
-          <span class="time">{{ currentTime }}</span>
-        </div>
+        <VenueDisplayClock @tick="onClockTick" />
         <img v-if="displayType === 'merge' && qrCodeImage" :src="qrCodeImage" alt="QR Code" class="header-qr" />
       </div>
 
-      <!-- Main content：在排除 footer 后的区域内垂直居中 -->
-      <div class="display-content">
-      <div v-if="currentEvent" class="event-info">
-        <div class="event-time">
-          <el-icon class="clock-icon"><Clock /></el-icon>
-          <span>{{ currentEvent.startTime }} - {{ currentEvent.endTime }}</span>
+      <!-- Main content：当天全部活动列表 -->
+      <div class="display-content" :style="contentLayoutStyle">
+        <div class="events-section-title">TODAY'S EVENTS 今日活動</div>
+        <div
+          v-if="sortedTodayEvents.length"
+          ref="eventsListRef"
+          class="events-list"
+        >
+          <div
+            v-for="event in sortedTodayEvents"
+            :key="getEventKey(event)"
+            class="event-card"
+            :class="{ 'is-current': activeEventKeys.has(getEventKey(event)) }"
+          >
+            <div class="event-topic">{{ event.topic }}</div>
+            <div class="event-time">{{ event.startTime }} - {{ event.endTime }}</div>
+          </div>
         </div>
-        <div class="event-topic">{{ currentEvent.topic }}</div>
-        <div v-if="currentEvent.reservedBy || eventAttendeeCount" class="event-organizer">
-          <span v-if="currentEvent.reservedBy">{{ currentEvent.reservedBy }}</span>
-          <template v-if="currentEvent.reservedBy && eventAttendeeCount">
-            <span class="organizer-sep"> | </span>
-          </template>
-          <span v-if="eventAttendeeCount" class="event-attendees">
-            <el-icon class="person-icon"><User /></el-icon>
-            <span class="attendee-count">{{ eventAttendeeCount }}</span>
-          </span>
+        <div v-else class="no-events">
+          <div class="no-events-text-en">NO EVENTS</div>
+          <div class="no-events-text-zh">沒有活動</div>
         </div>
       </div>
-      <div v-else class="no-events">
-        <div class="no-events-text-en">NO EVENTS</div>
-        <div class="no-events-text-zh">沒有活動</div>
-      </div>
-    </div>
     </div>
 
     <!-- Footer -->
@@ -53,17 +49,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   getVenueMergePublicDisplay,
   getVenuePublicDisplay
 } from '@/api/venueManagement'
-import {
-  getAppDisplayDateTimeParts,
-  msUntilNextAppMinute,
-  todayYmdInAppTimeZone
-} from '@/utils/appTimezone'
+import { todayYmdInAppTimeZone } from '@/utils/appTimezone'
+import VenueDisplayClock from './VenueDisplayClock.vue'
 
 const route = useRoute()
 const DISPLAY_SCALE = 1.8
@@ -72,9 +65,6 @@ const DATA_POLL_MS = 20_000
 const venueId = ref(route.query.venueId)
 const displayType = ref(route.query.displayType || 'single')
 
-const currentDate = ref('')
-const currentTime = ref('')
-
 const venueName = ref('')
 const venueNameZh = ref('')
 const venueLocation = ref('')
@@ -82,7 +72,18 @@ const venueLocationZh = ref('')
 const qrCodeImage = ref('')
 
 const allTodayEvents = ref([])
-let lastDisplayYmd = ''
+const eventsListRef = ref(null)
+/** 当前进行中的会议 key；仅在成员变化时替换，避免每分钟整表重绘 */
+const activeEventKeys = ref(new Set())
+/** 活动区字号/间距缩放系数，保证列表不滚动完整显示 */
+const layoutScale = ref(1)
+let lastClockTime = ''
+let activeEventKeysSig = ''
+let fitLayoutTimer = null
+
+const contentLayoutStyle = computed(() => ({
+  '--layout-scale': String(layoutScale.value)
+}))
 
 function parseHmToMinutes (hm) {
   const m = String(hm || '').match(/^(\d{1,2}):(\d{2})$/)
@@ -93,52 +94,153 @@ function parseHmToMinutes (hm) {
   return h * 60 + min
 }
 
-/** 僅展示當前時刻正在進行的活動（含起止時刻） */
-const currentEvent = computed(() => {
-  const nowMin = parseHmToMinutes(currentTime.value)
-  if (nowMin == null) return null
+function getEventKey (event) {
+  return event?.id || `${event?.startTime}-${event?.topic}`
+}
 
-  const matches = allTodayEvents.value.filter((ev) => {
-    const start = parseHmToMinutes(ev.startTime)
-    const end = parseHmToMinutes(ev.endTime)
-    if (start == null || end == null) return false
-    return nowMin >= start && nowMin <= end
-  })
-
-  if (!matches.length) return null
-  return matches.sort(
+/** 按開始時間排序的當天全部活動 */
+const sortedTodayEvents = computed(() =>
+  [...allTodayEvents.value].sort(
     (a, b) => (parseHmToMinutes(a.startTime) ?? 0) - (parseHmToMinutes(b.startTime) ?? 0)
-  )[0]
-})
+  )
+)
 
-const eventAttendeeCount = computed(() => {
-  const n = Number(currentEvent.value?.attendees)
-  return Number.isFinite(n) && n > 0 ? n : null
+function computeActiveEventKeys (timeHm) {
+  const nowMin = parseHmToMinutes(timeHm)
+  const keys = new Set()
+  if (nowMin == null) return keys
+  for (const event of sortedTodayEvents.value) {
+    const start = parseHmToMinutes(event.startTime)
+    const end = parseHmToMinutes(event.endTime)
+    if (start == null || end == null) continue
+    if (nowMin >= start && nowMin <= end) {
+      keys.add(getEventKey(event))
+    }
+  }
+  return keys
+}
+
+function syncActiveEventKeys (timeHm = lastClockTime) {
+  const next = computeActiveEventKeys(timeHm)
+  const nextSig = [...next].sort().join('\0')
+  if (nextSig === activeEventKeysSig) return
+  activeEventKeysSig = nextSig
+  activeEventKeys.value = next
+}
+
+function onClockTick ({ time, dayChanged }) {
+  lastClockTime = time || ''
+  syncActiveEventKeys(lastClockTime)
+  if (dayChanged) {
+    void refreshDisplayData()
+  }
+}
+
+function waitPaint () {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve))
+  })
+}
+
+function listOverflows (listEl) {
+  return listEl.scrollHeight > listEl.clientHeight + 1
+}
+
+function getEventsSignature (events) {
+  return (events || [])
+    .map((e) => [e?.id, e?.startTime, e?.endTime, e?.topic].join('\u0001'))
+    .join('\u0002')
+}
+
+async function binarySearchScale (listEl, lo, hi) {
+  let low = lo
+  let high = hi
+  for (let i = 0; i < 12; i++) {
+    const mid = (low + high) / 2
+    layoutScale.value = mid
+    await nextTick()
+    await waitPaint()
+    if (listOverflows(listEl)) {
+      high = mid
+    } else {
+      low = mid
+    }
+  }
+  return Math.max(0.32, Math.floor(low * 1000) / 1000)
+}
+
+/**
+ * 依現有 scale 微調，避免每次輪詢都先跳回 1 造成閃爍。
+ * - 溢出：從當前值向下降
+ * - 有餘量：從當前值向 1 緩慢升高
+ */
+async function fitEventsLayout () {
+  const count = sortedTodayEvents.value.length
+  if (!count) {
+    if (layoutScale.value !== 1) layoutScale.value = 1
+    return
+  }
+
+  await nextTick()
+  await waitPaint()
+
+  const listEl = eventsListRef.value
+  if (!listEl || listEl.clientHeight <= 0) return
+
+  const current = layoutScale.value
+
+  if (listOverflows(listEl)) {
+    layoutScale.value = await binarySearchScale(listEl, 0.32, Math.max(current, 0.32))
+    return
+  }
+
+  if (current >= 0.999) {
+    layoutScale.value = 1
+    return
+  }
+
+  // 尚有空間時再嘗試放大，過程不會先放大到超出版面
+  layoutScale.value = await binarySearchScale(listEl, current, 1)
+}
+
+function scheduleFitEventsLayout () {
+  if (fitLayoutTimer) clearTimeout(fitLayoutTimer)
+  fitLayoutTimer = setTimeout(() => {
+    fitLayoutTimer = null
+    void fitEventsLayout()
+  }, 40)
+}
+
+watch(sortedTodayEvents, () => {
+  syncActiveEventKeys()
+  scheduleFitEventsLayout()
 })
 
 function applyPanelTitleFooter (panelTitleText) {
   const lines = String(panelTitleText || '').split('\n').map(s => s.trim()).filter(Boolean)
-  if (lines[0]) venueName.value = lines[0]
-  if (lines[1]) venueNameZh.value = lines[1]
+  if (lines[0] && venueName.value !== lines[0]) venueName.value = lines[0]
+  if (lines[1] && venueNameZh.value !== lines[1]) venueNameZh.value = lines[1]
 }
 
 function applyVenueInfo (venue) {
   if (!venue) return
-  venueName.value = venue.name || ''
-  venueNameZh.value = venue.nameZh || ''
-  venueLocation.value = venue.location || ''
-  venueLocationZh.value = venue.locationZh || ''
+  const name = venue.name || ''
+  const nameZh = venue.nameZh || ''
+  const location = venue.location || ''
+  const locationZh = venue.locationZh || ''
+  if (venueName.value !== name) venueName.value = name
+  if (venueNameZh.value !== nameZh) venueNameZh.value = nameZh
+  if (venueLocation.value !== location) venueLocation.value = location
+  if (venueLocationZh.value !== locationZh) venueLocationZh.value = locationZh
 }
 
-function updateDateTime () {
-  const parts = getAppDisplayDateTimeParts()
-  currentDate.value = `${parts.day}/${parts.month}/${parts.year} ${parts.weekdayEn} ${parts.weekdayZh}`
-  currentTime.value = `${parts.hour}:${parts.minute}`
-
-  const ymd = todayYmdInAppTimeZone()
-  if (lastDisplayYmd && ymd !== lastDisplayYmd) {
-    void refreshDisplayData()
+function replaceTodayEvents (nextEvents) {
+  const incoming = Array.isArray(nextEvents) ? nextEvents : []
+  if (getEventsSignature(incoming) === getEventsSignature(allTodayEvents.value)) {
+    return false
   }
+  allTodayEvents.value = incoming
+  return true
 }
 
 async function refreshDisplayData () {
@@ -148,48 +250,25 @@ async function refreshDisplayData () {
     const data = await getVenueMergePublicDisplay(date)
     const settings = data?.mergeDisplaySettings || {}
     applyPanelTitleFooter(settings.panelTitleText)
-    qrCodeImage.value = settings.qrCodeImage || ''
-    allTodayEvents.value = []
-    lastDisplayYmd = date
+    const nextQr = settings.qrCodeImage || ''
+    if (qrCodeImage.value !== nextQr) qrCodeImage.value = nextQr
+    replaceTodayEvents([])
     return
   }
 
   if (!venueId.value) {
-    allTodayEvents.value = []
-    lastDisplayYmd = date
+    replaceTodayEvents([])
     return
   }
 
   const data = await getVenuePublicDisplay(venueId.value, date)
   applyVenueInfo(data?.venue)
-  qrCodeImage.value = ''
-  allTodayEvents.value = Array.isArray(data?.events) ? data.events : []
-  lastDisplayYmd = date
+  if (qrCodeImage.value) qrCodeImage.value = ''
+  replaceTodayEvents(data?.events)
 }
 
-let clockTimer = null
 let dataPollTimer = null
 let dataPollInFlight = false
-
-function scheduleClockTick () {
-  clockTimer = setTimeout(() => {
-    updateDateTime()
-    scheduleClockTick()
-  }, msUntilNextAppMinute())
-}
-
-function stopClock () {
-  if (clockTimer) {
-    clearTimeout(clockTimer)
-    clockTimer = null
-  }
-}
-
-function startClock () {
-  stopClock()
-  updateDateTime()
-  scheduleClockTick()
-}
 
 async function pollDisplayDataFromServer () {
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
@@ -208,7 +287,6 @@ async function pollDisplayDataFromServer () {
 
 function onDocumentVisibilityChange () {
   if (document.visibilityState === 'visible') {
-    startClock()
     void pollDisplayDataFromServer()
   }
 }
@@ -240,11 +318,11 @@ function forceFullscreen() {
   document.body.style.margin = '0'
   document.body.style.padding = '0'
   document.body.style.overflow = 'hidden'
+  scheduleFitEventsLayout()
 }
 
 onMounted(() => {
   void refreshDisplayData().catch(() => { /* 首次失敗仍顯示框架 */ })
-  startClock()
   dataPollTimer = setInterval(pollDisplayDataFromServer, DATA_POLL_MS)
   document.addEventListener('visibilitychange', onDocumentVisibilityChange)
 
@@ -258,8 +336,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  stopClock()
   if (dataPollTimer) clearInterval(dataPollTimer)
+  if (fitLayoutTimer) clearTimeout(fitLayoutTimer)
   document.removeEventListener('visibilitychange', onDocumentVisibilityChange)
 
   window.removeEventListener('resize', forceFullscreen)
@@ -321,28 +399,17 @@ onUnmounted(() => {
 .display-above-footer {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-areas: 'stack';
+  display: flex;
+  flex-direction: column;
 }
 
 .display-header {
-  grid-area: stack;
-  align-self: start;
-  justify-self: stretch;
+  flex-shrink: 0;
   z-index: 1;
   padding: 0.5rem 0.5rem;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-}
-
-.date-time {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: #111111;
-  flex: 1;
-  min-width: 0;
 }
 
 .header-qr {
@@ -356,108 +423,80 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.date {
-  font-size: 1.6rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
-.time {
-  font-size: 1.6rem;
-  font-weight: 700;
-  letter-spacing: 1px;
-}
-
 .display-content {
-  grid-area: stack;
-  align-self: stretch;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: center;
-  padding: 1rem 1.25rem;
+  justify-content: flex-start;
+  padding: 0.15rem 1.1rem 0.85rem;
   overflow: hidden;
-  min-height: 0;
 }
 
-/* 竖屏：整块活动信息垂直居中，内部文字左对齐 */
-.event-info {
+.events-section-title {
+  flex-shrink: 0;
+  text-align: center;
+  font-size: calc(1.75rem * var(--layout-scale, 1));
+  font-weight: 700;
+  color: #111111;
+  letter-spacing: 0.04em;
+  margin: calc(1.1rem * var(--layout-scale, 1)) 0 calc(0.85rem * var(--layout-scale, 1));
+}
+
+.events-list {
   width: 100%;
-  padding: 0 2.25rem;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.75rem * var(--layout-scale, 1));
+  padding: 0 0.15rem;
+}
+
+.event-card {
+  width: 100%;
+  box-sizing: border-box;
+  padding: calc(0.85rem * var(--layout-scale, 1)) calc(1rem * var(--layout-scale, 1));
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
+  border-radius: 6px;
+  /* 比页面底色更深一档的橙色块 */
+  background: rgb(230, 126, 0);
 }
 
-.event-time,
-.event-topic,
-.event-organizer {
-  width: 100%;
-  text-align: left;
-}
-
-.event-time {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: #111111;
-  margin-bottom: 0.85rem;
-  letter-spacing: 0.02em;
-}
-
-.clock-icon {
-  font-size: 1.1em;
-  flex-shrink: 0;
-  color: #111111;
+.event-card.is-current {
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.28);
 }
 
 .event-topic {
-  font-size: 3rem;
+  width: 100%;
+  font-size: calc(1.85rem * var(--layout-scale, 1));
   font-weight: 700;
   color: #111111;
-  line-height: 1.22;
-  margin-bottom: 0.85rem;
+  line-height: 1.25;
+  margin-bottom: calc(0.45rem * var(--layout-scale, 1));
   word-break: break-word;
 }
 
-.event-organizer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.15rem;
-  font-size: 1.9rem;
-  color: #333333;
+.event-time {
+  width: 100%;
+  font-size: calc(1.75rem * var(--layout-scale, 1));
   font-weight: 500;
-}
-
-.organizer-sep {
-  color: #333333;
-  font-weight: 500;
-}
-
-.event-attendees {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.person-icon {
-  font-size: 1em;
-  flex-shrink: 0;
-  color: #333333;
-}
-
-.attendee-count {
-  font-size: inherit;
-  font-weight: 500;
+  color: #111111;
+  letter-spacing: 0.02em;
 }
 
 .no-events {
-  flex-shrink: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   color: #111111;
 }
@@ -468,7 +507,6 @@ onUnmounted(() => {
   line-height: 0.8;
   letter-spacing: 2px;
   margin-bottom: 1rem;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .no-events-text-zh {
@@ -476,7 +514,6 @@ onUnmounted(() => {
   font-weight: 600;
   line-height: 0.8;
   letter-spacing: 4px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .display-footer {
@@ -525,14 +562,6 @@ onUnmounted(() => {
 
 /* Responsive adjustments for different screen sizes */
 @media (max-width: 768px) {
-  .date {
-    font-size: 1.125rem;
-  }
-
-  .time {
-    font-size: 1.5rem;
-  }
-
   .header-qr {
     width: 48px;
     height: 48px;
@@ -577,23 +606,7 @@ onUnmounted(() => {
   }
 
   .display-content {
-    padding: 0.75rem 1rem 1rem;
-  }
-
-  .event-info {
-    padding: 0 1.75rem;
-  }
-
-  .event-time {
-    font-size: 1.8rem;
-  }
-
-  .event-topic {
-    font-size: 2.35rem;
-  }
-
-  .event-organizer {
-    font-size: 1.6rem;
+    padding: 0.25rem 0.85rem 0.65rem;
   }
 }
 </style>

@@ -143,6 +143,42 @@
             </p>
           </div>
         </section>
+
+        <section class="setting-card">
+          <div class="setting-card-header">
+            <div class="setting-card-title-row">
+              <div class="setting-icon setting-icon--venue">
+                <font-awesome-icon :icon="['fas', 'door-open']" />
+              </div>
+              <div class="setting-card-titles">
+                <h3 class="setting-title">Venue Booking Gap</h3>
+                <p class="setting-subtitle">Minimum turnaround between bookings</p>
+              </div>
+            </div>
+            <span class="value-pill value-pill--green">
+              <span class="value-pill-label">Current</span>
+              <span class="value-pill-text">{{ form.venueBookingMinGapMinutes }} min</span>
+            </span>
+          </div>
+
+          <div class="setting-card-body">
+            <label class="field-label" for="venue-booking-min-gap">Minimum gap (minutes)</label>
+            <el-input-number
+              id="venue-booking-min-gap"
+              v-model="form.venueBookingMinGapMinutes"
+              :min="0"
+              :max="120"
+              :step="5"
+              controls-position="right"
+              class="field-control"
+            />
+            <p class="field-hint">
+              Required buffer between consecutive bookings of the same venue (e.g. for cleaning).
+              Example: with 15 minutes, after 09:00–11:00 the next booking can start from 11:15.
+              Set to 0 to allow back-to-back bookings.
+            </p>
+          </div>
+        </section>
       </div>
 
       <footer v-if="updatedAt" class="settings-footer">
@@ -169,7 +205,8 @@ const form = reactive({
   userInactiveAfterMonths: 6,
   hkPublicHolidaysUrl: '',
   evDateUpdateTime: '13:00',
-  evWeeklyBookingLimit: 1
+  evWeeklyBookingLimit: 1,
+  venueBookingMinGapMinutes: 15
 })
 
 function formatUpdatedAt (value) {
@@ -192,6 +229,10 @@ function applySettings (data) {
   form.hkPublicHolidaysUrl = String(data?.hkPublicHolidaysUrl ?? '')
   form.evDateUpdateTime = String(data?.evDateUpdateTime ?? '13:00')
   form.evWeeklyBookingLimit = Number(data?.evWeeklyBookingLimit) || 1
+  form.venueBookingMinGapMinutes =
+    data?.venueBookingMinGapMinutes == null
+      ? 15
+      : Number(data.venueBookingMinGapMinutes)
   updatedAt.value = data?.updatedAt ?? null
 }
 
@@ -222,6 +263,14 @@ async function handleSave () {
     ElMessage.warning('Weekly EV booking limit must be between 1 and 7')
     return
   }
+  if (
+    !Number.isInteger(form.venueBookingMinGapMinutes) ||
+    form.venueBookingMinGapMinutes < 0 ||
+    form.venueBookingMinGapMinutes > 120
+  ) {
+    ElMessage.warning('Venue booking minimum gap must be an integer between 0 and 120')
+    return
+  }
 
   saving.value = true
   try {
@@ -229,7 +278,8 @@ async function handleSave () {
       userInactiveAfterMonths: form.userInactiveAfterMonths,
       hkPublicHolidaysUrl: form.hkPublicHolidaysUrl,
       evDateUpdateTime: form.evDateUpdateTime,
-      evWeeklyBookingLimit: form.evWeeklyBookingLimit
+      evWeeklyBookingLimit: form.evWeeklyBookingLimit,
+      venueBookingMinGapMinutes: form.venueBookingMinGapMinutes
     })
     applySettings(data)
     ElMessage.success('System settings saved')
@@ -384,6 +434,12 @@ onMounted(() => {
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   color: #b45309;
   border: 1px solid #fcd34d;
+}
+
+.setting-icon--venue {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #4338ca;
+  border: 1px solid #a5b4fc;
 }
 
 .setting-card-titles {

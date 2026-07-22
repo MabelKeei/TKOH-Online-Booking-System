@@ -20,6 +20,8 @@ export function normalizePointsToNoteHtml (html) {
   return root.innerHTML
 }
 
-export function formatPointsToNoteForDisplay (html) {
-  return normalizePointsToNoteHtml(stripDuplicatePointsToNoteHeading(html))
+export function formatPointsToNoteForDisplay (html, options = {}) {
+  const { includeHeading = false } = options
+  const source = includeHeading ? (html || '') : stripDuplicatePointsToNoteHeading(html)
+  return normalizePointsToNoteHtml(source)
 }

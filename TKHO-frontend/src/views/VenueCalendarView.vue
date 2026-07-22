@@ -379,18 +379,27 @@ import { unwrapCalendarBookings, isSameCalendarDay, isActiveVenue, parseCalendar
 import { getVenueManagementVenues, getVenueBookingWindow, createVenueBlock } from '@/api/venueManagement'
 import { notifyAdminPendingUpdated } from '@/utils/adminPendingSync'
 import { getRestrictedBookingMessage, isRestrictedBookingDay } from '@/utils/bookingDateRestriction'
+import { todayYmdInAppTimeZone } from '@/utils/appTimezone'
 import {
-  loadVenueCalendarRoomFilter,
+  loadVenueCalendarRoomFilterState,
   saveVenueCalendarRoomFilter,
   applyVenueCalendarRoomFilter
 } from '@/utils/venueCalendarRoomFilter'
+import {
+  loadVenueCalendarView,
+  saveVenueCalendarView
+} from '@/utils/venueCalendarView'
+import {
+  loadImportantNoteTipExpanded,
+  saveImportantNoteTipExpanded
+} from '@/utils/importantNoteTip'
 
 const route = useRoute()
 const userStore = useUserStore()
-const { isAdmin } = storeToRefs(userStore)
+const { isAdmin, userInfo } = storeToRefs(userStore)
 
-// Current calendar view mode
-const currentView = ref('day')
+// Current calendar view mode（刷新后从 sessionStorage 恢复）
+const currentView = ref(loadVenueCalendarView())
 
 // Current anchor date
 const currentDate = ref(new Date())
@@ -411,7 +420,11 @@ const selectedTime = ref(null)
 const showDatePicker = ref(false)
 const pickerDate = ref(new Date()) // Month/year shown in the date picker
 const showRoomFilter = ref(false)
-const showTopTip = ref(true)
+const tipUserKey = () => userInfo.value?.id ?? null
+const showTopTip = ref(loadImportantNoteTipExpanded('venue', tipUserKey()))
+watch(showTopTip, (expanded) => {
+  saveImportantNoteTipExpanded('venue', tipUserKey(), expanded)
+})
 const showBlockDialog = ref(false)
 const noticeDialogVisible = ref(false)
 const showNoticeDialog = ref(false)
@@ -520,12 +533,12 @@ function loadBlockRecordsFromVenues () {
   })
 }
 
-/** 拉取结果里出现的场地自动勾选，避免预订被筛选藏掉（从 VenueBooking 带 roomType 进入时不覆盖路由筛选） */
+/** 拉取结果里出现的场地自动勾选，避免预订被筛选藏掉（已从 storage 恢复或 URL 带 roomType 初始筛选时不覆盖） */
 function syncSelectedRoomsWithBookings (bookingList) {
-  if (route.query.roomType === 'conference' || route.query.roomType === 'other') {
+  if (roomFilterRestoredFromStorage.value) {
     return
   }
-  if (roomFilterRestoredFromStorage.value) {
+  if (route.query.roomType === 'conference' || route.query.roomType === 'other') {
     return
   }
   const names = new Set(
@@ -668,6 +681,22 @@ function normalizeDateTime(datetimeStr) {
 function isDateInVenueWindow(date) {
   const { start, end } = venueWindowRange.value
   return date >= start && date <= end
+}
+
+function toBookingYmd (date) {
+  if (date instanceof Date && !Number.isNaN(date.getTime())) {
+    return formatDateISO(date)
+  }
+  return String(date || '').trim()
+}
+
+/** 非管理员不可预定今日之前的日期；管理员可添加过去预定 */
+function assertNotPastDateForNonAdmin (date) {
+  if (isAdmin.value) return true
+  const ymd = toBookingYmd(date)
+  if (!ymd || ymd >= todayYmdInAppTimeZone()) return true
+  showNotice('Past dates cannot be booked. Please select today or a future date.', 'Warning')
+  return false
 }
 
 function assertBookableDate (date, baseMessage) {
@@ -941,6 +970,7 @@ function showBookingDialog() {
     showNotice('Current date is outside the venue booking date range', 'Warning')
     return
   }
+  if (!assertNotPastDateForNonAdmin(currentDate.value)) return
   if (!assertBookableDate(currentDate.value)) return
   editingBooking.value = null
   selectedTime.value = null
@@ -954,6 +984,7 @@ function openBookingDialog(timeInfo) {
     showNotice('Selected slot is outside the venue booking date range', 'Warning')
     return
   }
+  if (slotDay && !assertNotPastDateForNonAdmin(slotDay)) return
   if (slotDay && !assertBookableDate(slotDay)) return
   if (timeInfo?.room && timeInfo?.date && timeInfo?.time) {
     const slotDate = parseCalendarDateLocal(timeInfo.date)
@@ -1043,9 +1074,13 @@ function buildBookingPayload (bookingData) {
     topic: bookingData.topic,
     remark: bookingData.remark,
     attendeeCount: bookingData.attendeeCount,
+    displayTitlePublic: bookingData.displayTitlePublic !== false,
     teaServiceRequired: bookingData.teaServiceRequired,
-    teaOrWater: bookingData.teaOrWater,
-    serviceType: bookingData.serviceType,
+    teaServiceOption: bookingData.teaServiceOption,
+    teaServiceRatioFrom: bookingData.teaServiceRatioFrom,
+    teaServiceRatioTo: bookingData.teaServiceRatioTo,
+    teaServiceTeaPots: bookingData.teaServiceTeaPots,
+    teaServiceWaterPots: bookingData.teaServiceWaterPots,
     teaServiceSpecialRequest: bookingData.teaServiceSpecialRequest,
     roomType: roomType.value,
     reservedByUserId: bookingData.reservedByUserId || undefined
@@ -1054,6 +1089,24 @@ function buildBookingPayload (bookingData) {
 
 // Handle booking create/update
 async function handleBookingConfirm (bookingData) {
+  const existingId = bookingData.id != null ? String(bookingData.id) : ''
+  const approvedOnly =
+    !isAdmin.value &&
+    String(bookingData?.approvalStatus || editingBooking.value?.approvalStatus || '')
+      .toLowerCase() === 'approved'
+
+  if (approvedOnly && existingId && /^\d+$/.test(existingId)) {
+    try {
+      await updateVenueBooking(existingId, { remark: bookingData.remark ?? '' })
+      showNotice('Booking updated successfully!', 'Success')
+      await fetchBookings()
+      closeBookingDialog()
+    } catch (error) {
+      console.error('Failed to save booking:', error)
+    }
+    return
+  }
+
   const roomName = bookingData.room || bookingData.roomName
   const bookingStart = normalizeDateTime(`${bookingData.date} ${bookingData.startTime}`)
   const bookingEnd = normalizeDateTime(`${bookingData.date} ${bookingData.endTime}`)
@@ -1070,7 +1123,6 @@ async function handleBookingConfirm (bookingData) {
   }
 
   const payload = buildBookingPayload(bookingData)
-  const existingId = bookingData.id != null ? String(bookingData.id) : ''
 
   try {
     if (existingId && /^\d+$/.test(existingId)) {
@@ -1151,16 +1203,21 @@ async function loadCalendarData () {
     applyVenueListToRoomFilters()
     loadBlockRecordsFromVenues()
     roomFilterRestoredFromStorage.value = false
-    const hasRouteRoomType =
-      route.query.roomType === 'conference' || route.query.roomType === 'other'
-    if (hasRouteRoomType) {
+    const filterState = loadVenueCalendarRoomFilterState()
+    if (filterState?.bookNowRoomType) {
+      // 刚从 Book Now 进入：用 Book Now 类型默认筛选，并立刻落盘为 selectedIds
+      roomType.value = filterState.bookNowRoomType
       applyRoomTypeRouteFilter()
-    } else {
-      const savedIds = loadVenueCalendarRoomFilter()
-      if (savedIds !== null) {
-        applyVenueCalendarRoomFilter(allRooms.value, savedIds)
-        roomFilterRestoredFromStorage.value = true
-      }
+      saveVenueCalendarRoomFilter(allRooms.value)
+      roomFilterRestoredFromStorage.value = true
+    } else if (filterState?.selectedIds) {
+      // 刷新 / 同会话再进日历：恢复上次手动筛选
+      applyVenueCalendarRoomFilter(allRooms.value, filterState.selectedIds)
+      roomFilterRestoredFromStorage.value = true
+    } else if (route.query.roomType === 'conference' || route.query.roomType === 'other') {
+      applyRoomTypeRouteFilter()
+      saveVenueCalendarRoomFilter(allRooms.value)
+      roomFilterRestoredFromStorage.value = true
     }
     if (!isDateInVenueWindow(currentDate.value)) {
       currentDate.value = new Date(`${venueBookingWindow.value.currentStartDate}T00:00:00`)
@@ -1174,6 +1231,10 @@ async function loadCalendarData () {
   }
 }
 
+watch(currentView, (view) => {
+  saveVenueCalendarView(view)
+})
+
 watch([currentDate, currentView], () => {
   fetchBookings()
 })
@@ -1181,11 +1242,10 @@ watch([currentDate, currentView], () => {
 watch(
   () => route.query.roomType,
   (val) => {
-    if (val !== 'conference' && val !== 'other') return
-    roomType.value = val
-    roomFilterRestoredFromStorage.value = false
-    if (conferenceRooms.value.length || otherVenues.value.length) {
-      applyRoomTypeRouteFilter()
+    // 仅同步 roomType 状态；筛选由 Book Now 标记 / sessionStorage 在 loadCalendarData 处理
+    // 避免同页 query 变化时误覆盖用户已保存的筛选
+    if (val === 'conference' || val === 'other') {
+      roomType.value = val
     }
   }
 )
@@ -1194,9 +1254,6 @@ watch(
   () => allRooms.value.map((room) => `${room.id}:${room.selected}`).join(','),
   () => {
     if (!roomFilterPersistenceReady.value) return
-    if (route.query.roomType === 'conference' || route.query.roomType === 'other') {
-      return
-    }
     saveVenueCalendarRoomFilter(allRooms.value)
   }
 )

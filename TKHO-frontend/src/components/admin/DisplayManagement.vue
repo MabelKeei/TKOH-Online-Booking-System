@@ -274,6 +274,7 @@ function buildFormFromConfig (data) {
       venueId: item.venueId != null ? item.venueId : null,
       venueName: item.venueName || (item.venueId == null ? 'EV' : ''),
       displayType: item.displayType || 'single',
+      status: String(item.status || 'active').toLowerCase() || 'active',
       mergeGroup: item.mergeGroup ?? '',
       displayName: item.displayName ?? (item.venueId == null ? 'EV' : ''),
       arrowDirection: item.arrowDirection ?? ''
@@ -306,7 +307,11 @@ const showSaveConfigButton = computed(() => {
 
 const independentPreviewLinks = computed(() =>
   form.value.venueRules
-    .filter(item => item.displayType === 'single' && item.venueId != null)
+    .filter(item =>
+      item.displayType === 'single' &&
+      item.venueId != null &&
+      String(item.status || 'active').toLowerCase() === 'active'
+    )
     .map(item => ({
       key: `single-${item.venueId}`,
       label: item.venueName,
@@ -316,7 +321,11 @@ const independentPreviewLinks = computed(() =>
 
 const mergedPreviewLinks = computed(() => {
   const mergedVenues = form.value.venueRules
-    .filter(item => item.displayType === 'merge')
+    .filter(item =>
+      item.displayType === 'merge' &&
+      item.venueId != null &&
+      String(item.status || 'active').toLowerCase() === 'active'
+    )
     .map(item => item.venueName)
 
   if (mergedVenues.length === 0) return []
@@ -328,12 +337,19 @@ const mergedPreviewLinks = computed(() => {
   }]
 })
 
-const rulesTotal = computed(() => form.value.venueRules.length)
+/** Display Rules：仅展示 Active venue（含 EV 行） */
+const visibleVenueRules = computed(() =>
+  form.value.venueRules.filter((item) =>
+    item.venueId == null || String(item.status || 'active').toLowerCase() === 'active'
+  )
+)
+
+const rulesTotal = computed(() => visibleVenueRules.value.length)
 const rulesTotalPages = computed(() => Math.max(1, Math.ceil(rulesTotal.value / rulesPageSize.value)))
 const rulesStartIndex = computed(() => (rulesCurrentPage.value - 1) * rulesPageSize.value)
 const rulesEndIndex = computed(() => Math.min(rulesStartIndex.value + rulesPageSize.value, rulesTotal.value))
 const paginatedVenueRules = computed(() =>
-  form.value.venueRules.slice(rulesStartIndex.value, rulesStartIndex.value + rulesPageSize.value)
+  visibleVenueRules.value.slice(rulesStartIndex.value, rulesStartIndex.value + rulesPageSize.value)
 )
 const rulesVisiblePages = computed(() => {
   const pages = []

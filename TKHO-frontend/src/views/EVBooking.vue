@@ -134,7 +134,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   EV_BOOKING_WINDOW_BC_NAME,
@@ -159,15 +159,23 @@ import {
   isRestrictedBookingDay,
   isWeekendDate
 } from '@/utils/bookingDateRestriction'
+import {
+  loadImportantNoteTipExpanded,
+  saveImportantNoteTipExpanded
+} from '@/utils/importantNoteTip'
 import '@/styles/rich-content.css'
 
 const userStore = useUserStore()
-const { isAdmin } = storeToRefs(userStore)
+const { isAdmin, userInfo } = storeToRefs(userStore)
 
 // 对话框状态
 const dialogVisible = ref(false)
 const noticeDialogVisible = ref(false)
-const showTopTip = ref(true)
+const tipUserKey = () => userInfo.value?.id ?? null
+const showTopTip = ref(loadImportantNoteTipExpanded('ev', tipUserKey()))
+watch(showTopTip, (expanded) => {
+  saveImportantNoteTipExpanded('ev', tipUserKey(), expanded)
+})
 const {
   evRuleNoticeContent,
   evRuleNoticeBannerText,

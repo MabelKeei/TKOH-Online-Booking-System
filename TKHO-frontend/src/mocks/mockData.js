@@ -180,7 +180,9 @@ export function getMockMeetingPendingList () {
       meetingTitle: 'Reserved',
       date: '2026-05-05',
       time: '14:30-15:30',
-      teaService: { attendees: 8, beverages: '不用茶', serveAs: 'pot', quantity: 1, notes: 'Serve at 14:20' },
+      teaService: { option: 'none', attendees: 8 },
+      teaServiceRequired: false,
+      attendees: 8,
       submittedAt: '2026-03-20 10:30'
     },
     {
@@ -195,7 +197,9 @@ export function getMockMeetingPendingList () {
       meetingTitle: 'Team Building Planning',
       date: '2026-05-06',
       time: '09:30-10:30',
-      teaService: { attendees: 10, beverages: '茶 + 杯', serveAs: 'perPersonCup', quantity: 10},
+      teaService: { option: '1', attendees: 10 },
+      teaServiceRequired: true,
+      attendees: 10,
       submittedAt: '2026-03-20 11:15'
     },
     {
@@ -210,7 +214,9 @@ export function getMockMeetingPendingList () {
       meetingTitle: 'Reflooring Discussion',
       date: '2026-05-05',
       time: '10:30-12:30',
-      teaService: { attendees: 12, beverages: '1壺茶+1壺水', serveAs: 'pot', quantity: 2 },
+      teaService: { option: '3', attendees: 12, teaPots: 1, waterPots: 1 },
+      teaServiceRequired: true,
+      attendees: 12,
       submittedAt: '2026-05-05 11:15'
     },
     {
@@ -225,7 +231,9 @@ export function getMockMeetingPendingList () {
       meetingTitle: 'Booking System Discussion with JW',
       date: '2026-05-05',
       time: '15:00-17:00',
-      teaService: { attendees: 6, beverages: '2壺茶', serveAs: 'perPersonCup', quantity: 6, notes: 'No sugar' },
+      teaService: { option: '4', attendees: 6, specialRequest: '不加糖，11:00 再送一輪' },
+      teaServiceRequired: true,
+      attendees: 6,
       submittedAt: '2026-05-05 11:15'
     },
     {
@@ -240,7 +248,9 @@ export function getMockMeetingPendingList () {
       meetingTitle: 'Labour Department OSH Inspection Meeting',
       date: '2026-05-05',
       time: '10:00-12:00',
-      teaService: { attendees: 18, beverages: '每位茶', serveAs: 'perPersonCup', quantity: 18 },
+      teaService: { option: '1', attendees: 18 },
+      teaServiceRequired: true,
+      attendees: 18,
       submittedAt: '2026-05-05 11:15'
     },
     {
@@ -255,22 +265,9 @@ export function getMockMeetingPendingList () {
       meetingTitle: 'Fall Prevention Internal Meeting',
       date: '2026-05-05',
       time: '09:30-13:00',
-      teaService: { attendees: 14, beverages: '每位茶', serveAs: 'pot', quantity: 2, notes: 'Refill at 11:00' },
-      submittedAt: '2026-05-05 11:15'
-    },
-    {
-      id: 6,
-      bookingId: 'BK20260320007',
-      venueId: 3,
-      venueName: 'Conference Room C',
-      bookerEmployeeId: 2,
-      bookerCorpId: 'E002',
-      userName: 'Jane Smith',
-      department: 'CNS',
-      meetingTitle: 'Fall Prevention Internal Meeting',
-      date: '2026-05-06',
-      time: '09:30-13:00',
-      teaService: { attendees: 14, beverages: '每位茶', serveAs: 'pot', quantity: 2, notes: 'Refill at 11:00' },
+      teaService: { option: '2', attendees: 14, ratioFrom: 2, ratioTo: 3 },
+      teaServiceRequired: true,
+      attendees: 14,
       submittedAt: '2026-05-06 11:15'
     }
   ]
@@ -294,6 +291,8 @@ export function getMockTeaServiceRequests () {
         meetingTitle: item.meetingTitle,
         date: item.date,
         time: item.time,
+        attendees: item.attendees ?? item.teaService?.attendees ?? null,
+        teaServiceRequired: item.teaServiceRequired ?? true,
         teaService: { ...item.teaService },
         completed: Boolean(_teaServiceDoneByBookingId[item.bookingId || item.id])
       }
@@ -500,6 +499,14 @@ export function getMockPromptList () {
       canAdd: false
     },
     {
+      id: 18,
+      key: 'venue_add_booking_tea_service',
+      name: 'Tea Service Required',
+      content: 'Reminder prompt:\nOther venues: ADS, Ad hoc bookings: GO',
+      category: 'system_fixed',
+      canAdd: false
+    },
+    {
       id: 9,
       key: 'meeting_approval_reject_template',
       name: 'Meeting Title Non-compliant',
@@ -646,8 +653,8 @@ export function getMockEVManageBookingList () {
   const normalizeEvManageBookingMock = (row) => ({
     ...row,
     submittedAt: row.submittedAt || (row.bookedOn ? `${row.bookedOn} 09:30` : ''),
-    reservedBy: row.reservedBy || row.corpId || undefined,
-    submitter: row.submitter || row.reservedBy || row.corpId || undefined
+    reservedBy: row.reservedBy || undefined,
+    submitter: row.submitter || row.reservedBy || undefined
   })
   if (_evManageBookingList) {
     return cloneMockList(_evManageBookingList).map(normalizeEvManageBookingMock)
@@ -679,15 +686,21 @@ export function getMockEVManageBookingList () {
     { id: 24, licensePlate: 'HK7895', space: 'B1', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
     { id: 25, licensePlate: 'HK7896', space: 'B2', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
     { id: 26, licensePlate: 'HK7897', space: 'B3', date: '5 Apr 2026', time: 'PM (13:45 - 18:15)', bookedOn: '28 Mar 2026', status: 'upcoming' },
-    { id: 27, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin-test', submitter: 'Admin-test', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B1', date: '8 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '1 Apr 2026', status: 'upcoming' },
-    { id: 28, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin-test', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B2', date: '27 Mar 2026', time: 'PM (13:45 - 18:15)', bookedOn: '20 Mar 2026', status: 'past' },
-    { id: 29, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin-test', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B3', date: '10 Apr 2026', time: 'Night (19:00 - 23:30)', bookedOn: '3 Apr 2026', status: 'cancelled' }
+    { id: 27, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin Test User', submitter: 'Admin Test User', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B1', date: '8 Apr 2026', time: 'AM (08:30 - 13:00)', bookedOn: '1 Apr 2026', status: 'upcoming' },
+    { id: 28, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin Test User', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B2', date: '27 Mar 2026', time: 'PM (13:45 - 18:15)', bookedOn: '20 Mar 2026', status: 'past' },
+    { id: 29, employeeId: 1, corpId: 'Admin-test', reservedBy: 'Admin Test User', email: 'employee1@tkho.local', licensePlate: 'AT1001', space: 'B3', date: '10 Apr 2026', time: 'Night (19:00 - 23:30)', bookedOn: '3 Apr 2026', status: 'cancelled' }
   ]
   return cloneMockList(_evManageBookingList).map(normalizeEvManageBookingMock)
 }
 
 export function getMockVenueManageBookingList () {
-  if (_venueManageBookingList) return cloneMockList(_venueManageBookingList)
+  const normalizeVenueManageBookingMock = (row) => ({
+    ...row,
+    submitter: row.submitter || row.reservedBy || undefined
+  })
+  if (_venueManageBookingList) {
+    return cloneMockList(_venueManageBookingList).map(normalizeVenueManageBookingMock)
+  }
   _venueManageBookingList = [
     { id: 1, topic: 'Department Monthly Review', room: 'Conference Room 1', date: '10 Feb 2026', time: '10:00 - 11:30', bookedOn: '28 Jan 2026 14:30', status: 'upcoming', type: 'venue', reservedBy: 'Chan Tai Man', contact: '12345678', email: 'abc@xyz.com', teaServiceRequired: true, teaServiceSummary: 'Tea / One Pot', teaServiceParticipants: 8, approvalStatus: 'pending', approvedBy: '', approvedAt: '', rejectReason: '' },
     { id: 2, topic: 'Project Kick-off Meeting', room: 'Discussion Room', date: '5 May 2026', time: '14:00 - 15:30', bookedOn: '30 Mar 2026 09:15', status: 'upcoming', type: 'venue', reservedBy: 'Karen Shen', contact: '12345678', email: 'karen.shen@ha.org.hk', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '30 Jan 2026 09:15', rejectReason: '' },
@@ -706,7 +719,7 @@ export function getMockVenueManageBookingList () {
     { id: 15, employeeId: 1, corpId: 'Admin-test', topic: 'Admin-test System Review', room: 'Discussion Room', date: '22 Mar 2026', time: '15:00 - 16:00', bookedOn: '15 Mar 2026 16:20', status: 'past', type: 'venue', reservedBy: 'Admin-test', contact: '91000000', email: 'employee1@tkho.local', teaServiceRequired: false, approvalStatus: 'approved', approvedBy: 'Admin', approvedAt: '15 Mar 2026 16:25', rejectReason: '' },
     { id: 16, employeeId: 1, corpId: 'Admin-test', topic: 'Admin-test Budget Workshop', room: 'Function Room', date: '18 Apr 2026', time: '14:00 - 16:00', bookedOn: '06 Apr 2026 11:10', status: 'canceled', type: 'venue', reservedBy: 'Admin-test', contact: '91000000', email: 'employee1@tkho.local', teaServiceRequired: true, teaServiceSummary: 'Water / One Bottle Per Person', teaServiceParticipants: 18, approvalStatus: 'rejected', approvedBy: '', approvedAt: '', rejectReason: 'Rescheduled by organizer' }
   ]
-  return cloneMockList(_venueManageBookingList)
+  return cloneMockList(_venueManageBookingList).map(normalizeVenueManageBookingMock)
 }
 
 export function getMockVenueCalendarBookingList ({ today = new Date() } = {}) {

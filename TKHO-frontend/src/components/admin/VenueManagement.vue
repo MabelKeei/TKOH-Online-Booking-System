@@ -82,6 +82,21 @@
             {{ row.roomCapacity ?? row.capacity ?? '-' }}
           </template>
         </el-table-column>
+        <el-table-column label="Daily Open Hours" min-width="150" align="center">
+          <template #default="{ row }">
+            {{ formatVenueDailyBookingWindowLabel(row) || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="Tea Service" min-width="120" align="center">
+          <template #default="{ row }">
+            <el-tag
+              effect="light"
+              :class="normalizeTeaServiceAvailable(row.teaServiceAvailable) ? 'tea-service-tag-yes' : 'tea-service-tag-no'"
+            >
+              {{ normalizeTeaServiceAvailable(row.teaServiceAvailable) ? 'Yes' : 'No' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column min-width="150">
           <template #header>
             <SortableFilterHeader
@@ -252,6 +267,27 @@
             controls-position="right"
           />
         </el-form-item>
+        <el-form-item label="Daily Open Hours">
+          <div class="daily-booking-window-row">
+            <el-time-picker
+              v-model="formData.dailyBookingStartTime"
+              format="HH:mm"
+              value-format="HH:mm"
+              placeholder="Start"
+              :teleported="false"
+              clearable
+            />
+            <span class="daily-booking-window-sep">to</span>
+            <el-time-picker
+              v-model="formData.dailyBookingEndTime"
+              format="HH:mm"
+              value-format="HH:mm"
+              placeholder="End"
+              :teleported="false"
+              clearable
+            />
+          </div>
+        </el-form-item>
         <el-form-item label="Display Type">
           <div class="display-type-buttons">
             <button
@@ -287,6 +323,13 @@
           >
             <font-awesome-icon v-if="(formData.imageList?.length || 0) < 1" :icon="['fas', 'plus']" />
           </el-upload>
+        </el-form-item>
+        <el-form-item label="Tea Service">
+          <el-switch
+            v-model="formData.teaServiceAvailable"
+            :active-value="true"
+            :inactive-value="false"
+          />
         </el-form-item>
         <el-form-item label="Active">
           <el-switch v-model="formData.status" active-value="active" inactive-value="inactive" />
@@ -450,6 +493,19 @@ import {
   uploadVenueImage
 } from '@/api/venueManagement'
 import { loadProtectedAssetUrl } from '@/utils/apiAsset'
+import { formatVenueDailyBookingWindowLabel } from '@/utils/venueDailyBookingWindow'
+
+function normalizeTeaServiceAvailable (value, defaultValue = true) {
+  if (value === true || value === 'true') return true
+  if (value === false || value === 'false') return false
+  if (value === undefined || value === null) return defaultValue
+  return Boolean(value)
+}
+
+function normalizeDailyBookingTime (value) {
+  const raw = String(value ?? '').trim()
+  return raw || null
+}
 
 const venueList = ref([])
 const activeMainTab = ref('venueList')
@@ -574,6 +630,9 @@ const formData = ref({
   location: '',
   locationZh: '',
   roomCapacity: null,
+  dailyBookingStartTime: null,
+  dailyBookingEndTime: null,
+  teaServiceAvailable: true,
   displayType: 'single',
   image: '',
   imageList: [],
@@ -830,25 +889,19 @@ onUnmounted(() => {
 })
 
 const handleExport = () => {
-  const exportData = filteredVenueList.value.map(item => {
-    const base = {
-      'Room / Venue Name': item.name,
-      'Name (ZH)': item.nameZh || '',
-      'Color': item.color,
-      'Location': item.location,
-      'Location (ZH)': item.locationZh || '',
-      'Status': item.status === 'active' ? 'Active' : 'Inactive'
-    }
-
-    if (activeCategory.value === 'conference_discussion') {
-      return {
-        ...base,
-        'Type': getTypeLabel(item.type)
-      }
-    }
-
-    return base
-  })
+  const exportData = venueList.value.map(item => ({
+    'Room / Venue Name': item.name,
+    'Name (ZH)': item.nameZh || '',
+    'Type': getTypeLabel(item.type),
+    'Color': item.color,
+    'Location': item.location,
+    'Location (ZH)': item.locationZh || '',
+    'Capacity': item.roomCapacity ?? item.capacity ?? '',
+    'Daily Open Hours': formatVenueDailyBookingWindowLabel(item) || '-',
+    'Tea Service': normalizeTeaServiceAvailable(item.teaServiceAvailable) ? 'Yes' : 'No',
+    'Display Type': item.displayType === 'single' ? 'Single' : 'Merge',
+    'Status': item.status === 'active' ? 'Active' : 'Inactive'
+  }))
 
   const ws = XLSX.utils.json_to_sheet(exportData)
   const wb = XLSX.utils.book_new()
@@ -918,6 +971,9 @@ const handleAdd = () => {
     location: '',
     locationZh: '',
     roomCapacity: null,
+    dailyBookingStartTime: null,
+    dailyBookingEndTime: null,
+    teaServiceAvailable: true,
     displayType: 'single',
     image: '',
     imageList: [],
@@ -929,20 +985,36 @@ const handleAdd = () => {
 
 const handleEdit = async (row) => {
   formMode.value = 'edit'
-  if (!Array.isArray(row.blocks)) row.blocks = []
-  const previewUrl = row.image ? await loadProtectedAssetUrl(row.image) : ''
+  const imagePath = row?.image || ''
   formData.value = {
-    ...row,
-    tab: row.tab ?? row.category ?? activeCategory.value,
-    type: row.type ?? ((row.tab ?? row.category) === 'conference_discussion' ? 'conference' : 'other'),
-    blocks: Array.isArray(row.blocks) ? row.blocks : [],
-    displayType: row.displayType || 'single',
-    nameZh: row.nameZh || '',
-    locationZh: row.locationZh || '',
-    roomCapacity: row.roomCapacity ?? row.capacity ?? null,
-    imageList: previewUrl ? [{ url: previewUrl }] : []
+    id: row?.id,
+    name: row?.name || '',
+    nameZh: row?.nameZh || '',
+    tab: row?.tab ?? row?.category ?? activeCategory.value,
+    type: row?.type ?? ((row?.tab ?? row?.category) === 'conference_discussion' ? 'conference' : 'other'),
+    color: row?.color || '',
+    location: row?.location || '',
+    locationZh: row?.locationZh || '',
+    roomCapacity: row?.roomCapacity ?? row?.capacity ?? null,
+    dailyBookingStartTime: row?.dailyBookingStartTime || null,
+    dailyBookingEndTime: row?.dailyBookingEndTime || null,
+    teaServiceAvailable: normalizeTeaServiceAvailable(row?.teaServiceAvailable),
+    displayType: row?.displayType || 'single',
+    image: imagePath,
+    imageList: [],
+    blocks: Array.isArray(row?.blocks) ? [...row.blocks] : [],
+    status: row?.status || 'active'
   }
   showForm.value = true
+
+  if (!imagePath) return
+  try {
+    const previewUrl = await loadProtectedAssetUrl(imagePath)
+    if (!showForm.value || formMode.value !== 'edit' || formData.value.id !== row?.id) return
+    formData.value.imageList = previewUrl ? [{ url: previewUrl }] : []
+  } catch (err) {
+    console.warn('[VenueManagement] preview image load failed', err)
+  }
 }
 
 const handleSave = async () => {
@@ -963,6 +1035,17 @@ const handleSave = async () => {
 
   if (formData.value.roomCapacity == null || Number(formData.value.roomCapacity) < 1) {
     showNotice('Capacity must be at least 1', 'Warning')
+    return
+  }
+
+  const dailyStart = normalizeDailyBookingTime(formData.value.dailyBookingStartTime)
+  const dailyEnd = normalizeDailyBookingTime(formData.value.dailyBookingEndTime)
+  if ((dailyStart && !dailyEnd) || (!dailyStart && dailyEnd)) {
+    showNotice('Daily open booking hours require both start and end time', 'Warning')
+    return
+  }
+  if (dailyStart && dailyEnd && dailyStart >= dailyEnd) {
+    showNotice('Daily open booking end time must be later than start time', 'Warning')
     return
   }
 
@@ -988,6 +1071,9 @@ const handleSave = async () => {
     location: formData.value.location,
     locationZh: formData.value.locationZh,
     roomCapacity: formData.value.roomCapacity == null ? null : Number(formData.value.roomCapacity),
+    dailyBookingStartTime: dailyStart,
+    dailyBookingEndTime: dailyEnd,
+    teaServiceAvailable: normalizeTeaServiceAvailable(formData.value.teaServiceAvailable),
     displayType: formData.value.displayType,
     status: formData.value.status,
     image: selectedImageFile ? (formData.value.image || '') : (formData.value.imageList?.[0]?.url || '')
@@ -1161,6 +1247,26 @@ const handlePreview = (file) => {
 </script>
 
 <style scoped>
+.daily-booking-window-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.daily-booking-window-row :deep(.el-date-editor) {
+  width: 140px;
+  flex: 0 0 140px;
+}
+
+.daily-booking-window-sep {
+  color: #6b7280;
+  font-size: 14px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .page-container {
   height: 100%;
   min-height: 100%;
@@ -1891,6 +1997,22 @@ const handlePreview = (file) => {
   border-color: #2563eb;
   background: #dbeafe;
   color: #2563eb;
+}
+
+.page-content :deep(.tea-service-tag-yes) {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0 10px;
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.page-content :deep(.tea-service-tag-no) {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0 10px;
+  background-color: #f3f4f6;
+  color: #6b7280;
 }
 
 .page-content :deep(.display-tag-single) {

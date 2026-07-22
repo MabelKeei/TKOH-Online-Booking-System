@@ -17,9 +17,9 @@ export class MeetingApprovalController {
     return this.meetingApprovalService.listPending();
   }
 
-  @Get('pending-timeout')
-  listPendingTimeout() {
-    return this.meetingApprovalService.listPendingTimeout();
+  @Get('pending-expired')
+  listPendingExpired() {
+    return this.meetingApprovalService.listPendingExpired();
   }
 
   @Get('approved')

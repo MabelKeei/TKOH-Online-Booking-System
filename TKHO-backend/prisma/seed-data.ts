@@ -284,6 +284,15 @@ const prompts: SeedPrompt[] = [
   },
   {
     id: 7,
+    promptKey: 'venue_add_booking_tea_service',
+    name: 'Tea Service Required',
+    content: 'Reminder prompt:\nOther venues: ADS, Ad hoc bookings: GO',
+    category: 'system_fixed',
+    canAdd: false,
+    templateType: null,
+  },
+  {
+    id: 8,
     promptKey: 'ev_booking_rule_update_notice',
     name: 'EV Booking Rule Update Notice',
     content: `<p style="text-align: center"><span style="color: rgb(225, 60, 57)"><strong>[ For Attention, please ]</strong></span></p><p style="text-align: center"><span style="color: rgb(225, 60, 57)"><strong>Updates on Booking Rules of EV Charging Facilities</strong></span></p><p><u><strong>Effective from 01 JAN 2025</strong></u></p><p>a. Booking quota: Change from 2 sessions/week to <span style="color: rgb(225, 60, 57)">1 session/week</span></p><p>b. Period of AM session: Change from 09:00hr-13:15hr to<span style="color: rgb(225, 60, 57)"> 08:30hr-13:00hr</span></p><p>c. Period of PM session: Change from 14:00hr-18:15hr to <span style="color: rgb(225, 60, 57)">13:45hr-18:15hr</span></p><p><u><strong>Effective from 13 JAN 2025</strong></u></p><p>d. New booking timeslots releasing time: Change from 00:00hr everyday to <span style="color: rgb(225, 60, 57)">13:00hr everyday</span></p>`,
@@ -292,7 +301,7 @@ const prompts: SeedPrompt[] = [
     templateType: null,
   },
   {
-    id: 8,
+    id: 9,
     promptKey: 'venue_booking_rule_update_notice',
     name: 'Venue Booking Rule Update Notice',
     content: `<p class="venue-notice-line">Lecture Theatre is temporarily closed.</p><p class="venue-notice-line zh">演講廳暫停使用</p>`,
@@ -301,7 +310,7 @@ const prompts: SeedPrompt[] = [
     templateType: null,
   },
   {
-    id: 9,
+    id: 10,
     promptKey: 'user_application_reject_template',
     name: 'User Application Reject Template',
     content: 'Your user application is rejected. Reason: {reason}',
@@ -310,7 +319,7 @@ const prompts: SeedPrompt[] = [
     templateType: 'user_application',
   },
   {
-    id: 10,
+    id: 11,
     promptKey: 'meeting_approval_reject_template',
     name: 'Meeting Title Non-compliant',
     content: `Your meeting booking request is rejected because the meeting title is not compliant. Please provide a clear and business-related title.`,
@@ -319,7 +328,7 @@ const prompts: SeedPrompt[] = [
     templateType: 'meeting_approval',
   },
   {
-    id: 11,
+    id: 12,
     promptKey: 'meeting_approval_reject_template',
     name: 'Insufficient Meeting Details',
     content: `Your meeting booking request is rejected due to insufficient meeting details. Please complete the purpose and required information before resubmission.`,
@@ -328,7 +337,7 @@ const prompts: SeedPrompt[] = [
     templateType: 'meeting_approval',
   },
   {
-    id: 12,
+    id: 13,
     promptKey: 'meeting_approval_reject_template',
     name: 'Duplicate Time Slot Booking',
     content: `Your meeting booking request is rejected because the selected date/time conflicts with an existing booking under your account.`,
@@ -337,7 +346,7 @@ const prompts: SeedPrompt[] = [
     templateType: 'meeting_approval',
   },
   {
-    id: 13,
+    id: 14,
     promptKey: 'user_application_reject_template',
     name: 'Invalid Contact Phone Number',
     content: `Your user application is rejected because the contact telephone number is invalid. Please provide a valid and reachable phone number.`,
@@ -346,7 +355,7 @@ const prompts: SeedPrompt[] = [
     templateType: 'user_application',
   },
   {
-    id: 14,
+    id: 15,
     promptKey: 'user_application_reject_template',
     name: 'Email Format Invalid',
     content: `Your user application is rejected due to invalid email format. Please provide a valid corporate email address.`,
@@ -355,7 +364,7 @@ const prompts: SeedPrompt[] = [
     templateType: 'user_application',
   },
   {
-    id: 15,
+    id: 16,
     promptKey: 'user_application_reject_template',
     name: 'Department Information Missing',
     content: `Your user application is rejected because department information is missing or incorrect. Please update and submit again.`,
@@ -364,7 +373,7 @@ const prompts: SeedPrompt[] = [
     templateType: 'user_application',
   },
   {
-    id: 16,
+    id: 17,
     promptKey: 'user_application_reject_template',
     name: 'User Application Reject Template',
     content: 'Your user application is rejected. Reason: {222222222222222}',
@@ -373,7 +382,7 @@ const prompts: SeedPrompt[] = [
     templateType: 'user_application',
   },
   {
-    id: 17,
+    id: 18,
     promptKey: 'user_application_reject_template',
     name: 'User Application Reject Template',
     content: 'Your user application is rejected. Reason: {33333333333333333}',

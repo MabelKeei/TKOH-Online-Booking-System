@@ -102,6 +102,13 @@ const props = defineProps({
   selectClass: {
     type: String,
     default: ''
+  },
+  /**
+   * venue：仅列出角色 annual_venue_quota > 0 或 -1（无限）的用户，并始终隐藏 SuperAdmin
+   */
+  ownerScope: {
+    type: String,
+    default: ''
   }
 })
 
@@ -165,7 +172,10 @@ async function fetchUsers ({ reset = false, keyword = ownerKeyword.value, showLo
     const data = await listUserOwnerOptions({
       keyword: String(keyword || '').trim() || undefined,
       page: targetPage,
-      pageSize: PAGE_SIZE
+      pageSize: PAGE_SIZE,
+      ...(String(props.ownerScope || '').trim()
+        ? { scope: String(props.ownerScope).trim() }
+        : {})
     })
     const rows = Array.isArray(data?.items) ? data.items : []
     if (reset) userOptions.value = []

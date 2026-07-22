@@ -1,126 +1,137 @@
 <template>
-  <div class="tea-board-root">
-    <div class="tea-board-header">
-      <div class="header-title">{{ t.title }}</div>
-      <div class="header-datetime">
-        <span class="header-date">{{ currentDate }}</span>
-        <span class="header-time">{{ currentTime }}</span>
-      </div>
-    </div>
+  <div ref="displayRoot" class="tea-display-root">
+    <header class="tea-header">
+      <div class="header-title">茶水服務</div>
+      <div class="header-datetime">{{ headerDateTime }}</div>
+    </header>
 
-    <div class="tea-board-content">
-      <div class="list-header">
-        <div class="col-venue">{{ t.venue }}</div>
-        <div class="col-time">{{ t.time }}</div>
-        <div class="col-details">{{ t.details }}</div>
-        <div class="col-done">{{ t.done }}</div>
-      </div>
-
-      <div class="list-body">
-        <div v-for="(dateGroup, dateIdx) in groupedByDate" :key="dateGroup.date" class="date-section">
-          <div class="date-divider" :class="dateGroup.colorScheme">
-            <span class="date-label">{{ formatDateLabel(dateGroup.date) }}</span>
+    <main class="tea-schedule">
+      <template v-for="(dateGroup, dateIdx) in groupedByDate" :key="dateGroup.date">
+        <section class="day-section">
+          <div class="schedule-header">
+            <div class="date-label">
+              {{ formatSlashDateFromYmd(dateGroup.date) }}<span v-if="dateGroup.isToday" class="date-today-tag"> ( 今日 )</span>
+            </div>
+            <div class="slot-col period-am">上午</div>
+            <div class="period-divider" aria-hidden="true"></div>
+            <div class="slot-col period-pm">下午</div>
           </div>
 
-          <div
-            v-for="(venueGroup, venueIdx) in dateGroup.venues"
-            :key="`${dateGroup.date}-${venueGroup.venueKey}`"
-            class="venue-group"
-            :class="[dateGroup.colorScheme, `venue-${venueIdx % 4}`]"
-          >
+          <div v-if="dateGroup.venues.length" class="schedule-body">
             <div
-              v-for="(request, idx) in venueGroup.requests"
-              :key="`${request.bookingId || request.id}-${idx}`"
-              class="request-row"
-              :class="{
-                completed: request.completed,
-                'first-row': idx === 0,
-                'continuation-row': idx > 0
-              }"
-              @click="toggleRequest(request)"
+              v-for="venueGroup in dateGroup.venues"
+              :key="`${dateGroup.date}-${venueGroup.venueKey}`"
+              class="venue-row"
             >
-              <div class="col-venue">
-                <span v-if="idx === 0" class="venue-name">{{ venueGroup.venueName }}</span>
+              <div class="room-col room-name">{{ venueGroup.venueName }}</div>
+
+              <div class="slot-col period-am">
+                <div
+                  v-for="request in venueGroup.am"
+                  :key="request.bookingId || request.id"
+                  class="service-entry service-entry-am"
+                  :class="{
+                    completed: request.completed,
+                    'is-read-only': !dateGroup.isToday
+                  }"
+                  @click="dateGroup.isToday && toggleRequest(request)"
+                >
+                  <span class="entry-time">{{ formatTimeDisplay(request.time) }}</span>
+                  <span
+                    class="entry-details"
+                    :class="entryDetailsClass(request)"
+                  >{{ formatTeaDetails(request) }}</span>
+                  <div class="entry-done" @click.stop>
+                    <el-checkbox
+                      :model-value="request.completed"
+                      :disabled="!dateGroup.isToday"
+                      @update:model-value="(value) => setRequestCompleted(request, value)"
+                    />
+                  </div>
+                </div>
+                <div v-if="!venueGroup.am.length" class="entry-placeholder">-</div>
               </div>
 
-              <div class="col-time">
-                <span class="period-label">{{ periodLabelZh(request.time) }}</span>
-                <span class="time-range">{{ request.time }}</span>
-              </div>
+              <div class="period-divider" aria-hidden="true"></div>
 
-              <div class="col-details">
-                {{ formatTeaDetails(request.teaService) }}
-              </div>
-
-              <div class="col-done" @click.stop>
-                <el-checkbox
-                  :model-value="request.completed"
-                  size="large"
-                  @update:model-value="(val) => setRequestCompleted(request, val)"
-                />
+              <div class="slot-col period-pm">
+                <div
+                  v-for="request in venueGroup.pm"
+                  :key="request.bookingId || request.id"
+                  class="service-entry service-entry-pm"
+                  :class="{
+                    completed: request.completed,
+                    'is-read-only': !dateGroup.isToday
+                  }"
+                  @click="dateGroup.isToday && toggleRequest(request)"
+                >
+                  <span class="entry-time">{{ formatTimeDisplay(request.time) }}</span>
+                  <span
+                    class="entry-details"
+                    :class="entryDetailsClass(request)"
+                  >{{ formatTeaDetails(request) }}</span>
+                  <div class="entry-done" @click.stop>
+                    <el-checkbox
+                      :model-value="request.completed"
+                      :disabled="!dateGroup.isToday"
+                      @update:model-value="(value) => setRequestCompleted(request, value)"
+                    />
+                  </div>
+                </div>
+                <div v-if="!venueGroup.pm.length" class="entry-placeholder">-</div>
               </div>
             </div>
           </div>
 
-          <div class="completed-banner">完</div>
-        </div>
-      </div>
-    </div>
+          <div v-else class="empty-day">-</div>
+        </section>
+
+        <div v-if="dateIdx < groupedByDate.length - 1" class="completed-banner">完</div>
+      </template>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import {
   getTeaServicePublicDisplay,
   setTeaServiceRequestCompleted
 } from '@/api/venueManagement'
+import { formatTeaServiceDisplay } from '@/utils/venueTeaService'
 import {
   getAppDisplayDateTimeParts,
   msUntilNextAppMinute,
   todayYmdInAppTimeZone
 } from '@/utils/appTimezone'
 
-const language = ref('zh-Hant') // Fixed to Traditional Chinese
-const currentDate = ref('')
+/** 设计基准尺寸：按视口等比缩放填满全屏
+ * - BASE_WIDTH 与 iPad 横屏宽度一致（避免 iPad 进一步放大）
+ * - BASE_HEIGHT 采用更贴近电脑的比例（让桌面字体更大）
+ */
+const BASE_WIDTH = 1024
+const BASE_HEIGHT = 640
+const DATA_POLL_MS = 20_000
+
+const displayRoot = ref(null)
+
+const currentDateSlash = ref('')
+const currentWeekdayZh = ref('')
 const currentTime = ref('')
 const teaRequests = ref([])
+const teaDisplayVenues = ref([])
+const displayDates = ref([])
 let lastDisplayFromDate = ''
-const I18N = {
-  'zh-Hant': {
-    title: '茶水服務',
-    done: '完成',
-    venue: '場地',
-    time: '時間',
-    details: '茶水/人數',
-    empty: '暫時沒有茶水服務需求',
-    service: '服務方式',
-    attendees: '人數',
-    beverages: '飲品',
-    notes: '備註',
-    perPot: '壺',
-    perPersonCup: '每人一杯'
-  },
-  en: {
-    title: 'Tea Service',
-    done: 'Done',
-    venue: 'Venue',
-    time: 'Time',
-    details: 'Tea/Attendees',
-    empty: 'No tea service requests for now',
-    service: 'Service',
-    attendees: 'Attendees',
-    beverages: 'Beverages',
-    notes: 'Notes',
-    perPot: 'pot(s)',
-    perPersonCup: 'per person 1 cup'
-  }
-}
-const t = computed(() => I18N[language.value] || I18N['zh-Hant'])
+
+const headerDateTime = computed(() => {
+  if (!currentDateSlash.value) return currentTime.value
+  return `${currentDateSlash.value} ( ${currentWeekdayZh.value} ) ${currentTime.value}`
+})
 
 function updateDateTime () {
   const parts = getAppDisplayDateTimeParts()
-  currentDate.value = `${parts.day}/${parts.month}/${parts.year} ${parts.weekdayEn} ${parts.weekdayZh}`
+  currentWeekdayZh.value = parts.weekdayZh.replace(/^星期/, '')
+  currentDateSlash.value = `${parts.day}/${parts.month}/${parts.year}`
   currentTime.value = `${parts.hour}:${parts.minute}`
 
   const fromDate = todayYmdInAppTimeZone()
@@ -134,17 +145,15 @@ function parseStartTime (timeStr) {
   return timeStr.split('-')[0].trim()
 }
 
-/** 依起始時間區分上午（12:00 前）／下午（12:00 含以後），與展示板一致 */
-function periodLabelZh (timeStr) {
+function isAmRequest (timeStr) {
   const start = parseStartTime(timeStr)
-  if (!start) return ''
+  if (!start) return true
   const m = start.match(/^(\d{1,2}):(\d{2})$/)
-  if (!m) return ''
+  if (!m) return true
   const h = parseInt(m[1], 10)
   const min = parseInt(m[2], 10)
-  if (Number.isNaN(h) || Number.isNaN(min)) return ''
-  const minutes = h * 60 + min
-  return minutes < 12 * 60 ? '上午' : '下午'
+  if (Number.isNaN(h) || Number.isNaN(min)) return true
+  return h * 60 + min < 12 * 60
 }
 
 function compareVenueId (a, b) {
@@ -157,110 +166,104 @@ function compareVenueId (a, b) {
   return sa.localeCompare(sb)
 }
 
-function buildVenueRowsForDate (requests) {
+function buildVenueGroupsForDate (requests, venues) {
   const buckets = new Map()
+
+  // 先把所有可提供茶水的 venue 初始化出来，
+  // 即使某天没有任何 requests，也要展示 venue 名称与“ - ”占位。
+  if (Array.isArray(venues)) {
+    for (const venue of venues) {
+      const venueId = String(venue?.id ?? '')
+      const venueName = venue?.nameZh || venue?.name || '-'
+      if (!venueId) continue
+      buckets.set(venueId, {
+        venueKey: venueId,
+        venueId,
+        venueName,
+        am: [],
+        pm: [],
+      })
+    }
+  }
 
   for (const request of requests) {
     const venueId = String(request.venueId || '')
     const venueKey = venueId || String(request.venueNameZh || request.venueName || '')
-    const venueName = request.venueNameZh || request.venueName || '-'
     if (!venueKey) continue
+
+    // 若后端返回的 venues 列表里不存在该 venueId，则兜底创建，避免“数据漏显示”
     if (!buckets.has(venueKey)) {
-      buckets.set(venueKey, { venueKey, venueId, venueName, requests: [] })
+      buckets.set(venueKey, {
+        venueKey,
+        venueId,
+        venueName: request.venueNameZh || request.venueName || '-',
+        am: [],
+        pm: [],
+      })
     }
-    buckets.get(venueKey).requests.push(request)
+    const bucket = buckets.get(venueKey)
+    if (isAmRequest(request.time)) {
+      bucket.am.push(request)
+    } else {
+      bucket.pm.push(request)
+    }
   }
 
+  const sortByTime = (list) =>
+    [...list].sort((a, b) => parseStartTime(a.time).localeCompare(parseStartTime(b.time)))
+
   return [...buckets.values()]
-    .map(group => {
-      group.requests.sort((a, b) => parseStartTime(a.time).localeCompare(parseStartTime(b.time)))
-      return group
-    })
+    .map(group => ({
+      ...group,
+      am: sortByTime(group.am),
+      pm: sortByTime(group.pm)
+    }))
     .sort((a, b) => compareVenueId(a.venueId || a.venueKey, b.venueId || b.venueKey))
 }
 
 const groupedByDate = computed(() => {
-  const dateGroups = new Map()
+  const dates = displayDates.value.length
+    ? displayDates.value.slice(0, 2)
+    : [todayYmdInAppTimeZone()]
+  const today = todayYmdInAppTimeZone()
 
-  for (const request of teaRequests.value) {
-    if (!dateGroups.has(request.date)) {
-      dateGroups.set(request.date, [])
-    }
-    dateGroups.get(request.date).push(request)
-  }
-
-  if (!dateGroups.size) {
-    const today = todayYmdInAppTimeZone()
-    dateGroups.set(today, [])
-  }
-
-  const result = []
-  let dateIndex = 0
-
-  for (const [date, requests] of dateGroups) {
-    const venues = buildVenueRowsForDate(requests)
-    const completedCount = requests.filter(r => r.completed).length
-    const colorScheme = dateIndex % 2 === 0 ? 'blue' : 'purple'
-
-    result.push({ date, venues, completedCount, colorScheme })
-    dateIndex++
-  }
-
-  return result
+  return dates.map(date => ({
+    date,
+    isToday: date === today,
+    venues: buildVenueGroupsForDate(
+      teaRequests.value.filter(request => request.date === date),
+      teaDisplayVenues.value
+    )
+  }))
 })
-
-function formatTeaDetails (teaService) {
-  if (!teaService) return '-'
-
-  let result = ''
-
-  if (teaService.beverages) {
-    result = teaService.beverages
-  }
-
-  if (teaService.attendees) {
-    result += result ? ` / ${teaService.attendees}` : teaService.attendees
-  }
-
-  if (teaService.notes) {
-    result += result ? ` (${teaService.notes})` : `(${teaService.notes})`
-  }
-
-  return result || '-'
-}
 
 function formatSlashDateFromYmd (ymd) {
   if (!ymd || !ymd.includes('-')) return ymd
   const [year, month, day] = ymd.split('-')
-  return `${month}/${day}/${year}`
+  return `${day}/${month}/${year}`
 }
 
-function addDaysToYmd (ymd, days) {
-  const dt = new Date(`${ymd}T00:00:00.000Z`)
-  dt.setUTCDate(dt.getUTCDate() + days)
-  const y = dt.getUTCFullYear()
-  const m = String(dt.getUTCMonth() + 1).padStart(2, '0')
-  const d = String(dt.getUTCDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+function formatTimeDisplay (timeStr) {
+  if (!timeStr) return ''
+  return String(timeStr).replace('-', ' – ')
 }
 
-function formatDateLabel (dateStr) {
-  const displayDate = formatSlashDateFromYmd(dateStr)
-  const todayYmd = todayYmdInAppTimeZone()
-  const todaySlash = formatSlashDateFromYmd(todayYmd)
-  const tomorrowSlash = formatSlashDateFromYmd(addDaysToYmd(todayYmd, 1))
-
-  if (displayDate === todaySlash) {
-    return `${displayDate} (今天)`
+function formatTeaDetails (request) {
+  if (!request) return '-'
+  if (!request.teaServiceRequired) {
+    return formatTeaServiceDisplay(
+      { option: 'none', attendees: request.attendees },
+      request.attendees
+    )
   }
-  if (displayDate === tomorrowSlash) {
-    return `${displayDate} (明天)`
-  }
-
-  return displayDate
+  return formatTeaServiceDisplay(request.teaService, request.attendees)
 }
 
-/** 打勾請求進行中，避免輪詢覆蓋樂觀更新 */
+function entryDetailsClass (request) {
+  if (request.completed) return 'is-muted'
+  return 'is-highlight'
+}
+
 const pendingCompletedUpdates = new Map()
 const completingBookingIds = new Set()
 
@@ -288,13 +291,23 @@ async function refreshDisplayData () {
   const fromDate = todayYmdInAppTimeZone()
   const data = await getTeaServicePublicDisplay(fromDate)
   const requests = Array.isArray(data?.requests) ? data.requests : []
+  teaDisplayVenues.value = Array.isArray(data?.venues) ? data.venues : []
+  displayDates.value = Array.isArray(data?.dates) && data.dates.length
+    ? data.dates.slice(0, 2)
+    : [fromDate]
   teaRequests.value = mergePendingCompleted(requests)
   lastDisplayFromDate = fromDate
+}
+
+function canCompleteRequest (request) {
+  const today = todayYmdInAppTimeZone()
+  return String(request?.date || '') === today
 }
 
 async function setRequestCompleted (request, completed) {
   const bookingId = String(request.bookingId || request.id)
   if (!bookingId) return
+  if (!canCompleteRequest(request)) return
 
   const normalized = Boolean(completed)
   const idx = teaRequests.value.findIndex(item => String(item.bookingId || item.id) === bookingId)
@@ -324,9 +337,6 @@ async function setRequestCompleted (request, completed) {
 function toggleRequest (request) {
   setRequestCompleted(request, !request.completed)
 }
-
-/** 展示数据轮询（标签可见时），茶水需求变更后自动上屏 */
-const DATA_POLL_MS = 20_000
 
 let clockTimer = null
 let dataPollTimer = null
@@ -374,262 +384,399 @@ function onDocumentVisibilityChange () {
   }
 }
 
+function adaptFullscreen () {
+  const root = displayRoot.value
+  if (!root) return
+
+  const viewportScale = window.visualViewport?.scale || 1
+  const zoomCompensation = viewportScale > 0 ? viewportScale : 1
+  const vw = (window.innerWidth || BASE_WIDTH) * zoomCompensation
+  const vh = (window.innerHeight || BASE_HEIGHT) * zoomCompensation
+  const scale = Math.min(vw / BASE_WIDTH, vh / BASE_HEIGHT) || 1
+  root.style.setProperty('--ui-scale', String(scale))
+
+  document.documentElement.style.width = '100%'
+  document.documentElement.style.height = '100%'
+  document.documentElement.style.margin = '0'
+  document.documentElement.style.padding = '0'
+  document.documentElement.style.overflow = 'hidden'
+
+  document.body.style.width = '100%'
+  document.body.style.height = '100%'
+  document.body.style.margin = '0'
+  document.body.style.padding = '0'
+  document.body.style.overflow = 'hidden'
+}
+
 onMounted(async () => {
+  document.documentElement.classList.add('tea-display-fullscreen')
   try {
     await refreshDisplayData()
   } catch {
     teaRequests.value = []
+    displayDates.value = [todayYmdInAppTimeZone()]
     lastDisplayFromDate = todayYmdInAppTimeZone()
   }
   startClock()
   dataPollTimer = setInterval(pollDisplayDataFromServer, DATA_POLL_MS)
   document.addEventListener('visibilitychange', onDocumentVisibilityChange)
-  document.documentElement.style.overflow = 'hidden'
-  document.body.style.overflow = 'hidden'
+  await nextTick()
+  adaptFullscreen()
+  window.addEventListener('resize', adaptFullscreen)
+  window.visualViewport?.addEventListener('resize', adaptFullscreen)
+  const viewport = document.querySelector('meta[name="viewport"]')
+  if (viewport) {
+    viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+  }
 })
 
 onUnmounted(() => {
+  document.documentElement.classList.remove('tea-display-fullscreen')
   stopClock()
   if (dataPollTimer) clearInterval(dataPollTimer)
   document.removeEventListener('visibilitychange', onDocumentVisibilityChange)
-  document.documentElement.style.overflow = ''
+  window.removeEventListener('resize', adaptFullscreen)
+  window.visualViewport?.removeEventListener('resize', adaptFullscreen)
   document.body.style.overflow = ''
+  document.documentElement.style.overflow = ''
+  document.body.style.width = ''
+  document.body.style.height = ''
+  document.documentElement.style.width = ''
+  document.documentElement.style.height = ''
 })
 </script>
 
+<style>
+html.tea-display-fullscreen {
+  zoom: 1 !important;
+}
+
+html.tea-display-fullscreen #app {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100vh !important;
+  max-width: none !important;
+  margin: 0 !important;
+  background-color: transparent !important;
+  overflow: hidden !important;
+}
+</style>
+
 <style scoped>
-.tea-board-root {
-  position: fixed;
-  inset: 0;
+:global(html),
+:global(body) {
+  margin: 0;
+  padding: 0;
+  width: 100%;
   height: 100%;
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  font-family: 'Arial Narrow', Arial, sans-serif;
-  background: rgb(240, 240, 240);
-  color: rgb(0, 0, 0);
   overflow: hidden;
 }
 
-.tea-board-header {
+.tea-display-root {
+  --ui-scale: 1;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 100vw;
+  min-height: 100vh;
+  background: #001b44;
+  color: #ffffff;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Arial Narrow', Arial, sans-serif;
+  font-size: calc(17px * var(--ui-scale, 1));
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+.tea-display-root * {
+  touch-action: manipulation;
+}
+
+.tea-header {
+  flex-shrink: 0;
+  display: flex;
   align-items: center;
-  padding: 10px 16px;
-  background: rgb(255, 153, 0);
-  color: rgb(0, 0, 0);
+  justify-content: space-between;
+  padding: calc(6px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
+  background: rgb(237, 125, 49);
+  color: #ffffff;
+  font-weight: 700;
 }
 
 .header-title {
-  font-size: 1.45rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.1;
 }
 
 .header-datetime {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
-.header-date {
-  font-size: 1.1rem;
-}
-
-.header-time {
-  font-size: 1.2rem;
-}
-
-.tea-board-content {
+.tea-schedule {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #001b44;
+  padding: 0 calc(24px * var(--ui-scale, 1)) calc(5px * var(--ui-scale, 1));
 }
 
-.list-header {
-  display: grid;
-  grid-template-columns: 1.2fr 2fr 3fr 1fr;
-  gap: 0;
-  padding: 5px 10px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: white;
-  background: #4EA72E;
-  text-align: center;
-}
-
-.list-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  background: white;
-}
-
-.date-section {
-  margin-bottom: 0;
-}
-
-.date-divider {
+.day-section {
+  flex: 0 0 auto;
+  min-height: fit-content;
   display: flex;
-  align-items: center;
-  padding: 5px 10px;
-  background: white;
+  flex-direction: column;
+  overflow: visible;
 }
 
-.date-divider.blue::before,
-.date-divider.blue::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #2196f3;
+.day-section + .day-section {
+  margin-top: calc(8px * var(--ui-scale, 1));
 }
 
-.date-divider.purple::before,
-.date-divider.purple::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #9c27b0;
+.schedule-header,
+.venue-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, calc(120px * var(--ui-scale, 1)))
+    minmax(0, 1fr)
+    calc(50px * var(--ui-scale, 1))
+    minmax(0, 1fr);
+  column-gap: 0;
+  row-gap: 1px;
+  align-items: stretch;
+}
+
+.schedule-header {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 0;
+  padding-top: calc(8px * var(--ui-scale, 1));
+  padding-bottom: calc(10px * var(--ui-scale, 1));
+  background: #001b44;
+  box-shadow: 0 calc(1px * var(--ui-scale, 1)) 0 rgba(255, 255, 255, 0.22);
 }
 
 .date-label {
-  padding: 4px 16px;
-  font-size: 1.2rem;
-  font-weight: 600;
+  padding: 2px 4px;
+  font-size: 1.16rem;
+  font-weight: 700;
+  color: #ffffff;
   white-space: nowrap;
-  margin: 0 12px;
 }
 
-.date-divider.blue .date-label {
-  color: #2196f3;
+.date-today-tag {
+  color: rgb(255, 212, 91);
 }
 
-.date-divider.purple .date-label {
-  color: #9c27b0;
+.period-am,
+.period-pm {
+  text-align: center;
 }
 
-.venue-group {
-  margin-bottom: 0;
+.period-divider {
+  width: 100%;
 }
 
-.venue-group.blue.venue-0 {
-  background: #61CBF4;
+.period-pm {
+  padding-left: calc(8px * var(--ui-scale, 1));
 }
 
-.venue-group.blue.venue-1 {
-  background: #96DCF8;
+.schedule-body {
+  flex: 0 0 auto;
+  min-height: fit-content;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
 }
 
-.venue-group.blue.venue-2 {
-  background: #CAEEFB;
+.venue-row {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: calc(58px * var(--ui-scale, 1));
+  font-size: 1rem;
+  overflow: visible;
 }
 
-.venue-group.blue.venue-3 {
-  background: #FFFFFF;
+.venue-row::after {
+  content: '';
+  position: absolute;
+  left: calc(120px * var(--ui-scale, 1) + 8px * var(--ui-scale, 1));
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.28);
 }
 
-.venue-group.purple.venue-0 {
-  background: #D86ECC;
+.venue-row:last-child::after {
+  display: none;
 }
 
-.venue-group.purple.venue-1 {
-  background: #E59EDD;
+.room-name {
+  display: flex;
+  align-items: flex-start;
+  padding-top: calc(8px * var(--ui-scale, 1));
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #ffffff;
 }
 
-.venue-group.purple.venue-2 {
-  background: #F2CFEE;
+.slot-col {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--ui-scale, 1));
+  padding-top: calc(8px * var(--ui-scale, 1));
+  padding-bottom: calc(8px * var(--ui-scale, 1));
+  overflow: visible;
 }
 
-.venue-group.purple.venue-3 {
-  background: #FFFFFF;
-}
-
-.venue-name {
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #000;
-}
-
-.request-row {
+.service-entry {
   display: grid;
-  grid-template-columns: 1.2fr 2fr 3fr 1fr;
-  gap: 0;
-  padding: 4px 16px;
+  grid-template-columns: auto 1fr auto;
+  column-gap: calc(12px * var(--ui-scale, 1));
+  align-items: center;
+  width: 100%;
+  min-height: calc(36px * var(--ui-scale, 1));
+  padding-block: calc(4px * var(--ui-scale, 1));
   cursor: pointer;
-  transition: background 0.2s;
-  text-align: center;
-  align-items: center;
+  line-height: 1.2;
 }
 
-.request-row:hover {
-  background: #d1e9ff;
+.service-entry-am {
+  column-gap: calc(16px * var(--ui-scale, 1));
 }
 
-.request-row.completed {
-  color: #999;
+.service-entry-pm {
+  column-gap: calc(16px * var(--ui-scale, 1));
 }
 
-.request-row.continuation-row {
-  border-top: 1px solid rgba(0, 0, 0, 0.01);
+.service-entry.completed {
+  opacity: 0.55;
 }
 
-.col-venue {
-  text-align: center;
+.service-entry.is-read-only {
+  cursor: default;
 }
 
-.col-time {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+.service-entry.completed .entry-time,
+.service-entry.completed .entry-details {
+  color: rgba(168, 196, 224, 0.85);
+}
+
+.entry-time {
+  white-space: nowrap;
   font-weight: 600;
+  color: rgb(255, 212, 91);
 }
 
-.col-time .period-label {
-  flex-shrink: 0;
-  min-width: 2.25em;
-  text-align: right;
-}
-
-.col-time .time-range {
-  flex-shrink: 0;
-}
-
-.col-details {
+.entry-details {
+  min-width: 0;
+  justify-self: start;
   text-align: left;
+  overflow-wrap: anywhere;
   font-weight: 600;
 }
 
-.col-done {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.entry-details.is-highlight {
+  color: rgb(255, 212, 91);
 }
 
-.col-done :deep(.el-checkbox__inner) {
+.entry-details.is-normal {
+  color: rgb(255, 212, 91);
+}
+
+.entry-details.is-muted {
+  color: rgba(168, 196, 224, 0.85);
+}
+
+.entry-placeholder {
+  opacity: 0.75;
+  min-height: calc(36px * var(--ui-scale, 1));
+  padding-top: calc(8px * var(--ui-scale, 1));
+}
+
+.entry-done :deep(.el-checkbox) {
+  height: auto;
+}
+
+.entry-done :deep(.el-checkbox__inner) {
+  width: calc(20px * var(--ui-scale, 1));
+  height: calc(20px * var(--ui-scale, 1));
+  border: 1.5px solid #ffffff;
   border-radius: 2px;
-  border-color: #000;
+  background: #ffffff;
 }
 
-.col-done :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-  background-color: #fff;
-  border-color: #000;
+.entry-done :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background: #ffffff;
+  border-color: #ffffff;
 }
 
-.col-done :deep(.el-checkbox__inner::after) {
-  border-color: #000;
+.entry-done :deep(.el-checkbox.is-disabled .el-checkbox__inner) {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.42);
+  cursor: not-allowed;
+}
+
+.entry-done :deep(.el-checkbox.is-disabled.is-checked .el-checkbox__inner) {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.42);
+}
+
+.entry-done :deep(.el-checkbox.is-disabled .el-checkbox__inner::after) {
+  border-color: rgba(0, 0, 0, 0.35);
+}
+
+.entry-done :deep(.el-checkbox__inner::after) {
+  border-color: #000000;
+  border-width: 0 3.5px 3.5px 0;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 13px;
+  transform: translate(-50%, -58%) rotate(45deg) scaleY(0);
+  transform-origin: center;
+}
+
+.entry-done :deep(.el-checkbox__input.is-checked .el-checkbox__inner::after) {
+  transform: translate(-50%, -58%) rotate(45deg) scaleY(1);
 }
 
 .completed-banner {
-  padding: 5px 10px;
+  flex-shrink: 0;
+  margin-block: calc(4px * var(--ui-scale, 1));
+  padding: calc(3px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
   text-align: center;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: white;
-  background: #4EA72E;
-  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #4ea72e;
+  line-height: 1.1;
 }
 
+.empty-day {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  font-size: 1.08rem;
+}
 </style>

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getUserInfo, logout as logoutApi } from '../api/auth'
+import { clearImportantNoteTipPrefs } from '../utils/importantNoteTip'
 
 export const useUserStore = defineStore('user', () => {
   const userInfo = ref(null)
@@ -28,6 +29,7 @@ export const useUserStore = defineStore('user', () => {
     token.value = ''
     localStorage.removeItem('token')
     localStorage.removeItem('userInfo')
+    clearImportantNoteTipPrefs()
   }
 
   const initUserInfo = () => {

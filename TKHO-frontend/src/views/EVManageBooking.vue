@@ -575,8 +575,8 @@ const editInitialBooking = computed(() => {
   if (!booking) return null
   return {
     reservedByUserId: booking.reservedByUserId || booking.employeeId || '',
-    reservedBy: booking.reservedBy || booking.corpId || '',
-    reservedByCorpId: booking.reservedBy || booking.corpId || '',
+    reservedBy: booking.reservedBy || '',
+    reservedByCorpId: booking.corpId || '',
     licensePlateId: booking.licensePlateId || '',
     periodId: booking.periodId || '',
     bookingDateYmd: booking.bookingDateYmd || booking.dateSortKey || '',

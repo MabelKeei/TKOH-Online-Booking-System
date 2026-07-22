@@ -3,6 +3,7 @@ export const SystemSettingKey = {
   hkPublicHolidaysUrl: 'hk_public_holidays_url',
   evDateUpdateTime: 'EV_date_update_time',
   evWeeklyBookingLimit: 'EV_weekly_booking_limit',
+  venueBookingMinGapMinutes: 'venue_booking_min_gap_minutes',
 } as const;
 
 export type SystemSettingKeyName =
@@ -14,6 +15,7 @@ export const SYSTEM_SETTING_DEFAULTS: Record<SystemSettingKeyName, string> = {
     'https://www.1823.gov.hk/common/ical/en.json',
   [SystemSettingKey.evDateUpdateTime]: '13:00',
   [SystemSettingKey.evWeeklyBookingLimit]: '1',
+  [SystemSettingKey.venueBookingMinGapMinutes]: '15',
 };
 
 export const SYSTEM_SETTING_DESCRIPTIONS: Record<SystemSettingKeyName, string> =
@@ -26,4 +28,6 @@ export const SYSTEM_SETTING_DESCRIPTIONS: Record<SystemSettingKeyName, string> =
       'Daily time (HH:mm, Hong Kong) when EV booking calendar rolls forward to release the next day quota',
     [SystemSettingKey.evWeeklyBookingLimit]:
       'Maximum active EV bookings per user per week (Monday to Sunday) for non-admin users',
+    [SystemSettingKey.venueBookingMinGapMinutes]:
+      'Minimum gap in minutes between consecutive bookings of the same venue (for cleaning turnaround)',
   };

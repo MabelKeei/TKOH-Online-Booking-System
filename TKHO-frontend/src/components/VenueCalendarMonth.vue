@@ -211,7 +211,12 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import CalendarBookingPopover from './CalendarBookingPopover.vue'
 import MonthDayMorePopover from './MonthDayMorePopover.vue'
-import { isSameCalendarDay, getCalendarBookingBlockStyle, formatDateISO } from '@/utils/venueCalendarApi'
+import {
+  isSameCalendarDay,
+  getCalendarBookingBlockStyle,
+  formatDateISO,
+  getHtmlZoomScale
+} from '@/utils/venueCalendarApi'
 
 const props = defineProps({
   currentDate: {
@@ -250,12 +255,31 @@ let layoutRafId = null
 
 const GRID_ROW_GAP_PX = 1
 const LAYOUT_SLACK_PX = 2
+const MIN_CELL_ROW_HEIGHT_REM = 5.5
 const EMPTY_DAY_LAYOUT = { visibleCount: 0, hiddenCount: 0 }
+
+function getMinCellRowHeightPx () {
+  return Math.ceil(remPx(MIN_CELL_ROW_HEIGHT_REM))
+}
 
 function remPx (multiplier = 1) {
   if (typeof document === 'undefined') return 16 * multiplier
   const root = parseFloat(getComputedStyle(document.documentElement).fontSize)
   return (Number.isFinite(root) ? root : 16) * multiplier
+}
+
+/**
+ * 统一用「布局像素」量高：html zoom:0.8 下 getBoundingClientRect 是视口像素，
+ * 而 offsetHeight / CSS px / padding 是布局像素；混用会导致 14" 断点折叠条数算错。
+ */
+function layoutHeightPx (el) {
+  if (!el) return 0
+  const offsetH = el.offsetHeight
+  if (offsetH > 0) return offsetH
+  const zoom = getHtmlZoomScale()
+  const visualH = el.getBoundingClientRect().height
+  if (visualH > 0) return visualH / (zoom > 0 ? zoom : 1)
+  return 0
 }
 
 function formatMonthEventTime(startTime) {
@@ -269,8 +293,8 @@ function formatMonthEventTime(startTime) {
 
 function formatMonthEventLabel(booking) {
   const time = formatMonthEventTime(booking.startTime)
-  const title = (booking.topic || booking.notes || 'Booking').trim()
-  return title ? `${time}：${title}` : time
+  const room = String(booking.roomName || '').trim()
+  return room ? `${time}：${room}` : time
 }
 
 function getMonthEventStyle (booking) {
@@ -289,21 +313,32 @@ function stackBarsHeight (n, barPx, gapPx) {
 function measureEventBarPx () {
   const probe = measureBarRef.value
   if (probe) {
-    const h = probe.getBoundingClientRect().height
+    const h = layoutHeightPx(probe)
     if (h > 0) return Math.ceil(h)
   }
   const live = monthGridRef.value?.querySelector('.month-event-bar')
   if (live) {
-    const h = live.getBoundingClientRect().height
+    const h = layoutHeightPx(live)
     if (h > 0) return Math.ceil(h)
   }
   return Math.ceil(remPx(1.35))
 }
 
+/** 列表 flex 子项高度（含 el-popover 包裹），比单纯 bar 更接近真实占位 */
+function measureEventItemPx () {
+  const listEl = monthGridRef.value?.querySelector('.month-booking-list')
+  const item = listEl?.querySelector(':scope > *')
+  if (item) {
+    const h = item.offsetHeight || layoutHeightPx(item)
+    if (h > 0) return Math.ceil(h)
+  }
+  return measureEventBarPx()
+}
+
 function measureMoreFooterPx () {
   const probe = measureMoreRef.value
   if (probe) {
-    const h = probe.getBoundingClientRect().height
+    const h = layoutHeightPx(probe)
     if (h > 0) return Math.ceil(h)
   }
   return Math.ceil(remPx(1.375))
@@ -318,13 +353,6 @@ function measureListGapPx () {
   return 4
 }
 
-function measureListAreaFromDom (cellEl) {
-  const listEl = cellEl?.querySelector('.month-booking-list')
-  if (!listEl) return 0
-  const h = listEl.getBoundingClientRect().height
-  return h > 0 ? Math.floor(h) : 0
-}
-
 function getMoreFooterReservePx () {
   return 2 + measureMoreFooterPx() + 2
 }
@@ -332,7 +360,7 @@ function getMoreFooterReservePx () {
 function measureCellRowHeightPx (grid) {
   const cell = grid?.querySelector('.date-cell')
   if (!cell) return 0
-  const h = cell.getBoundingClientRect().height
+  const h = cell.clientHeight || layoutHeightPx(cell)
   return h > 0 ? Math.floor(h) : 0
 }
 
@@ -358,9 +386,10 @@ function getCellPaddingAndGap (cellEl, metricsCellEl) {
   }
 }
 
-/** 公式兜底：用统一行高减本格 header，不读取 DOM 中已渲染的 +N 底栏 */
+/** 公式：用格子真实 clientHeight 减 header / padding，避免 list 被内容撑高后高估 */
 function measureListAreaPx (cellEl, reserveMoreFooter, rowHeightPx, metricsCellEl = null) {
-  if (rowHeightPx < 12) return 0
+  const cellH = (cellEl?.clientHeight || layoutHeightPx(cellEl) || rowHeightPx || 0)
+  if (cellH < 12) return 0
 
   const headerEl = cellEl?.querySelector('.date-cell-header')
   const dateEl = cellEl?.querySelector('.date-number')
@@ -371,29 +400,48 @@ function measureListAreaPx (cellEl, reserveMoreFooter, rowHeightPx, metricsCellE
   const { pad, rowGap } = getCellPaddingAndGap(cellEl, metricsCellEl)
   const moreBlock = reserveMoreFooter ? getMoreFooterReservePx() : 0
 
-  return Math.max(0, rowHeightPx - pad - headerH - rowGap - moreBlock)
+  return Math.max(0, cellH - pad - headerH - rowGap - moreBlock)
 }
 
-/** 列表区：优先 month-booking-list 实测（1fr，与显示条数无关）；有 +N 时还原无底栏高度 */
+/**
+ * 列表可用高度：公式与 DOM clientHeight 取更小值。
+ * 14" html zoom 下若只信 list offset/scroll，容易把「被内容撑开的高度」当成可用高度，导致不折叠。
+ */
 function getListAreasForCell (cellEl, rowHeightPx, metricsCellEl) {
   const footerReserve = getMoreFooterReservePx()
-  const listDom = measureListAreaFromDom(cellEl)
-  let listNoMore = 0
+  const formulaNoMore = measureListAreaPx(cellEl, false, rowHeightPx, metricsCellEl)
+  const listEl = cellEl?.querySelector('.month-booking-list')
+  const listClient = listEl ? (listEl.clientHeight || 0) : 0
+  const listOverflows = listEl
+    ? listEl.scrollHeight > listEl.clientHeight + LAYOUT_SLACK_PX
+    : false
 
-  if (listDom > 0) {
-    listNoMore = cellEl?.classList.contains('has-more-trigger')
-      ? listDom + footerReserve
-      : listDom
-  } else {
-    listNoMore = measureListAreaPx(cellEl, false, rowHeightPx, metricsCellEl)
+  let listNoMore = formulaNoMore
+
+  if (listClient > 0) {
+    if (cellEl?.classList.contains('has-more-trigger')) {
+      // 当前已给 +N 留位：clientHeight 是「有底栏」时的列表高度
+      const restored = listClient + footerReserve
+      listNoMore = formulaNoMore > 0 ? Math.min(formulaNoMore, restored) : restored
+    } else if (listOverflows) {
+      // 已溢出：clientHeight 可信，是约束后的真实列表区
+      listNoMore = formulaNoMore > 0 ? Math.min(formulaNoMore, listClient) : listClient
+    } else if (formulaNoMore > 0) {
+      // 未溢出时 listClient 可能≈内容高度（被撑开），绝不能单独采信
+      listNoMore = Math.min(formulaNoMore, listClient)
+      // 若 listClient 明显大于公式（被撑开），完全改用公式
+      if (listClient > formulaNoMore + LAYOUT_SLACK_PX) {
+        listNoMore = formulaNoMore
+      }
+    }
   }
 
   if (listNoMore <= 0) {
-    listNoMore = measureListAreaPx(cellEl, false, rowHeightPx, metricsCellEl)
+    listNoMore = formulaNoMore
   }
 
   return {
-    listNoMore,
+    listNoMore: Math.max(0, listNoMore),
     listWithMore: Math.max(0, listNoMore - footerReserve)
   }
 }
@@ -402,20 +450,23 @@ function updateUniformRowHeight () {
   const grid = monthGridRef.value
   if (!grid) return false
 
-  const fromCell = measureCellRowHeightPx(grid)
-  if (fromCell >= 12) {
-    const changed = fromCell !== monthGridRowHeightPx.value
-    monthGridRowHeightPx.value = fromCell
-    return changed || layoutEpoch.value === 0
-  }
-
-  const gridH = grid.getBoundingClientRect().height
+  const minRowHeight = getMinCellRowHeightPx()
   const rowCount = gridRows.value
   const gapTotal = Math.max(0, rowCount - 1) * GRID_ROW_GAP_PX
-  const available = gridH - gapTotal
-  if (available < rowCount * 12) return false
 
-  const next = Math.floor(available / rowCount)
+  // 优先用容器布局高度均分（布局像素，不受 html zoom 视口缩放干扰）
+  const gridH = layoutHeightPx(grid)
+  const available = gridH - gapTotal
+  let next = 0
+  if (available >= rowCount * minRowHeight) {
+    next = Math.floor(available / rowCount)
+  } else {
+    // 总高度不够：以实际格子布局高度为准，否则回退到最小格高
+    const fromCell = measureCellRowHeightPx(grid)
+    next = fromCell >= 12 ? fromCell : minRowHeight
+  }
+
+  next = Math.max(minRowHeight, next)
   if (next < 1) return false
 
   const changed = next !== monthGridRowHeightPx.value
@@ -480,10 +531,10 @@ function recalculateDayLayoutsOnce () {
   const rowHeight = monthGridRowHeightPx.value
   if (rowHeight < 12) return false
 
-  const gridH = grid.getBoundingClientRect().height
+  const gridH = layoutHeightPx(grid)
   if (gridH < gridRows.value * 12) return false
 
-  const barPx = measureEventBarPx()
+  const barPx = measureEventItemPx()
   const gapPx = measureListGapPx()
   const refCell = getReferenceCellEl()
   const metricsCell = getMetricsCellEl(grid)
@@ -499,13 +550,32 @@ function recalculateDayLayoutsOnce () {
 
     const el = grid.querySelector(`[data-cell-key="${key}"]`) || refCell
     const { listNoMore, listWithMore } = getListAreasForCell(el, rowHeight, metricsCell)
-    newMap.set(
-      key,
-      normalizeDayLayout(
-        computeLayoutFromListAreas(total, listNoMore, listWithMore, barPx, gapPx),
+    let layout = normalizeDayLayout(
+      computeLayoutFromListAreas(total, listNoMore, listWithMore, barPx, gapPx),
+      total
+    )
+
+    // 二次校验：公式说全放下，但列表仍溢出 → 强制折叠
+    const listEl = el?.querySelector?.('.month-booking-list')
+    if (
+      layout.hiddenCount === 0 &&
+      total > 1 &&
+      listEl &&
+      listEl.scrollHeight > listEl.clientHeight + LAYOUT_SLACK_PX
+    ) {
+      layout = normalizeDayLayout(
+        computeLayoutFromListAreas(
+          total,
+          listEl.clientHeight,
+          Math.max(0, listEl.clientHeight - getMoreFooterReservePx()),
+          barPx,
+          gapPx
+        ),
         total
       )
-    )
+    }
+
+    newMap.set(key, layout)
   }
 
   dayLayoutMap.value = newMap
@@ -630,7 +700,7 @@ const monthCellsInGridOrder = computed(() => {
   return cells
 })
 
-/** 各行均分并撑满网格剩余高度（5 行 / 6 行由月份决定） */
+/** 各行均分撑满；行高数值只用于 JS 折叠计算，避免把测量值写回 CSS 在 zoom 下反馈循环 */
 const monthGridStyle = computed(() => ({
   gridTemplateRows: `repeat(${gridRows.value}, minmax(0, 1fr))`
 }))
@@ -644,8 +714,12 @@ function getDayLayout (day, segment = 'current') {
   const cached = dayLayoutMap.value.get(key)
   if (cached) return normalizeDayLayout(cached, total)
 
-  // 换月 / 首帧：先展示全部以便测量 month-booking-list 的 1fr 高度
-  return normalizeDayLayout({ visibleCount: total, hiddenCount: 0 }, total)
+  // 首帧保守：先最多显示 2 条并露出 +N，避免「先全量渲染 → 高度被撑开 → 误判不需折叠」
+  const initialVisible = Math.min(total, 2)
+  return normalizeDayLayout(
+    { visibleCount: initialVisible, hiddenCount: Math.max(0, total - initialVisible) },
+    total
+  )
 }
 
 // 判断是否是今天

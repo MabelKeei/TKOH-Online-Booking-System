@@ -11,7 +11,7 @@ export class AdminPendingService {
 
   async getPendingCounts() {
     const [pendingBookings, pendingUsers] = await Promise.all([
-      this.meetingApprovalService.countPendingNotTimedOut(),
+      this.meetingApprovalService.countPendingNotExpired(),
       this.prisma.pending_users.count({
         where: { approval_status: 'Pending' },
       }),

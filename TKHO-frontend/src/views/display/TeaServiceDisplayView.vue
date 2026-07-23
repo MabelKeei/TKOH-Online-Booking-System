@@ -10,7 +10,7 @@
         <section class="day-section">
           <div class="schedule-header">
             <div class="date-label">
-              {{ formatSlashDateFromYmd(dateGroup.date) }}<span v-if="dateGroup.isToday" class="date-today-tag"> ( 今日 )</span>
+              {{ formatSlashDateFromYmd(dateGroup.date) }}<span v-if="dateGroup.isToday" class="date-today-tag">(今日)</span>
             </div>
             <div class="slot-col period-am">上午</div>
             <div class="period-divider" aria-hidden="true"></div>
@@ -488,7 +488,7 @@ html.tea-display-fullscreen #app {
   flex-direction: column;
   overflow: hidden;
   font-family: 'Arial Narrow', Arial, sans-serif;
-  font-size: calc(17px * var(--ui-scale, 1));
+  font-size: calc(23px * var(--ui-scale, 1));
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
@@ -511,12 +511,12 @@ html.tea-display-fullscreen #app {
 }
 
 .header-title {
-  font-size: 1.25rem;
+  font-size: 1.48rem;
   line-height: 1.1;
 }
 
 .header-datetime {
-  font-size: 1.05rem;
+  font-size: 1.24rem;
   line-height: 1.1;
   white-space: nowrap;
 }
@@ -550,7 +550,7 @@ html.tea-display-fullscreen #app {
   grid-template-columns:
     minmax(0, calc(120px * var(--ui-scale, 1)))
     minmax(0, 1fr)
-    calc(50px * var(--ui-scale, 1))
+    calc(52px * var(--ui-scale, 1))
     minmax(0, 1fr);
   column-gap: 0;
   row-gap: 1px;
@@ -562,24 +562,30 @@ html.tea-display-fullscreen #app {
   position: sticky;
   top: 0;
   z-index: 6;
-  font-size: 1.05rem;
+  align-items: center;
+  font-size: 1.24rem;
   font-weight: 700;
   margin-bottom: 0;
-  padding-top: calc(8px * var(--ui-scale, 1));
-  padding-bottom: calc(10px * var(--ui-scale, 1));
+  min-height: calc(52px * var(--ui-scale, 1));
+  padding-top: calc(14px * var(--ui-scale, 1));
+  padding-bottom: calc(14px * var(--ui-scale, 1));
   background: #001b44;
   box-shadow: 0 calc(1px * var(--ui-scale, 1)) 0 rgba(255, 255, 255, 0.22);
 }
 
 .date-label {
-  padding: 2px 4px;
-  font-size: 1.16rem;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  font-size: 1.36rem;
   font-weight: 700;
+  line-height: 1.1;
   color: #ffffff;
   white-space: nowrap;
 }
 
 .date-today-tag {
+  margin-left: 0.35em;
   color: rgb(255, 212, 91);
 }
 
@@ -596,6 +602,14 @@ html.tea-display-fullscreen #app {
   padding-left: calc(8px * var(--ui-scale, 1));
 }
 
+/* 表头上午/下午不要沿用内容区 slot-col 上下 padding，否则会和日期错位 */
+.schedule-header .slot-col {
+  padding-top: 0;
+  padding-bottom: 0;
+  justify-content: center;
+  line-height: 1.1;
+}
+
 .schedule-body {
   flex: 0 0 auto;
   min-height: fit-content;
@@ -608,7 +622,7 @@ html.tea-display-fullscreen #app {
   position: relative;
   flex: 0 0 auto;
   min-height: calc(58px * var(--ui-scale, 1));
-  font-size: 1rem;
+  font-size: 1.2rem;
   overflow: visible;
 }
 
@@ -630,7 +644,7 @@ html.tea-display-fullscreen #app {
   display: flex;
   align-items: flex-start;
   padding-top: calc(8px * var(--ui-scale, 1));
-  font-size: 1.2rem;
+  font-size: 1.42rem;
   font-weight: 700;
   line-height: 1.1;
   color: #ffffff;
@@ -651,7 +665,7 @@ html.tea-display-fullscreen #app {
   display: grid;
   grid-template-columns: auto 1fr auto;
   column-gap: calc(12px * var(--ui-scale, 1));
-  align-items: center;
+  align-items: start;
   width: 100%;
   min-height: calc(36px * var(--ui-scale, 1));
   padding-block: calc(4px * var(--ui-scale, 1));
@@ -684,6 +698,7 @@ html.tea-display-fullscreen #app {
   white-space: nowrap;
   font-weight: 600;
   color: rgb(255, 212, 91);
+  line-height: 1.2;
 }
 
 .entry-details {
@@ -692,6 +707,13 @@ html.tea-display-fullscreen #app {
   text-align: left;
   overflow-wrap: anywhere;
   font-weight: 600;
+  line-height: 1.2;
+}
+
+.entry-done {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 0.1em;
 }
 
 .entry-details.is-highlight {
@@ -764,7 +786,7 @@ html.tea-display-fullscreen #app {
   margin-block: calc(4px * var(--ui-scale, 1));
   padding: calc(3px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
   text-align: center;
-  font-size: 1.18rem;
+  font-size: 1.38rem;
   font-weight: 700;
   color: #ffffff;
   background: #4ea72e;
@@ -777,6 +799,6 @@ html.tea-display-fullscreen #app {
   align-items: center;
   justify-content: center;
   opacity: 0.7;
-  font-size: 1.08rem;
+  font-size: 1.28rem;
 }
 </style>

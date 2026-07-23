@@ -2172,6 +2172,8 @@ const confirmReject = async () => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  min-height: 3.625rem;
+  box-sizing: border-box;
 }
 
 .toolbar-left {

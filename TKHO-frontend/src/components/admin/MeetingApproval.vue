@@ -1507,6 +1507,8 @@ const confirmRejectBooking = async () => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
   margin: 0.45rem 0.6rem 0.25rem;
+  min-height: 3.625rem;
+  box-sizing: border-box;
 }
 
 .page-header::before {

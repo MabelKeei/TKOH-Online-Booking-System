@@ -519,7 +519,50 @@ import * as XLSX from 'xlsx'
 const userStore = useUserStore()
 const { isAdmin } = storeToRefs(userStore)
 
-const bookingView = ref('my') // 'my' or 'all' - for admin to switch between personal and all bookings
+const VIEW_PREFS_KEY = 'evManageBooking.viewPrefs'
+
+function readViewPrefs () {
+  try {
+    const raw = localStorage.getItem(VIEW_PREFS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeViewPrefs () {
+  try {
+    localStorage.setItem(VIEW_PREFS_KEY, JSON.stringify({
+      bookingView: bookingView.value,
+      currentView: currentView.value
+    }))
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+const savedViewPrefs = readViewPrefs()
+const currentView = ref(
+  savedViewPrefs?.currentView === 'table' || savedViewPrefs?.currentView === 'card'
+    ? savedViewPrefs.currentView
+    : 'card'
+)
+const bookingView = ref(
+  savedViewPrefs?.bookingView === 'all' || savedViewPrefs?.bookingView === 'my'
+    ? savedViewPrefs.bookingView
+    : 'my'
+) // 'my' or 'all' - for admin to switch between personal and all bookings
+
+watch([bookingView, currentView], writeViewPrefs)
+
+watch(isAdmin, (admin) => {
+  if (!admin && bookingView.value === 'all') {
+    bookingView.value = 'my'
+  }
+}, { immediate: true })
+
 const isAdminAllBookingsView = computed(() => isAdmin.value && bookingView.value === 'all')
 const searchQuery = ref('')
 const showStatusFilter = ref(false)
@@ -593,7 +636,6 @@ const showNotice = (message, title = 'Notice') => {
   noticeMessage.value = message
   showNoticeDialog.value = true
 }
-const currentView = ref('card')
 const dateRange = ref(null)
 
 // Status filters (multi-select)；默认仅显示即将开始的预订

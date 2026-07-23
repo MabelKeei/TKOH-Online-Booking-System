@@ -12,6 +12,8 @@
 
 .page-header {
   padding: 1.25rem 2rem;
+  min-height: 3.625rem;
+  box-sizing: border-box;
 }
 
 .page-title {

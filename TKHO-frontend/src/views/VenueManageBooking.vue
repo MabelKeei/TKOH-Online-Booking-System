@@ -157,7 +157,7 @@
           <input
             type="text"
             v-model="searchQuery"
-            placeholder="Search by topic, room, date or reserved by"
+            placeholder="Search by topic, room, date, reserved by or my note"
             class="search-input"
           />
         </div>
@@ -540,7 +540,7 @@
                     </button>
                   </th>
                   <th v-if="isMyNoteTableColumnVisible" class="col-mynote">My Note</th>
-                  <th class="col-actions">Actions</th>
+                  <th class="col-actions" :class="{ 'col-actions--compact': !isAdminAllBookingsView }">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -570,7 +570,7 @@
                   <td v-if="isMyNoteTableColumnVisible" class="col-mynote">
                     <span class="col-mynote-text">{{ booking.myNote || '-' }}</span>
                   </td>
-                  <td class="actions-td">
+                  <td class="actions-td" :class="{ 'actions-td--compact': !isAdminAllBookingsView }">
                     <div class="actions-cell">
                       <template v-if="isAdminAllBookingsView">
                         <button
@@ -1073,8 +1073,49 @@ const userStore = useUserStore()
 const adminStore = useAdminStore()
 const { isAdmin, userInfo } = storeToRefs(userStore)
 
-const currentView = ref('card')
-const bookingView = ref('my') // 'my' or 'all' - for admin to switch between personal and all bookings
+const VIEW_PREFS_KEY = 'venueManageBooking.viewPrefs'
+
+function readViewPrefs () {
+  try {
+    const raw = localStorage.getItem(VIEW_PREFS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeViewPrefs () {
+  try {
+    localStorage.setItem(VIEW_PREFS_KEY, JSON.stringify({
+      bookingView: bookingView.value,
+      currentView: currentView.value
+    }))
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+const savedViewPrefs = readViewPrefs()
+const currentView = ref(
+  savedViewPrefs?.currentView === 'table' || savedViewPrefs?.currentView === 'card'
+    ? savedViewPrefs.currentView
+    : 'card'
+)
+const bookingView = ref(
+  savedViewPrefs?.bookingView === 'all' || savedViewPrefs?.bookingView === 'my'
+    ? savedViewPrefs.bookingView
+    : 'my'
+) // 'my' or 'all' - for admin to switch between personal and all bookings
+
+watch([bookingView, currentView], writeViewPrefs)
+
+watch(isAdmin, (admin) => {
+  if (!admin && bookingView.value === 'all') {
+    bookingView.value = 'my'
+  }
+}, { immediate: true })
 
 /** ???? All Bookings?? upcoming ?? Handle???? Edit/Cancel */
 const isAdminAllBookingsView = computed(
@@ -1863,10 +1904,11 @@ const buildFilteredBookings = (options = {}) => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(b =>
-      b.topic.toLowerCase().includes(query) ||
-      b.room.toLowerCase().includes(query) ||
-      b.date.toLowerCase().includes(query) ||
-      b.reservedBy.toLowerCase().includes(query)
+      String(b.topic || '').toLowerCase().includes(query) ||
+      String(b.room || '').toLowerCase().includes(query) ||
+      String(b.date || '').toLowerCase().includes(query) ||
+      String(b.reservedBy || '').toLowerCase().includes(query) ||
+      String(b.myNote || '').toLowerCase().includes(query)
     )
   }
 
@@ -4104,17 +4146,14 @@ onUnmounted(() => {
 .bookings-table {
   width: max-content;
   min-width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.8125rem;
 }
 
 .bookings-table thead {
   background-color: #f3f4f6;
   color: #374151;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  border-bottom: 2px solid #d1d5db;
 }
 
 .bookings-table th {
@@ -4123,6 +4162,11 @@ onUnmounted(() => {
   font-weight: 600;
   white-space: nowrap;
   font-size: 0.8125rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f3f4f6;
+  border-bottom: 2px solid #d1d5db;
 }
 
 .th-sort-btn {
@@ -4154,11 +4198,16 @@ onUnmounted(() => {
 
 .bookings-table th.col-topic,
 .bookings-table td.col-topic {
+  width: 300px;
   min-width: 240px;
+  max-width: 340px;
+  box-sizing: border-box;
 }
 
 .bookings-table td.col-topic {
   word-break: break-word;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .bookings-table th.col-mynote,
@@ -4194,13 +4243,23 @@ onUnmounted(() => {
 }
 
 .bookings-table th.col-actions {
-  width: 130px;
-  min-width: 130px;
+  width: 210px;
+  min-width: 210px;
+  max-width: 210px;
   text-align: center;
   position: sticky;
+  top: 0;
   right: 0;
   background-color: #f3f4f6;
-  z-index: 11;
+  z-index: 14;
+  box-sizing: border-box;
+  box-shadow: -6px 0 8px -4px rgba(15, 23, 42, 0.12);
+}
+
+.bookings-table th.col-actions--compact {
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
 }
 
 .bookings-table td {
@@ -4213,8 +4272,18 @@ onUnmounted(() => {
   right: 0;
   background-color: white;
   text-align: center;
-  width: 130px;
-  min-width: 130px;
+  width: 210px;
+  min-width: 210px;
+  max-width: 210px;
+  box-sizing: border-box;
+  z-index: 9;
+  box-shadow: -6px 0 8px -4px rgba(15, 23, 42, 0.12);
+}
+
+.bookings-table td.actions-td--compact {
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
 }
 
 .bookings-table tbody tr:hover td.actions-td {

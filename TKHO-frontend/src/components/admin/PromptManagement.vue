@@ -54,7 +54,12 @@
             <span v-else>{{ row.content }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Actions" width="110" fixed="right" class-name="actions-col">
+        <el-table-column
+          label="Actions"
+          :width="activeTab === 'reject' ? 140 : 110"
+          fixed="right"
+          class-name="actions-col"
+        >
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button size="small" class="action-btn action-edit" @click="handleEdit(row)">Edit</el-button>
@@ -1297,6 +1302,8 @@ const confirmDelete = async () => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   padding: 0.75rem;
   margin: 0.45rem 0.6rem 0.25rem;
+  min-height: 3.625rem;
+  box-sizing: border-box;
 }
 
 .page-header::before {

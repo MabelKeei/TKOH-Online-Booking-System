@@ -224,7 +224,8 @@ function applyPanelTitleFooter (panelTitleText) {
 
 function applyVenueInfo (venue) {
   if (!venue) return
-  const name = venue.name || ''
+  const displayName = String(venue.displayName || '').trim()
+  const name = displayName || venue.name || ''
   const nameZh = venue.nameZh || ''
   const location = venue.location || ''
   const locationZh = venue.locationZh || ''

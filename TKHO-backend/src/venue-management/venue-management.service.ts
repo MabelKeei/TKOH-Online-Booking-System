@@ -1260,14 +1260,17 @@ export class VenueManagementService {
     };
   }
 
-  private mapVenueInfoRow(venue: {
-    id: bigint;
-    name: string;
-    nameZh: string | null;
-    location: string | null;
-    locationZh: string | null;
-    displayType: string | null;
-  }) {
+  private mapVenueInfoRow(
+    venue: {
+      id: bigint;
+      name: string;
+      nameZh: string | null;
+      location: string | null;
+      locationZh: string | null;
+      displayType: string | null;
+    },
+    displayNameRaw?: string | null,
+  ) {
     return {
       id: venue.id.toString(),
       name: venue.name,
@@ -1275,6 +1278,8 @@ export class VenueManagementService {
       location: venue.location || '',
       locationZh: venue.locationZh || '',
       displayType: this.normalizeVenueDisplayType(venue.displayType),
+      /** display_venue_rules.display_name；空/空白时前端回退 venues.name */
+      displayName: String(displayNameRaw || '').trim(),
     };
   }
 
@@ -1297,6 +1302,9 @@ export class VenueManagementService {
         locationZh: true,
         displayType: true,
         status: true,
+        display_venue_rules: {
+          select: { display_name: true },
+        },
       },
     });
     if (!venue || String(venue.status || '').toLowerCase() === 'inactive') {
@@ -1311,7 +1319,10 @@ export class VenueManagementService {
 
     return {
       displayDate,
-      venue: this.mapVenueInfoRow(venue),
+      venue: this.mapVenueInfoRow(
+        venue,
+        venue.display_venue_rules?.display_name,
+      ),
       events: rows.map((row) => this.mapVenueDisplayEventRow(row)),
     };
   }

@@ -102,6 +102,13 @@
               <el-table-column prop="period" label="Time Period" min-width="120" />
               <el-table-column prop="startTime" label="Start Time" min-width="140" />
               <el-table-column prop="endTime" label="End Time" min-width="140" />
+              <el-table-column prop="status" label="Status" min-width="120">
+                <template #default="{ row }">
+                  <el-tag effect="light" :class="row.status === 'active' ? 'status-tag-active' : 'status-tag-inactive'">
+                    {{ row.status === 'active' ? 'Active' : 'Inactive' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
               <el-table-column label="Actions" width="160" fixed="right" class-name="actions-col">
                 <template #default="{ row }">
                   <div class="actions-cell">

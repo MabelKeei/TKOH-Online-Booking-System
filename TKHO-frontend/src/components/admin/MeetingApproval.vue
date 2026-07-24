@@ -142,7 +142,7 @@
                 {{ formatReservedBy(row) }}
               </template>
             </el-table-column>
-            <el-table-column prop="meetingTitle" label="Meeting / Event Title" min-width="240" class-name="table-nowrap-col" label-class-name="table-nowrap-col" />
+            <el-table-column prop="meetingTitle" label="Meeting / Event Title" width="520" class-name="table-meeting-title-col" label-class-name="table-meeting-title-col" />
             <el-table-column prop="date" min-width="130" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
               <template #header>
                 <button type="button" class="th-sort-btn" @click="togglePendingSort('date')">
@@ -275,7 +275,7 @@
                 {{ formatReservedBy(row) }}
               </template>
             </el-table-column>
-            <el-table-column prop="meetingTitle" label="Meeting / Event Title" min-width="240" class-name="table-nowrap-col" label-class-name="table-nowrap-col" />
+            <el-table-column prop="meetingTitle" label="Meeting / Event Title" width="520" class-name="table-meeting-title-col" label-class-name="table-meeting-title-col" />
             <el-table-column prop="date" min-width="130" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
               <template #header>
                 <button type="button" class="th-sort-btn" @click="toggleExpiredSort('date')">
@@ -396,7 +396,7 @@
                 {{ formatReservedBy(row) }}
               </template>
             </el-table-column>
-            <el-table-column prop="meetingTitle" label="Meeting / Event Title" min-width="240" class-name="table-nowrap-col" label-class-name="table-nowrap-col" />
+            <el-table-column prop="meetingTitle" label="Meeting / Event Title" width="520" class-name="table-meeting-title-col" label-class-name="table-meeting-title-col" />
             <el-table-column prop="date" min-width="130" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
               <template #header>
                 <button type="button" class="th-sort-btn" @click="toggleApprovedSort('date')">
@@ -518,7 +518,7 @@
                 {{ formatReservedBy(row) }}
               </template>
             </el-table-column>
-            <el-table-column prop="meetingTitle" label="Meeting / Event Title" min-width="240" class-name="table-nowrap-col" label-class-name="table-nowrap-col" />
+            <el-table-column prop="meetingTitle" label="Meeting / Event Title" width="520" class-name="table-meeting-title-col" label-class-name="table-meeting-title-col" />
             <el-table-column prop="date" min-width="130" class-name="table-nowrap-col" label-class-name="table-nowrap-col">
               <template #header>
                 <button type="button" class="th-sort-btn" @click="toggleRejectedSort('date')">
@@ -1615,6 +1615,18 @@ const confirmRejectBooking = async () => {
 .page-content :deep(.table-reason-col .cell) {
   white-space: normal;
   word-break: break-word;
+  line-height: 1.45;
+}
+
+.page-content :deep(.table-meeting-title-col) {
+  box-sizing: border-box;
+}
+
+.page-content :deep(.table-meeting-title-col .cell) {
+  max-width: 520px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   line-height: 1.45;
 }
 

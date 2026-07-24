@@ -520,6 +520,11 @@ const userStore = useUserStore()
 const { isAdmin } = storeToRefs(userStore)
 
 const VIEW_PREFS_KEY = 'evManageBooking.viewPrefs'
+const DEFAULT_STATUS_FILTERS = {
+  upcoming: true,
+  past: false,
+  cancelled: false
+}
 
 function readViewPrefs () {
   try {
@@ -532,11 +537,32 @@ function readViewPrefs () {
   }
 }
 
+function restoreStatusFilters (saved) {
+  if (!saved || typeof saved !== 'object') return { ...DEFAULT_STATUS_FILTERS }
+  return {
+    upcoming: Boolean(saved.upcoming),
+    past: Boolean(saved.past),
+    cancelled: Boolean(saved.cancelled)
+  }
+}
+
+function restoreDateRange (saved) {
+  if (!Array.isArray(saved) || saved.length !== 2) return null
+  const [start, end] = saved
+  if (typeof start !== 'string' || typeof end !== 'string') return null
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return null
+  return [start, end]
+}
+
 function writeViewPrefs () {
   try {
     localStorage.setItem(VIEW_PREFS_KEY, JSON.stringify({
       bookingView: bookingView.value,
-      currentView: currentView.value
+      currentView: currentView.value,
+      statusFilters: { ...statusFilters.value },
+      dateRange: dateRange.value && dateRange.value.length === 2
+        ? [...dateRange.value]
+        : null
     }))
   } catch {
     /* ignore quota / private mode */
@@ -554,8 +580,10 @@ const bookingView = ref(
     ? savedViewPrefs.bookingView
     : 'my'
 ) // 'my' or 'all' - for admin to switch between personal and all bookings
+const dateRange = ref(restoreDateRange(savedViewPrefs?.dateRange))
+const statusFilters = ref(restoreStatusFilters(savedViewPrefs?.statusFilters))
 
-watch([bookingView, currentView], writeViewPrefs)
+watch([bookingView, currentView, statusFilters, dateRange], writeViewPrefs, { deep: true })
 
 watch(isAdmin, (admin) => {
   if (!admin && bookingView.value === 'all') {
@@ -636,16 +664,6 @@ const showNotice = (message, title = 'Notice') => {
   noticeMessage.value = message
   showNoticeDialog.value = true
 }
-const dateRange = ref(null)
-
-// Status filters (multi-select)；默认仅显示即将开始的预订
-const statusFilters = ref({
-  upcoming: true,
-  past: false,
-  cancelled: false
-})
-
-// Mock booking data（统一�?mockData 管理�?
 const bookings = ref([])
 const bookingsLoading = ref(false)
 const exportingExcel = ref(false)
